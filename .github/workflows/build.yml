@@ -1,0 +1,39 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: setup node (for tree-sitter-cli)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: build org.so
+        run: make
+
+      - name: verify org.so was produced
+        shell: bash
+        run: |
+          os=$(uname -s | tr '[:upper:]' '[:lower:]')
+          arch=$(uname -m)
+          out="build/${os}-${arch}/org.so"
+          if [ ! -f "$out" ]; then
+            echo "FAIL: $out not found"
+            ls -la build/ 2>/dev/null || echo "(no build/ dir)"
+            exit 1
+          fi
+          echo "PASS: $out built ($(stat -c%s "$out" 2>/dev/null || stat -f%z "$out") bytes)"
