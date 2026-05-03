@@ -1,0 +1,101 @@
+==================
+Link in title
+==================
+* See [[id:abc-123][alpha]]
+
+---
+
+document
+  headline
+
+==================
+Link alone in title
+==================
+* [[id:abc-123]]
+
+---
+
+document
+  headline
+
+==================
+Priority bracket remains in title
+==================
+* [#A] See [[id:abc-123]]
+
+---
+
+document
+  headline
+
+==================
+Link in body paragraph
+==================
+* Head
+See [[id:abc-123][alpha]] for more.
+
+---
+
+document
+  headline
+    section
+      paragraph
+
+==================
+Multi-link body
+==================
+* Head
+One [[id:a]] two [[id:b][bee]] three.
+
+---
+
+document
+  headline
+    section
+      paragraph
+
+==================
+Body without link is plain text
+==================
+* Head
+Just some text.
+No brackets at all.
+
+---
+
+document
+  headline
+    section
+      paragraph
+
+==================
+Stray bracket in body is plain text (not a link)
+==================
+* Head
+| `npm install [package]` | `(N/A)` |
+[unmatched bracket pair like this]
+
+---
+
+document
+  headline
+    section
+      table
+        table_row
+          table_cell
+          table_cell
+      paragraph
+
+==================
+Lone star not followed by space is plain text
+==================
+* Head
+**Bold-style** markdown markup.
+A line with a trailing star *
+
+---
+
+document
+  headline
+    section
+      paragraph

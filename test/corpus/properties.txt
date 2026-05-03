@@ -1,0 +1,83 @@
+==================
+Empty property drawer
+==================
+* Task
+:PROPERTIES:
+:END:
+
+---
+
+document
+  headline
+    section
+      property_drawer
+
+==================
+Single property
+==================
+* Task
+:PROPERTIES:
+:ID: abc-123
+:END:
+
+---
+
+document
+  headline
+    section
+      property_drawer
+        node_property
+
+==================
+Multiple properties with padding
+==================
+* Task
+:PROPERTIES:
+:ID:       abc-123
+:CATEGORY: work
+:END:
+
+---
+
+document
+  headline
+    section
+      property_drawer
+        node_property
+        node_property
+
+==================
+Planning before property drawer
+==================
+* TODO Task
+SCHEDULED: <2026-04-25 Sat>
+:PROPERTIES:
+:CUSTOM_ID: my-task
+:END:
+
+---
+
+document
+  headline
+    section
+      planning
+      property_drawer
+        node_property
+
+==================
+Drawer followed by paragraph body
+==================
+* Task
+:PROPERTIES:
+:ID: abc
+:END:
+Body paragraph.
+
+---
+
+document
+  headline
+    section
+      property_drawer
+        node_property
+      paragraph

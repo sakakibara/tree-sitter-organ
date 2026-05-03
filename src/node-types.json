@@ -1,0 +1,931 @@
+[
+  {
+    "type": "affiliated_keyword",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "clock",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "comment",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "comment_block",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "diary_sexp",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "document",
+    "named": true,
+    "root": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "headline",
+          "named": true
+        },
+        {
+          "type": "zeroth_section",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "drawer",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "affiliated_keyword",
+          "named": true
+        },
+        {
+          "type": "clock",
+          "named": true
+        },
+        {
+          "type": "comment",
+          "named": true
+        },
+        {
+          "type": "comment_block",
+          "named": true
+        },
+        {
+          "type": "diary_sexp",
+          "named": true
+        },
+        {
+          "type": "drawer",
+          "named": true
+        },
+        {
+          "type": "dynamic_block",
+          "named": true
+        },
+        {
+          "type": "example_block",
+          "named": true
+        },
+        {
+          "type": "export_block",
+          "named": true
+        },
+        {
+          "type": "fixed_width",
+          "named": true
+        },
+        {
+          "type": "footnote_definition",
+          "named": true
+        },
+        {
+          "type": "greater_block",
+          "named": true
+        },
+        {
+          "type": "horizontal_rule",
+          "named": true
+        },
+        {
+          "type": "inlinetask",
+          "named": true
+        },
+        {
+          "type": "keyword",
+          "named": true
+        },
+        {
+          "type": "latex_environment",
+          "named": true
+        },
+        {
+          "type": "list",
+          "named": true
+        },
+        {
+          "type": "paragraph",
+          "named": true
+        },
+        {
+          "type": "planning",
+          "named": true
+        },
+        {
+          "type": "property_drawer",
+          "named": true
+        },
+        {
+          "type": "src_block",
+          "named": true
+        },
+        {
+          "type": "table",
+          "named": true
+        },
+        {
+          "type": "verse_block",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "dynamic_block",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "affiliated_keyword",
+          "named": true
+        },
+        {
+          "type": "clock",
+          "named": true
+        },
+        {
+          "type": "comment",
+          "named": true
+        },
+        {
+          "type": "comment_block",
+          "named": true
+        },
+        {
+          "type": "diary_sexp",
+          "named": true
+        },
+        {
+          "type": "drawer",
+          "named": true
+        },
+        {
+          "type": "dynamic_block",
+          "named": true
+        },
+        {
+          "type": "example_block",
+          "named": true
+        },
+        {
+          "type": "export_block",
+          "named": true
+        },
+        {
+          "type": "fixed_width",
+          "named": true
+        },
+        {
+          "type": "footnote_definition",
+          "named": true
+        },
+        {
+          "type": "greater_block",
+          "named": true
+        },
+        {
+          "type": "horizontal_rule",
+          "named": true
+        },
+        {
+          "type": "inlinetask",
+          "named": true
+        },
+        {
+          "type": "keyword",
+          "named": true
+        },
+        {
+          "type": "latex_environment",
+          "named": true
+        },
+        {
+          "type": "list",
+          "named": true
+        },
+        {
+          "type": "paragraph",
+          "named": true
+        },
+        {
+          "type": "planning",
+          "named": true
+        },
+        {
+          "type": "property_drawer",
+          "named": true
+        },
+        {
+          "type": "src_block",
+          "named": true
+        },
+        {
+          "type": "table",
+          "named": true
+        },
+        {
+          "type": "verse_block",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "example_block",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "export_block",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "fixed_width",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "footnote_definition",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "affiliated_keyword",
+          "named": true
+        },
+        {
+          "type": "clock",
+          "named": true
+        },
+        {
+          "type": "comment",
+          "named": true
+        },
+        {
+          "type": "comment_block",
+          "named": true
+        },
+        {
+          "type": "diary_sexp",
+          "named": true
+        },
+        {
+          "type": "drawer",
+          "named": true
+        },
+        {
+          "type": "dynamic_block",
+          "named": true
+        },
+        {
+          "type": "example_block",
+          "named": true
+        },
+        {
+          "type": "export_block",
+          "named": true
+        },
+        {
+          "type": "fixed_width",
+          "named": true
+        },
+        {
+          "type": "greater_block",
+          "named": true
+        },
+        {
+          "type": "horizontal_rule",
+          "named": true
+        },
+        {
+          "type": "inlinetask",
+          "named": true
+        },
+        {
+          "type": "keyword",
+          "named": true
+        },
+        {
+          "type": "latex_environment",
+          "named": true
+        },
+        {
+          "type": "list",
+          "named": true
+        },
+        {
+          "type": "paragraph",
+          "named": true
+        },
+        {
+          "type": "planning",
+          "named": true
+        },
+        {
+          "type": "property_drawer",
+          "named": true
+        },
+        {
+          "type": "src_block",
+          "named": true
+        },
+        {
+          "type": "table",
+          "named": true
+        },
+        {
+          "type": "verse_block",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "greater_block",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "affiliated_keyword",
+          "named": true
+        },
+        {
+          "type": "clock",
+          "named": true
+        },
+        {
+          "type": "comment",
+          "named": true
+        },
+        {
+          "type": "comment_block",
+          "named": true
+        },
+        {
+          "type": "diary_sexp",
+          "named": true
+        },
+        {
+          "type": "drawer",
+          "named": true
+        },
+        {
+          "type": "dynamic_block",
+          "named": true
+        },
+        {
+          "type": "example_block",
+          "named": true
+        },
+        {
+          "type": "export_block",
+          "named": true
+        },
+        {
+          "type": "fixed_width",
+          "named": true
+        },
+        {
+          "type": "footnote_definition",
+          "named": true
+        },
+        {
+          "type": "greater_block",
+          "named": true
+        },
+        {
+          "type": "horizontal_rule",
+          "named": true
+        },
+        {
+          "type": "inlinetask",
+          "named": true
+        },
+        {
+          "type": "keyword",
+          "named": true
+        },
+        {
+          "type": "latex_environment",
+          "named": true
+        },
+        {
+          "type": "list",
+          "named": true
+        },
+        {
+          "type": "paragraph",
+          "named": true
+        },
+        {
+          "type": "planning",
+          "named": true
+        },
+        {
+          "type": "property_drawer",
+          "named": true
+        },
+        {
+          "type": "src_block",
+          "named": true
+        },
+        {
+          "type": "table",
+          "named": true
+        },
+        {
+          "type": "verse_block",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "headline",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "headline",
+          "named": true
+        },
+        {
+          "type": "section",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "horizontal_rule",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "inlinetask",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "affiliated_keyword",
+          "named": true
+        },
+        {
+          "type": "clock",
+          "named": true
+        },
+        {
+          "type": "comment",
+          "named": true
+        },
+        {
+          "type": "comment_block",
+          "named": true
+        },
+        {
+          "type": "diary_sexp",
+          "named": true
+        },
+        {
+          "type": "drawer",
+          "named": true
+        },
+        {
+          "type": "dynamic_block",
+          "named": true
+        },
+        {
+          "type": "example_block",
+          "named": true
+        },
+        {
+          "type": "export_block",
+          "named": true
+        },
+        {
+          "type": "fixed_width",
+          "named": true
+        },
+        {
+          "type": "footnote_definition",
+          "named": true
+        },
+        {
+          "type": "greater_block",
+          "named": true
+        },
+        {
+          "type": "horizontal_rule",
+          "named": true
+        },
+        {
+          "type": "inlinetask",
+          "named": true
+        },
+        {
+          "type": "keyword",
+          "named": true
+        },
+        {
+          "type": "latex_environment",
+          "named": true
+        },
+        {
+          "type": "list",
+          "named": true
+        },
+        {
+          "type": "paragraph",
+          "named": true
+        },
+        {
+          "type": "planning",
+          "named": true
+        },
+        {
+          "type": "property_drawer",
+          "named": true
+        },
+        {
+          "type": "src_block",
+          "named": true
+        },
+        {
+          "type": "table",
+          "named": true
+        },
+        {
+          "type": "verse_block",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "keyword",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "latex_environment",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "list",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "list_item",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "list_item",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "list",
+          "named": true
+        },
+        {
+          "type": "paragraph",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "node_property",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "paragraph",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "planning",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "property_drawer",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "node_property",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "section",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "affiliated_keyword",
+          "named": true
+        },
+        {
+          "type": "clock",
+          "named": true
+        },
+        {
+          "type": "comment",
+          "named": true
+        },
+        {
+          "type": "comment_block",
+          "named": true
+        },
+        {
+          "type": "diary_sexp",
+          "named": true
+        },
+        {
+          "type": "drawer",
+          "named": true
+        },
+        {
+          "type": "dynamic_block",
+          "named": true
+        },
+        {
+          "type": "example_block",
+          "named": true
+        },
+        {
+          "type": "export_block",
+          "named": true
+        },
+        {
+          "type": "fixed_width",
+          "named": true
+        },
+        {
+          "type": "footnote_definition",
+          "named": true
+        },
+        {
+          "type": "greater_block",
+          "named": true
+        },
+        {
+          "type": "horizontal_rule",
+          "named": true
+        },
+        {
+          "type": "inlinetask",
+          "named": true
+        },
+        {
+          "type": "keyword",
+          "named": true
+        },
+        {
+          "type": "latex_environment",
+          "named": true
+        },
+        {
+          "type": "list",
+          "named": true
+        },
+        {
+          "type": "paragraph",
+          "named": true
+        },
+        {
+          "type": "planning",
+          "named": true
+        },
+        {
+          "type": "property_drawer",
+          "named": true
+        },
+        {
+          "type": "src_block",
+          "named": true
+        },
+        {
+          "type": "table",
+          "named": true
+        },
+        {
+          "type": "verse_block",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "src_block",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "table",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "table_row",
+          "named": true
+        },
+        {
+          "type": "table_rule",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "table_cell",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "table_row",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "table_cell",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "table_rule",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "verse_block",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "zeroth_section",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "affiliated_keyword",
+          "named": true
+        },
+        {
+          "type": "clock",
+          "named": true
+        },
+        {
+          "type": "comment",
+          "named": true
+        },
+        {
+          "type": "comment_block",
+          "named": true
+        },
+        {
+          "type": "diary_sexp",
+          "named": true
+        },
+        {
+          "type": "drawer",
+          "named": true
+        },
+        {
+          "type": "dynamic_block",
+          "named": true
+        },
+        {
+          "type": "example_block",
+          "named": true
+        },
+        {
+          "type": "export_block",
+          "named": true
+        },
+        {
+          "type": "fixed_width",
+          "named": true
+        },
+        {
+          "type": "footnote_definition",
+          "named": true
+        },
+        {
+          "type": "greater_block",
+          "named": true
+        },
+        {
+          "type": "horizontal_rule",
+          "named": true
+        },
+        {
+          "type": "inlinetask",
+          "named": true
+        },
+        {
+          "type": "keyword",
+          "named": true
+        },
+        {
+          "type": "latex_environment",
+          "named": true
+        },
+        {
+          "type": "list",
+          "named": true
+        },
+        {
+          "type": "paragraph",
+          "named": true
+        },
+        {
+          "type": "planning",
+          "named": true
+        },
+        {
+          "type": "property_drawer",
+          "named": true
+        },
+        {
+          "type": "src_block",
+          "named": true
+        },
+        {
+          "type": "table",
+          "named": true
+        },
+        {
+          "type": "verse_block",
+          "named": true
+        }
+      ]
+    }
+  }
+]

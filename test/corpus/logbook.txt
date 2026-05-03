@@ -1,0 +1,130 @@
+==================
+Empty LOGBOOK drawer
+==================
+* Task
+:LOGBOOK:
+:END:
+
+---
+
+document
+  headline
+    section
+      drawer
+
+==================
+LOGBOOK with closed CLOCK entry
+==================
+* Task
+:LOGBOOK:
+CLOCK: [2026-04-25 Sat 09:00]--[2026-04-25 Sat 10:00] =>  1:00
+:END:
+
+---
+
+document
+  headline
+    section
+      drawer
+        paragraph
+
+==================
+LOGBOOK with active CLOCK entry
+==================
+* Task
+:LOGBOOK:
+CLOCK: [2026-04-26 Sun 14:30]
+:END:
+
+---
+
+document
+  headline
+    section
+      drawer
+        paragraph
+
+==================
+LOGBOOK with multiple CLOCK entries
+==================
+* Task
+:LOGBOOK:
+CLOCK: [2026-04-25 Sat 09:00]--[2026-04-25 Sat 10:00] =>  1:00
+CLOCK: [2026-04-26 Sun 14:30]--[2026-04-26 Sun 15:45] =>  1:15
+:END:
+
+---
+
+document
+  headline
+    section
+      drawer
+        paragraph
+
+==================
+PROPERTIES followed by LOGBOOK
+==================
+* Task
+:PROPERTIES:
+:ID: alpha
+:END:
+:LOGBOOK:
+CLOCK: [2026-04-26 Sun 14:30]
+:END:
+
+---
+
+document
+  headline
+    section
+      property_drawer
+        node_property
+      drawer
+        paragraph
+
+==================
+LOGBOOK then body paragraph
+==================
+* Task
+:LOGBOOK:
+CLOCK: [2026-04-26 Sun 14:30]
+:END:
+body line
+
+---
+
+document
+  headline
+    section
+      drawer
+        paragraph
+      paragraph
+
+==================
+Stray :END: with no open drawer falls through to body
+==================
+* Task
+:END:
+
+---
+
+document
+  headline
+    section
+      paragraph
+
+==================
+Unknown drawer name falls through to body
+==================
+* Task
+:RESULTS:
+some content
+:END:
+
+---
+
+document
+  headline
+    section
+      drawer
+        paragraph

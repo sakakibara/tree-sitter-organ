@@ -1,0 +1,180 @@
+; ============================================================================
+; org.abnf — Formal RFC 5234 ABNF specification of the block-level Org
+;            dialect this tree-sitter grammar accepts. Vanilla Org: every
+;            rule tracks Worg / `org-element-parse-buffer` for block-level
+;            inputs. Inline objects (markup, links, timestamps, citations,
+;            …) are delegated to `tree-sitter-organ-inline` via injection;
+;            see that repo's `spec/org-inline.abnf`.
+;
+; License: MIT (see /LICENSE in this repository)
+; Source of truth: https://orgmode.org/worg/dev/org-syntax.html
+; Cross-reference (verification only): Emacs `org-element.el` (GPL v3+).
+;   No code, prose, or fixtures are copied from GPL-licensed sources.
+; Format: RFC 5234 ABNF (https://datatracker.ietf.org/doc/html/rfc5234)
+; ============================================================================
+;
+; Conventions:
+;   - Rule names: lower-case-with-hyphens
+;   - Each rule annotated with the Worg section it derives from
+;   - Order: primitives → document → heading → block elements
+;   - Comments start with `;`
+;
+; ============================================================================
+;
+; --- Primitives -------------------------------------------------------------
+; ABNF core rules (ALPHA, DIGIT, SP, HTAB, CR, LF, etc.) are imported by
+; reference per RFC 5234 §B.1; we don't redefine them here.
+
+line-end        =  LF / CRLF
+indent          =  *(SP / HTAB)
+non-line        =  %x00-09 / %x0B-FF                  ; any byte except LF
+
+; --- Document root (Worg §1) ----------------------------------------------
+document        =  zeroth-section *heading
+zeroth-section  =  *content-line
+
+; --- Heading + section (Worg §2 Headlines, §4 Sections) -------------------
+heading         =  heading-line [planning] [property-drawer] [section] *heading
+heading-line    =  stars SP [todo-keyword SP] [priority SP] [comment-marker SP] title [SP tags] line-end
+stars           =  1*"*"
+todo-keyword    =  1*ALPHA                    ; per-document configurable; ABNF accepts any ALL-CAPS word
+priority        =  "[#" %x41-5A "]"           ; [#A] – [#Z]
+comment-marker  =  "COMMENT"                  ; suppresses export
+title           =  1*non-line                 ; injected for inline parsing — see inline rules
+tags            =  ":" 1*(tag ":")
+tag             =  1*(ALPHA / DIGIT / "_" / "@" / "#" / "%%")
+
+section         =  1*content-line
+content-line    =  drawer / greater-block / dynamic-block / lesser-block /
+                   latex-environment / list / table / footnote-definition /
+                   inlinetask / clock / keyword / comment / fixed-width /
+                   horizontal-rule / diary-sexp / paragraph / empty-line
+empty-line      =  *(SP / HTAB) line-end
+
+; --- Planning (Worg §2.5 Planning) ----------------------------------------
+planning        =  indent planning-entry *(SP planning-entry) line-end
+planning-entry  =  planning-keyword ":" SP timestamp
+planning-keyword=  "SCHEDULED" / "DEADLINE" / "CLOSED"
+
+; --- Property drawer (Worg §2.4 Property Drawers) -------------------------
+property-drawer =  propdrawer-open *node-property propdrawer-close
+propdrawer-open =  indent ":PROPERTIES:" indent line-end
+propdrawer-close=  indent ":END:"        indent line-end
+node-property   =  indent ":" property-key [property-suffix] ":" [SP property-value] line-end
+property-key    =  1*(ALPHA / DIGIT / "_" / "-")
+property-suffix =  "+"                          ; e.g. :TAGS+: appends to inherited
+property-value  =  1*non-line                  ; may contain inline objects
+
+; --- Named drawers (Worg §2.3 Drawers) ------------------------------------
+drawer          =  drawer-open *content-line drawer-close
+drawer-open     =  indent ":" drawer-name ":" indent line-end
+drawer-close    =  indent ":END:"          indent line-end
+drawer-name     =  1*(ALPHA / DIGIT / "_" / "-")
+                   ; NAME shall not equal "PROPERTIES"; that's the property
+                   ; drawer (different rule). NAME = "LOGBOOK" is the
+                   ; conventional clock-history drawer; treated as regular.
+
+; --- Greater blocks (Worg §3 Greater Elements) ----------------------------
+; #+begin_NAME ... #+end_NAME where NAME is not a "lesser-block" name.
+greater-block   =  gblock-open *content-line gblock-close
+gblock-open     =  indent "#+begin_" gblock-name [SP gblock-args] indent line-end
+gblock-close    =  indent "#+end_"   gblock-name                  indent line-end
+gblock-name     =  "center" / "quote" / 1*ALPHA   ; "special" blocks: any other ALPHA name
+gblock-args     =  1*non-line                     ; trailing parameters (raw)
+
+; --- Lesser blocks (Worg §4 Elements) -------------------------------------
+; Bodies are NOT parsed as content-line; they preserve raw lines verbatim.
+; Each of the five types is a distinct AST node; the `lesser-block` alias
+; covers them collectively.
+lesser-block    =  src-block / example-block / export-block /
+                   verse-block / comment-block
+src-block       =  indent "#+begin_" %s"src"     [SP lblock-args] indent line-end
+                   lblock-body
+                   indent "#+end_"   %s"src"                       indent line-end
+example-block   =  indent "#+begin_" %s"example" [SP lblock-args] indent line-end
+                   lblock-body
+                   indent "#+end_"   %s"example"                   indent line-end
+export-block    =  indent "#+begin_" %s"export"  [SP lblock-args] indent line-end
+                   lblock-body
+                   indent "#+end_"   %s"export"                    indent line-end
+verse-block     =  indent "#+begin_" %s"verse"   [SP lblock-args] indent line-end
+                   lblock-body
+                   indent "#+end_"   %s"verse"                     indent line-end
+comment-block   =  indent "#+begin_" %s"comment" [SP lblock-args] indent line-end
+                   lblock-body
+                   indent "#+end_"   %s"comment"                   indent line-end
+lblock-args     =  1*non-line
+lblock-body     =  *lblock-line
+lblock-line     =  *non-line line-end          ; any line other than the matching #+end_*
+
+; --- Dynamic blocks (Worg §3 Greater Elements) ----------------------------
+dynamic-block   =  dynblock-open *content-line dynblock-close
+dynblock-open   =  indent "#+begin:" SP dynblock-name [SP dynblock-args] indent line-end
+dynblock-close  =  indent "#+end:"                                       indent line-end
+dynblock-name   =  1*(ALPHA / DIGIT / "_" / "-")
+dynblock-args   =  1*non-line
+
+; --- LaTeX environments (Worg §4 LaTeX Environment) -----------------------
+latex-environment =  latexenv-open latexenv-body latexenv-close
+latexenv-open     =  indent "\\begin{" latexenv-name "}" indent line-end
+latexenv-close    =  indent "\\end{"   latexenv-name "}" indent line-end
+latexenv-name     =  1*(ALPHA / DIGIT / "*")
+latexenv-body     =  *latexenv-line
+latexenv-line     =  *non-line line-end
+
+; --- Plain lists (Worg §3 Plain Lists) ------------------------------------
+list             =  1*list-item
+list-item        =  indent bullet [SP counter] [SP checkbox] [SP item-tag]
+                    [SP item-content] line-end *list-item-cont
+list-item-cont   =  indent item-content line-end       ; continuation lines past the bullet
+bullet           =  unordered-bullet / ordered-bullet
+unordered-bullet =  "-" / "+" / "*"                    ; `*` only when not at column 0
+ordered-bullet   =  1*DIGIT ("." / ")")
+description-bullet=  bullet SP item-tag SP "::"
+counter          =  "[@" 1*DIGIT "]"                   ; force-renumber, e.g. [@5]
+checkbox         =  "[" (" " / "X" / "x" / "-") "]"
+item-tag         =  1*non-line                         ; description-list term
+item-content     =  1*non-line
+
+; --- Tables (Worg §3 Tables) ----------------------------------------------
+table            =  1*table-row
+table-row        =  table-data-row / table-rule-row
+table-data-row   =  indent "|" *table-cell line-end
+table-rule-row   =  indent "|" 1*("-" / "+") "|" *(SP / HTAB) line-end
+table-cell       =  *cell-content "|"
+cell-content     =  1*(non-line / %x20)               ; cell content; inline objects parsed by inline grammar
+
+; --- Footnote definitions (Worg §3 Footnote Definitions) ------------------
+footnote-definition =  "[fn:" footnote-label "]" SP 1*non-line line-end *content-line
+footnote-label      =  1*(ALPHA / DIGIT / "_" / "-")
+                       ; numeric-only label: anonymous; alpha label: named
+
+; --- Inlinetask (Worg §3 Inlinetasks) -------------------------------------
+inlinetask          =  inlinetask-open *content-line inlinetask-close
+inlinetask-open     =  15*"*" SP [todo-keyword SP] [priority SP] title [SP tags] line-end
+inlinetask-close    =  15*"*" SP "END" line-end
+
+; --- Misc leaf elements (Worg §4 Elements) --------------------------------
+clock           =  indent "CLOCK:" SP timestamp-or-range [SP "=>" SP duration] line-end
+duration        =  1*DIGIT ":" 2DIGIT
+diary-sexp      =  indent "%%(" 1*non-line ")" line-end
+keyword         =  indent "#+" keyword-key ":" [SP keyword-value] line-end
+keyword-key     =  1*(ALPHA / DIGIT / "_" / "-")
+                   ; keyword-key shall not be one of {begin_*, end_*, begin:, end:}
+                   ; (those are gblock/lblock/dynblock starts), and shall not
+                   ; be an affiliated-keyword name (those have their own rule)
+keyword-value   =  *non-line
+
+; Affiliated keywords attach to the following element rather than standing
+; on their own.  Per Emacs `org-element-affiliated-keywords` plus `ATTR_*`.
+affiliated-keyword     =  indent "#+" affiliated-keyword-key ":"
+                          [SP keyword-value] line-end
+affiliated-keyword-key =  "CAPTION"  / "NAME"    / "RESULTS" / "HEADER"
+                          / "HEADERS" / "PLOT"
+                          / ("ATTR_" 1*(ALPHA / DIGIT / "_" / "-"))
+comment         =  indent "#" [SP 1*non-line] line-end
+fixed-width     =  indent ":" [SP 1*non-line] line-end       ; ": text" or ":" alone
+horizontal-rule =  indent 5*"-" indent line-end              ; 5+ dashes
+paragraph       =  1*paragraph-line
+paragraph-line  =  1*non-line line-end                       ; default fallback
+

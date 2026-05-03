@@ -1,0 +1,887 @@
+{
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json",
+  "name": "org",
+  "rules": {
+    "document": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "zeroth_section"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "_empty_line"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "headline"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "zeroth_section": {
+      "type": "PREC_RIGHT",
+      "value": 0,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "_meaningful_content_line"
+          },
+          {
+            "type": "REPEAT",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_content_line"
+            }
+          }
+        ]
+      }
+    },
+    "headline": {
+      "type": "PREC_RIGHT",
+      "value": 0,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "_heading_open"
+          },
+          {
+            "type": "REPEAT",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_empty_line"
+            }
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "section"
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          },
+          {
+            "type": "REPEAT",
+            "content": {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "SYMBOL",
+                  "name": "_empty_line"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "headline"
+                }
+              ]
+            }
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_heading_close"
+          }
+        ]
+      }
+    },
+    "planning": {
+      "type": "PREC_RIGHT",
+      "value": 0,
+      "content": {
+        "type": "REPEAT1",
+        "content": {
+          "type": "SYMBOL",
+          "name": "_planning_line"
+        }
+      }
+    },
+    "property_drawer": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_propdrawer_open"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "node_property"
+          }
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_propdrawer_close"
+        }
+      ]
+    },
+    "node_property": {
+      "type": "SYMBOL",
+      "name": "_node_property_line"
+    },
+    "section": {
+      "type": "PREC_RIGHT",
+      "value": 0,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "_meaningful_content_line"
+          },
+          {
+            "type": "REPEAT",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_content_line"
+            }
+          }
+        ]
+      }
+    },
+    "_non_fn_meaningful_content_line": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "planning"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "property_drawer"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "drawer"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "greater_block"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "dynamic_block"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "src_block"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "example_block"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "export_block"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "verse_block"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "comment_block"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "latex_environment"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "list"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "table"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "inlinetask"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "clock"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "keyword"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "affiliated_keyword"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "comment"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "fixed_width"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "horizontal_rule"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "diary_sexp"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "paragraph"
+        }
+      ]
+    },
+    "_meaningful_content_line": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_non_fn_meaningful_content_line"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "footnote_definition"
+        }
+      ]
+    },
+    "_content_line": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_meaningful_content_line"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_empty_line"
+        }
+      ]
+    },
+    "_footnote_body_content_line": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_non_fn_meaningful_content_line"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_empty_line"
+        }
+      ]
+    },
+    "drawer": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_drawer_open"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_content_line"
+          }
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_drawer_close"
+        }
+      ]
+    },
+    "greater_block": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_gblock_open"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_content_line"
+          }
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_gblock_close"
+        }
+      ]
+    },
+    "dynamic_block": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_dynblock_open"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_content_line"
+          }
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_dynblock_close"
+        }
+      ]
+    },
+    "src_block": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_src_block_open"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_lblock_body"
+          }
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_src_block_close"
+        }
+      ]
+    },
+    "example_block": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_example_block_open"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_lblock_body"
+          }
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_example_block_close"
+        }
+      ]
+    },
+    "export_block": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_export_block_open"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_lblock_body"
+          }
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_export_block_close"
+        }
+      ]
+    },
+    "verse_block": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_verse_block_open"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_lblock_body"
+          }
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_verse_block_close"
+        }
+      ]
+    },
+    "comment_block": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_comment_block_open"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_lblock_body"
+          }
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_comment_block_close"
+        }
+      ]
+    },
+    "latex_environment": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_latexenv_open"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_latexenv_body"
+          }
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_latexenv_close"
+        }
+      ]
+    },
+    "list": {
+      "type": "PREC_RIGHT",
+      "value": 0,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "_plain_list_open"
+          },
+          {
+            "type": "REPEAT1",
+            "content": {
+              "type": "SYMBOL",
+              "name": "list_item"
+            }
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_plain_list_close"
+          }
+        ]
+      }
+    },
+    "list_item": {
+      "type": "PREC_RIGHT",
+      "value": 0,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "_list_item_bullet"
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "paragraph"
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          },
+          {
+            "type": "REPEAT",
+            "content": {
+              "type": "SYMBOL",
+              "name": "list"
+            }
+          }
+        ]
+      }
+    },
+    "table": {
+      "type": "PREC_RIGHT",
+      "value": 0,
+      "content": {
+        "type": "REPEAT1",
+        "content": {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "table_row"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "table_rule"
+            }
+          ]
+        }
+      }
+    },
+    "table_row": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_table_row_start"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "table_cell"
+          }
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_table_row_end"
+        }
+      ]
+    },
+    "table_cell": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "_table_cell_content"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_table_pipe"
+        }
+      ]
+    },
+    "table_rule": {
+      "type": "SYMBOL",
+      "name": "_table_rule_line"
+    },
+    "footnote_definition": {
+      "type": "PREC_RIGHT",
+      "value": 0,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "_footnote_def_line"
+          },
+          {
+            "type": "REPEAT",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_footnote_body_content_line"
+            }
+          }
+        ]
+      }
+    },
+    "inlinetask": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_inlinetask_open"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_content_line"
+          }
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_inlinetask_close"
+        }
+      ]
+    },
+    "clock": {
+      "type": "SYMBOL",
+      "name": "_clock_line"
+    },
+    "keyword": {
+      "type": "SYMBOL",
+      "name": "_keyword_line"
+    },
+    "affiliated_keyword": {
+      "type": "SYMBOL",
+      "name": "_affiliated_keyword_line"
+    },
+    "comment": {
+      "type": "PREC_RIGHT",
+      "value": 0,
+      "content": {
+        "type": "REPEAT1",
+        "content": {
+          "type": "SYMBOL",
+          "name": "_comment_line"
+        }
+      }
+    },
+    "fixed_width": {
+      "type": "PREC_RIGHT",
+      "value": 0,
+      "content": {
+        "type": "REPEAT1",
+        "content": {
+          "type": "SYMBOL",
+          "name": "_fixed_width_line"
+        }
+      }
+    },
+    "horizontal_rule": {
+      "type": "SYMBOL",
+      "name": "_hrule_line"
+    },
+    "diary_sexp": {
+      "type": "SYMBOL",
+      "name": "_diary_sexp_line"
+    },
+    "paragraph": {
+      "type": "PREC_RIGHT",
+      "value": 0,
+      "content": {
+        "type": "REPEAT1",
+        "content": {
+          "type": "SYMBOL",
+          "name": "_inline_content_line"
+        }
+      }
+    }
+  },
+  "extras": [],
+  "conflicts": [
+    [
+      "headline"
+    ]
+  ],
+  "precedences": [],
+  "externals": [
+    {
+      "type": "SYMBOL",
+      "name": "_heading_open"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_heading_close"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_planning_line"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_propdrawer_open"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_propdrawer_close"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_node_property_line"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_drawer_open"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_drawer_close"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_gblock_open"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_gblock_close"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_src_block_open"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_src_block_close"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_example_block_open"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_example_block_close"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_export_block_open"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_export_block_close"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_verse_block_open"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_verse_block_close"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_comment_block_open"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_comment_block_close"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_lblock_body"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_dynblock_open"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_dynblock_close"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_latexenv_open"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_latexenv_body"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_latexenv_close"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_keyword_line"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_affiliated_keyword_line"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_comment_line"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_fixed_width_line"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_hrule_line"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_table_row_start"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_table_pipe"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_table_cell_content"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_table_row_end"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_table_rule_line"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_list_item_bullet"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_plain_list_open"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_plain_list_close"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_footnote_def_line"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_inlinetask_open"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_inlinetask_close"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_clock_line"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_diary_sexp_line"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_inline_content_line"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_empty_line"
+    }
+  ],
+  "inline": [],
+  "supertypes": []
+}

@@ -1,0 +1,128 @@
+==================
+Plain headline
+==================
+* Hello world
+
+---
+
+document
+  headline
+
+==================
+Headline with TODO keyword
+==================
+** TODO Do the thing
+
+---
+
+document
+  headline
+
+==================
+Headline with TODO and priority
+==================
+* TODO [#A] Urgent task
+
+---
+
+document
+  headline
+
+==================
+Headline with only tags
+==================
+* Task :work:urgent:
+
+---
+
+document
+  headline
+
+==================
+Full combo: stars, todo, priority, title, tags
+==================
+* TODO [#B] Full combo :project:
+
+---
+
+document
+  headline
+
+==================
+Nested sections
+==================
+* Parent
+** Child
+*** Grandchild
+
+---
+
+document
+  headline
+    headline
+      headline
+
+==================
+Headline followed by paragraph
+==================
+* Heading
+Body line one.
+Body line two.
+
+---
+
+document
+  headline
+    section
+      paragraph
+
+==================
+Title containing bold stars
+==================
+* Bold *inside* title should not confuse parser
+
+---
+
+document
+  headline
+
+==================
+Two same-depth headlines with blank line between
+==================
+* First
+
+* Second
+
+---
+
+document
+  headline
+  headline
+
+==================
+Same-depth siblings after deeper child
+==================
+* A
+** B
+* C
+
+---
+
+document
+  headline
+    headline
+  headline
+
+==================
+Two children under one parent
+==================
+* A
+** B
+** C
+
+---
+
+document
+  headline
+    headline
+    headline

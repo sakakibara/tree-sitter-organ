@@ -1,0 +1,67 @@
+==================
+Single SCHEDULED entry
+==================
+* TODO Task
+SCHEDULED: <2026-04-25 Sat>
+
+---
+
+document
+  headline
+    section
+      planning
+
+==================
+SCHEDULED and DEADLINE on one line
+==================
+* TODO Task
+SCHEDULED: <2026-04-25 Sat> DEADLINE: <2026-04-30 Thu>
+
+---
+
+document
+  headline
+    section
+      planning
+
+==================
+CLOSED with inactive timestamp
+==================
+* DONE Task
+CLOSED: [2026-04-20 Mon 14:30]
+
+---
+
+document
+  headline
+    section
+      planning
+
+==================
+Planning split across multiple lines
+==================
+* TODO Task
+SCHEDULED: <2026-04-25 Sat>
+DEADLINE: <2026-04-30 Thu>
+
+---
+
+document
+  headline
+    section
+      planning
+
+==================
+Planning followed by body paragraph
+==================
+* TODO Task
+SCHEDULED: <2026-04-25 Sat>
+Body paragraph here.
+
+---
+
+document
+  headline
+    section
+      planning
+      paragraph

@@ -1,0 +1,87 @@
+==================
+Empty inlinetask
+==================
+* Heading
+*************** Inlinetask
+*************** END
+
+---
+
+document
+  headline
+    section
+      inlinetask
+
+==================
+Inlinetask with body paragraph
+==================
+* Heading
+*************** Inlinetask
+Body line.
+*************** END
+
+---
+
+document
+  headline
+    section
+      inlinetask
+        paragraph
+
+==================
+Inlinetask with planning
+==================
+* Heading
+*************** TODO Inlinetask
+SCHEDULED: <2026-04-29>
+*************** END
+
+---
+
+document
+  headline
+    section
+      inlinetask
+        planning
+
+==================
+Inlinetask with property drawer
+==================
+* Heading
+*************** Inlinetask
+:PROPERTIES:
+:ID: abc
+:END:
+*************** END
+
+---
+
+document
+  headline
+    section
+      inlinetask
+        property_drawer
+          node_property
+
+==================
+Inlinetask with planning, properties, and body
+==================
+* Heading
+*************** TODO Inlinetask
+SCHEDULED: <2026-04-29>
+:PROPERTIES:
+:ID: abc
+:END:
+Body paragraph.
+*************** END
+
+---
+
+document
+  headline
+    section
+      inlinetask
+        planning
+        property_drawer
+          node_property
+        paragraph

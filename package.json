@@ -1,0 +1,19 @@
+{
+  "name": "tree-sitter-organ",
+  "version": "0.0.1",
+  "description": "Org-mode grammar for tree-sitter",
+  "main": "grammar.js",
+  "scripts": {
+    "build": "tree-sitter generate",
+    "test": "tree-sitter test",
+    "parse": "tree-sitter parse"
+  },
+  "devDependencies": {
+    "tree-sitter-cli": "^0.24.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "tree-sitter-cli"
+    ]
+  }
+}

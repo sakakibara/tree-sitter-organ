@@ -1,0 +1,30 @@
+{
+  "grammars": [
+    {
+      "name": "org",
+      "camelcase": "Org",
+      "scope": "source.org",
+      "path": ".",
+      "file-types": [
+        "org"
+      ],
+      "injection-regex": "^org$"
+    }
+  ],
+  "metadata": {
+    "version": "0.0.1",
+    "license": "MIT",
+    "description": "Org-mode grammar for tree-sitter",
+    "links": {
+      "repository": "https://github.com/sakakibara/tree-sitter-organ"
+    }
+  },
+  "bindings": {
+    "c": true,
+    "go": true,
+    "node": true,
+    "python": true,
+    "rust": true,
+    "swift": true
+  }
+}
