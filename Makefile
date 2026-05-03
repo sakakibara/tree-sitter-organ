@@ -50,8 +50,10 @@ $(ORG_SO): $(ORG_SO_SOURCES) $(ORG_SO_HEADERS) | $(BUILD_DIR)
 	$(CC) $(ORG_SO_CFLAGS) -shared -o $@ $(ORG_SO_SOURCES)
 
 # `src/parser.c` and `src/tree_sitter/*.h` are generated from grammar.js by
-# `tree-sitter generate`. They're gitignored, so fresh clones don't have them
-# and the org.so prerequisite would fail without this rule.
+# `tree-sitter generate`. Both are committed to the repo so fresh clones can
+# build without needing tree-sitter-cli (= no Node/pnpm dependency for end
+# users). Maintainers re-run `tree-sitter generate` after editing grammar.js
+# and commit the regenerated files.
 src/parser.c: grammar.js node_modules/.bin/tree-sitter
 	./node_modules/.bin/tree-sitter generate
 
