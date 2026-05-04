@@ -1279,7 +1279,8 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
      * end-of-line.
      */
     enum { MARK_NONE, MARK_HASH, MARK_LBLOCK, MARK_COLON,
-           MARK_DRAWER, MARK_PROPERTY, MARK_PLANNING, MARK_CLOCK };
+           MARK_DRAWER, MARK_PROPERTY, MARK_PLANNING, MARK_CLOCK,
+           MARK_INLINETASK };
     int mark_kind = MARK_NONE;
     bool have_prefix_mark = false;
     static const uint32_t name_len_for_kind[] = {0, 3, 7, 6, 5, 7};
@@ -1342,7 +1343,31 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
             || mark_kind == MARK_DRAWER
             || mark_kind == MARK_PROPERTY
             || mark_kind == MARK_PLANNING
-            || mark_kind == MARK_CLOCK) continue;
+            || mark_kind == MARK_CLOCK
+            || mark_kind == MARK_INLINETASK) continue;
+
+        /* Inlinetask open line: `***************<+> TITLE`.  Priority
+         * 4 above pre-consumed the 15+ leading stars (and pre-filled
+         * line_buf with them via consumed_stars), and the read loop
+         * has just appended the trailing ' '. Detect that pattern and
+         * back the mark_end up to the space position so JS rules can
+         * reuse the heading-line externals for todo/priority/title. */
+        if (mark_kind == MARK_NONE
+            && line_buf[line_len - 1] == ' ' && line_len >= 16) {
+            uint32_t star_count = 0;
+            while (star_count < line_len - 1
+                   && line_buf[star_count] == '*') star_count++;
+            if (star_count >= 15 && star_count == line_len - 1) {
+                /* mark_end is currently AFTER the trailing space.
+                 * That's actually fine — `_inlinetask_open` covers
+                 * stars + 1 space; the JS rule just doesn't include
+                 * a leading separator. */
+                lexer->mark_end(lexer);
+                mark_kind = MARK_INLINETASK;
+                have_prefix_mark = true;
+                continue;
+            }
+        }
 
         /* Keyword / affiliated keyword: `#+` prefix at line start. */
         if (mark_kind == MARK_NONE

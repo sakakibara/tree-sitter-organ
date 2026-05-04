@@ -687,7 +687,7 @@
     "fields": {},
     "children": {
       "multiple": true,
-      "required": false,
+      "required": true,
       "types": [
         {
           "type": "affiliated_keyword",
@@ -746,6 +746,10 @@
           "named": true
         },
         {
+          "type": "inlinetask_line",
+          "named": true
+        },
+        {
           "type": "keyword",
           "named": true
         },
@@ -782,6 +786,82 @@
           "named": true
         }
       ]
+    }
+  },
+  {
+    "type": "inlinetask_line",
+    "named": true,
+    "fields": {
+      "comment": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "comment_marker",
+            "named": true
+          }
+        ]
+      },
+      "cookie": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "statistics_cookie",
+            "named": true
+          }
+        ]
+      },
+      "priority": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "priority",
+            "named": true
+          }
+        ]
+      },
+      "stars": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "stars",
+            "named": true
+          }
+        ]
+      },
+      "tag_list": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "tag_list",
+            "named": true
+          }
+        ]
+      },
+      "title": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "title",
+            "named": true
+          }
+        ]
+      },
+      "todo": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "todo",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {

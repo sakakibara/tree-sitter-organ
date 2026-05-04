@@ -359,7 +359,28 @@ module.exports = grammar({
     table_rule: $ => $._table_rule_line,
 
     footnote_definition: $ => prec.right(seq($._footnote_def_line, repeat($._footnote_body_content_line))),
-    inlinetask: $ => seq($._inlinetask_open, repeat($._content_line), $._inlinetask_close),
+    /* Inlinetask: a 15+-star "task" mini-headline that nests inside
+     * a section. The opening line is decomposed (same fields as a
+     * regular headline) — scanner emits `_inlinetask_open` covering
+     * only the leading stars + one space. The close `*************** END`
+     * line stays as a single token (`_inlinetask_close`). */
+    inlinetask: $ => seq(
+      $.inlinetask_line,
+      repeat($._content_line),
+      $._inlinetask_close,
+    ),
+
+    inlinetask_line: $ => seq(
+      field('stars',     alias($._inlinetask_open, $.stars)),
+      /* No leading /[ \t]+/ — the `_inlinetask_open` token already
+       * covers stars + one ws byte. */
+      optional(seq(field('todo',     $.todo),     /[ \t]+/)),
+      optional(seq(field('comment',  $.comment_marker), /[ \t]+/)),
+      optional(seq(field('priority', $.priority), /[ \t]+/)),
+      optional(field('title',    $.title)),
+      optional(field('cookie',   $.statistics_cookie)),
+      optional(field('tag_list', $.tag_list)),
+    ),
 
     /* Clock entry: `CLOCK: [start]` (running) or
      * `CLOCK: [start]--[end] => H:MM` (closed).  Scanner emits
