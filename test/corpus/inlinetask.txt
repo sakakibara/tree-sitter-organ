@@ -7,10 +7,17 @@ Empty inlinetask
 
 ---
 
-document
-  headline
-    section
-      inlinetask
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (inlinetask
+        (inlinetask_line
+          (stars)
+          (title)))
+      (paragraph))))
 
 ==================
 Inlinetask with body paragraph
@@ -22,11 +29,18 @@ Body line.
 
 ---
 
-document
-  headline
-    section
-      inlinetask
-        paragraph
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (inlinetask
+        (inlinetask_line
+          (stars)
+          (title))
+        (paragraph))
+      (paragraph))))
 
 ==================
 Inlinetask with planning
@@ -38,11 +52,23 @@ SCHEDULED: <2026-04-29>
 
 ---
 
-document
-  headline
-    section
-      inlinetask
-        planning
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (inlinetask
+        (inlinetask_line
+          (stars)
+          (todo)
+          (title))
+        (planning
+          (planning_line
+            (planning_entry
+              (planning_keyword)
+              (planning_timestamp)))))
+      (paragraph))))
 
 ==================
 Inlinetask with property drawer
@@ -56,12 +82,21 @@ Inlinetask with property drawer
 
 ---
 
-document
-  headline
-    section
-      inlinetask
-        property_drawer
-          node_property
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (inlinetask
+        (inlinetask_line
+          (stars)
+          (title))
+        (property_drawer
+          (node_property
+            (property_name)
+            (property_value))))
+      (paragraph))))
 
 ==================
 Inlinetask with planning, properties, and body
@@ -77,11 +112,25 @@ Body paragraph.
 
 ---
 
-document
-  headline
-    section
-      inlinetask
-        planning
-        property_drawer
-          node_property
-        paragraph
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (inlinetask
+        (inlinetask_line
+          (stars)
+          (todo)
+          (title))
+        (planning
+          (planning_line
+            (planning_entry
+              (planning_keyword)
+              (planning_timestamp))))
+        (property_drawer
+          (node_property
+            (property_name)
+            (property_value)))
+        (paragraph))
+      (paragraph))))

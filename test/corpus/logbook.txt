@@ -7,10 +7,14 @@ Empty LOGBOOK drawer
 
 ---
 
-document
-  headline
-    section
-      drawer
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (drawer
+        (drawer_name)))))
 
 ==================
 LOGBOOK with closed CLOCK entry
@@ -22,11 +26,18 @@ CLOCK: [2026-04-25 Sat 09:00]--[2026-04-25 Sat 10:00] =>  1:00
 
 ---
 
-document
-  headline
-    section
-      drawer
-        paragraph
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (drawer
+        (drawer_name)
+        (clock
+          (clock_timestamp)
+          (clock_timestamp)
+          (clock_duration))))))
 
 ==================
 LOGBOOK with active CLOCK entry
@@ -38,11 +49,16 @@ CLOCK: [2026-04-26 Sun 14:30]
 
 ---
 
-document
-  headline
-    section
-      drawer
-        paragraph
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (drawer
+        (drawer_name)
+        (clock
+          (clock_timestamp))))))
 
 ==================
 LOGBOOK with multiple CLOCK entries
@@ -55,11 +71,22 @@ CLOCK: [2026-04-26 Sun 14:30]--[2026-04-26 Sun 15:45] =>  1:15
 
 ---
 
-document
-  headline
-    section
-      drawer
-        paragraph
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (drawer
+        (drawer_name)
+        (clock
+          (clock_timestamp)
+          (clock_timestamp)
+          (clock_duration))
+        (clock
+          (clock_timestamp)
+          (clock_timestamp)
+          (clock_duration))))))
 
 ==================
 PROPERTIES followed by LOGBOOK
@@ -74,13 +101,20 @@ CLOCK: [2026-04-26 Sun 14:30]
 
 ---
 
-document
-  headline
-    section
-      property_drawer
-        node_property
-      drawer
-        paragraph
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (property_drawer
+        (node_property
+          (property_name)
+          (property_value)))
+      (drawer
+        (drawer_name)
+        (clock
+          (clock_timestamp))))))
 
 ==================
 LOGBOOK then body paragraph
@@ -93,12 +127,17 @@ body line
 
 ---
 
-document
-  headline
-    section
-      drawer
-        paragraph
-      paragraph
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (drawer
+        (drawer_name)
+        (clock
+          (clock_timestamp)))
+      (paragraph))))
 
 ==================
 Stray :END: with no open drawer falls through to body
@@ -108,10 +147,13 @@ Stray :END: with no open drawer falls through to body
 
 ---
 
-document
-  headline
-    section
-      paragraph
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (paragraph))))
 
 ==================
 Unknown drawer name falls through to body
@@ -123,8 +165,12 @@ some content
 
 ---
 
-document
-  headline
-    section
-      drawer
-        paragraph
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (drawer
+        (drawer_name)
+        (paragraph)))))

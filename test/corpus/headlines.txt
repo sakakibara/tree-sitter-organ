@@ -5,8 +5,11 @@ Plain headline
 
 ---
 
-document
-  headline
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))))
 
 ==================
 Headline with TODO keyword
@@ -15,8 +18,12 @@ Headline with TODO keyword
 
 ---
 
-document
-  headline
+(document
+  (headline
+    (headline_line
+      (stars)
+      (todo)
+      (title))))
 
 ==================
 Headline with TODO and priority
@@ -25,8 +32,13 @@ Headline with TODO and priority
 
 ---
 
-document
-  headline
+(document
+  (headline
+    (headline_line
+      (stars)
+      (todo)
+      (priority)
+      (title))))
 
 ==================
 Headline with only tags
@@ -35,8 +47,14 @@ Headline with only tags
 
 ---
 
-document
-  headline
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title)
+      (tag_list
+        (tag)
+        (tag)))))
 
 ==================
 Full combo: stars, todo, priority, title, tags
@@ -45,8 +63,15 @@ Full combo: stars, todo, priority, title, tags
 
 ---
 
-document
-  headline
+(document
+  (headline
+    (headline_line
+      (stars)
+      (todo)
+      (priority)
+      (title)
+      (tag_list
+        (tag)))))
 
 ==================
 Nested sections
@@ -57,10 +82,19 @@ Nested sections
 
 ---
 
-document
-  headline
-    headline
-      headline
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (headline
+      (headline_line
+        (stars)
+        (title))
+      (headline
+        (headline_line
+          (stars)
+          (title))))))
 
 ==================
 Headline followed by paragraph
@@ -71,10 +105,13 @@ Body line two.
 
 ---
 
-document
-  headline
-    section
-      paragraph
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (paragraph))))
 
 ==================
 Title containing bold stars
@@ -83,8 +120,11 @@ Title containing bold stars
 
 ---
 
-document
-  headline
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))))
 
 ==================
 Two same-depth headlines with blank line between
@@ -95,9 +135,15 @@ Two same-depth headlines with blank line between
 
 ---
 
-document
-  headline
-  headline
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title)))
+  (headline
+    (headline_line
+      (stars)
+      (title))))
 
 ==================
 Same-depth siblings after deeper child
@@ -108,10 +154,19 @@ Same-depth siblings after deeper child
 
 ---
 
-document
-  headline
-    headline
-  headline
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (headline
+      (headline_line
+        (stars)
+        (title))))
+  (headline
+    (headline_line
+      (stars)
+      (title))))
 
 ==================
 Two children under one parent
@@ -122,7 +177,16 @@ Two children under one parent
 
 ---
 
-document
-  headline
-    headline
-    headline
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (headline
+      (headline_line
+        (stars)
+        (title)))
+    (headline
+      (headline_line
+        (stars)
+        (title)))))

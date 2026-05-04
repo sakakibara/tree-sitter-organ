@@ -1,0 +1,148 @@
+==================
+List item with checkbox: TODO
+==================
+- [ ] todo item
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (checkbox)
+        (paragraph)))))
+
+==================
+List item with checkbox: DONE uppercase
+==================
+- [X] done item
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (checkbox)
+        (paragraph)))))
+
+==================
+List item with checkbox: DONE lowercase
+==================
+- [x] done item
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (checkbox)
+        (paragraph)))))
+
+==================
+List item with checkbox: HALF
+==================
+- [-] half item
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (checkbox)
+        (paragraph)))))
+
+==================
+Numbered list with checkbox
+==================
+1. [ ] numbered todo
+2. [X] numbered done
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (checkbox)
+        (paragraph))
+      (list_item
+        (bullet)
+        (checkbox)
+        (paragraph)))))
+
+==================
+src_block with language
+==================
+#+begin_src lua
+print("hi")
+#+end_src
+
+---
+
+(document
+  (zeroth_section
+    (src_block
+      (src_block_language))))
+
+==================
+src_block with language + header args
+==================
+#+begin_src python :tangle x.py :results output
+x = 1
+#+end_src
+
+---
+
+(document
+  (zeroth_section
+    (src_block
+      (src_block_language)
+      (block_header_args))))
+
+==================
+src_block without language
+==================
+#+begin_src
+no language
+#+end_src
+
+---
+
+(document
+  (zeroth_section
+    (src_block)))
+
+==================
+example_block
+==================
+#+begin_example
+plain text
+#+end_example
+
+---
+
+(document
+  (zeroth_section
+    (example_block)))
+
+==================
+export_block with format
+==================
+#+begin_export html
+<p>foo</p>
+#+end_export
+
+---
+
+(document
+  (zeroth_section
+    (export_block
+      (src_block_language))))

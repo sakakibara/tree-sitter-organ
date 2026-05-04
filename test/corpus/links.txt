@@ -5,8 +5,11 @@ Link in title
 
 ---
 
-document
-  headline
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))))
 
 ==================
 Link alone in title
@@ -15,8 +18,11 @@ Link alone in title
 
 ---
 
-document
-  headline
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))))
 
 ==================
 Priority bracket remains in title
@@ -25,8 +31,12 @@ Priority bracket remains in title
 
 ---
 
-document
-  headline
+(document
+  (headline
+    (headline_line
+      (stars)
+      (priority)
+      (title))))
 
 ==================
 Link in body paragraph
@@ -36,10 +46,13 @@ See [[id:abc-123][alpha]] for more.
 
 ---
 
-document
-  headline
-    section
-      paragraph
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (paragraph))))
 
 ==================
 Multi-link body
@@ -49,10 +62,13 @@ One [[id:a]] two [[id:b][bee]] three.
 
 ---
 
-document
-  headline
-    section
-      paragraph
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (paragraph))))
 
 ==================
 Body without link is plain text
@@ -63,10 +79,13 @@ No brackets at all.
 
 ---
 
-document
-  headline
-    section
-      paragraph
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (paragraph))))
 
 ==================
 Stray bracket in body is plain text (not a link)
@@ -77,14 +96,17 @@ Stray bracket in body is plain text (not a link)
 
 ---
 
-document
-  headline
-    section
-      table
-        table_row
-          table_cell
-          table_cell
-      paragraph
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (table
+        (table_row
+          (table_cell)
+          (table_cell)))
+      (paragraph))))
 
 ==================
 Lone star not followed by space is plain text
@@ -95,7 +117,10 @@ A line with a trailing star *
 
 ---
 
-document
-  headline
-    section
-      paragraph
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (paragraph))))

@@ -1,0 +1,124 @@
+==================
+Footnote definition: numeric label
+==================
+[fn:1] First footnote.
+
+---
+
+(document
+  (zeroth_section
+    (footnote_definition
+      (footnote_label)
+      (paragraph))))
+
+==================
+Footnote definition: named label
+==================
+[fn:my-note] Some text.
+Continuation line.
+
+---
+
+(document
+  (zeroth_section
+    (footnote_definition
+      (footnote_label)
+      (paragraph))))
+
+==================
+Comment: multi-line
+==================
+# This is a comment.
+# Another line.
+
+---
+
+(document
+  (zeroth_section
+    (comment
+      (comment_line
+        (comment_body))
+      (comment_line
+        (comment_body)))))
+
+==================
+Fixed-width: multi-line
+==================
+: line one
+: line two
+
+---
+
+(document
+  (zeroth_section
+    (fixed_width
+      (fixed_width_line
+        (fixed_width_body))
+      (fixed_width_line
+        (fixed_width_body)))))
+
+==================
+Diary sexp: bare form
+==================
+%%(diary-block 1 1 2026 12 31 2026)
+
+---
+
+(document
+  (zeroth_section
+    (diary_sexp
+      (diary_sexp_body))))
+
+==================
+Diary sexp: active timestamp form
+==================
+<%%(diary-cyclic 7 1 12 2025)>
+
+---
+
+(document
+  (zeroth_section
+    (diary_sexp
+      (diary_sexp_body))))
+
+==================
+Table with header row
+==================
+| col1 | col2 |
+|------+------|
+| a    | b    |
+| c    | d    |
+
+---
+
+(document
+  (zeroth_section
+    (table
+      (table_header_row
+        (table_cell)
+        (table_cell))
+      (table_rule)
+      (table_row
+        (table_cell)
+        (table_cell))
+      (table_row
+        (table_cell)
+        (table_cell)))))
+
+==================
+Table without header
+==================
+| a | b |
+| c | d |
+
+---
+
+(document
+  (zeroth_section
+    (table
+      (table_row
+        (table_cell)
+        (table_cell))
+      (table_row
+        (table_cell)
+        (table_cell)))))

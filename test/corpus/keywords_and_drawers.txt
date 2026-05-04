@@ -1,0 +1,107 @@
+==================
+Keyword: title
+==================
+#+title: My Document
+
+---
+
+(document
+  (zeroth_section
+    (keyword
+      (directive_name)
+      (directive_value))))
+
+==================
+Keyword: filetags
+==================
+#+filetags: :proj:
+
+---
+
+(document
+  (zeroth_section
+    (keyword
+      (directive_name)
+      (directive_value))))
+
+==================
+Keyword without value
+==================
+#+TITLE:
+
+---
+
+(document
+  (zeroth_section
+    (keyword
+      (directive_name))))
+
+==================
+Custom drawer with name
+==================
+* H
+:LOGBOOK:
+note 1
+:END:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (drawer
+        (drawer_name)
+        (paragraph)))))
+
+==================
+Property drawer with one property
+==================
+* H
+:PROPERTIES:
+:ID: my-id
+:END:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (property_drawer
+        (node_property
+          (property_name)
+          (property_value))))))
+
+==================
+Property drawer with multiple properties (indented)
+==================
+* H
+  :PROPERTIES:
+  :ID:        my-id
+  :CUSTOM_ID: foo
+  :ROAM_REFS: cite:knuth1968
+  :END:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (property_drawer
+        (node_property
+          (property_name)
+          (property_value))
+        (node_property
+          (property_name)
+          (property_value))
+        (node_property
+          (property_name)
+          (property_value))))))

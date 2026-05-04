@@ -7,10 +7,13 @@ Empty property drawer
 
 ---
 
-document
-  headline
-    section
-      property_drawer
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (property_drawer))))
 
 ==================
 Single property
@@ -22,11 +25,16 @@ Single property
 
 ---
 
-document
-  headline
-    section
-      property_drawer
-        node_property
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (property_drawer
+        (node_property
+          (property_name)
+          (property_value))))))
 
 ==================
 Multiple properties with padding
@@ -39,12 +47,19 @@ Multiple properties with padding
 
 ---
 
-document
-  headline
-    section
-      property_drawer
-        node_property
-        node_property
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (property_drawer
+        (node_property
+          (property_name)
+          (property_value))
+        (node_property
+          (property_name)
+          (property_value))))))
 
 ==================
 Planning before property drawer
@@ -57,12 +72,22 @@ SCHEDULED: <2026-04-25 Sat>
 
 ---
 
-document
-  headline
-    section
-      planning
-      property_drawer
-        node_property
+(document
+  (headline
+    (headline_line
+      (stars)
+      (todo)
+      (title))
+    (section
+      (planning
+        (planning_line
+          (planning_entry
+            (planning_keyword)
+            (planning_timestamp))))
+      (property_drawer
+        (node_property
+          (property_name)
+          (property_value))))))
 
 ==================
 Drawer followed by paragraph body
@@ -75,9 +100,14 @@ Body paragraph.
 
 ---
 
-document
-  headline
-    section
-      property_drawer
-        node_property
-      paragraph
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (property_drawer
+        (node_property
+          (property_name)
+          (property_value)))
+      (paragraph))))

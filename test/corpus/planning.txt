@@ -6,10 +6,18 @@ SCHEDULED: <2026-04-25 Sat>
 
 ---
 
-document
-  headline
-    section
-      planning
+(document
+  (headline
+    (headline_line
+      (stars)
+      (todo)
+      (title))
+    (section
+      (planning
+        (planning_line
+          (planning_entry
+            (planning_keyword)
+            (planning_timestamp)))))))
 
 ==================
 SCHEDULED and DEADLINE on one line
@@ -19,10 +27,21 @@ SCHEDULED: <2026-04-25 Sat> DEADLINE: <2026-04-30 Thu>
 
 ---
 
-document
-  headline
-    section
-      planning
+(document
+  (headline
+    (headline_line
+      (stars)
+      (todo)
+      (title))
+    (section
+      (planning
+        (planning_line
+          (planning_entry
+            (planning_keyword)
+            (planning_timestamp))
+          (planning_entry
+            (planning_keyword)
+            (planning_timestamp)))))))
 
 ==================
 CLOSED with inactive timestamp
@@ -32,10 +51,18 @@ CLOSED: [2026-04-20 Mon 14:30]
 
 ---
 
-document
-  headline
-    section
-      planning
+(document
+  (headline
+    (headline_line
+      (stars)
+      (todo)
+      (title))
+    (section
+      (planning
+        (planning_line
+          (planning_entry
+            (planning_keyword)
+            (planning_timestamp)))))))
 
 ==================
 Planning split across multiple lines
@@ -46,10 +73,22 @@ DEADLINE: <2026-04-30 Thu>
 
 ---
 
-document
-  headline
-    section
-      planning
+(document
+  (headline
+    (headline_line
+      (stars)
+      (todo)
+      (title))
+    (section
+      (planning
+        (planning_line
+          (planning_entry
+            (planning_keyword)
+            (planning_timestamp)))
+        (planning_line
+          (planning_entry
+            (planning_keyword)
+            (planning_timestamp)))))))
 
 ==================
 Planning followed by body paragraph
@@ -60,8 +99,16 @@ Body paragraph here.
 
 ---
 
-document
-  headline
-    section
-      planning
-      paragraph
+(document
+  (headline
+    (headline_line
+      (stars)
+      (todo)
+      (title))
+    (section
+      (planning
+        (planning_line
+          (planning_entry
+            (planning_keyword)
+            (planning_timestamp))))
+      (paragraph))))

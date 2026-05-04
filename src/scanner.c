@@ -1531,6 +1531,17 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
 
     int sym = prepass_to_external(r.type);
     if (sym < 0) return false;
+
+    /* Override the prepass classification when our in-line detection
+     * recognised a CLOCK / planning entry. Inside SCOPE_DRAWER the
+     * prepass classifies everything except `:END:` as TT_BODY; that's
+     * correct for arbitrary drawer content but loses CLOCK structure
+     * for `:LOGBOOK:` which is the only place CLOCK lines live. */
+    if (mark_kind == MARK_CLOCK && valid_symbols[EXT_CLOCK_LINE]) {
+        sym = EXT_CLOCK_LINE;
+    } else if (mark_kind == MARK_PLANNING && valid_symbols[EXT_PLANNING_LINE]) {
+        sym = EXT_PLANNING_LINE;
+    }
     if (!valid_symbols[sym]) return false;
 
     lexer->result_symbol = (TSSymbol)sym;

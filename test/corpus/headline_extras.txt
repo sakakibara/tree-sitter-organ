@@ -1,0 +1,132 @@
+==================
+Headline with statistics cookie (percent)
+==================
+* Mostly done [33%]
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title)
+      (statistics_cookie))))
+
+==================
+Headline with statistics cookie (fraction)
+==================
+* Half [1/2]
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title)
+      (statistics_cookie))))
+
+==================
+Headline with cookie + tags
+==================
+* Half [1/2] :tag:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title)
+      (statistics_cookie)
+      (tag_list
+        (tag)))))
+
+==================
+Comment-marker headline
+==================
+* COMMENT Suspended
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (comment_marker)
+      (title))))
+
+==================
+TODO + comment + priority + title + tags
+==================
+* TODO COMMENT [#A] Combined :work:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (todo)
+      (comment_marker)
+      (priority)
+      (title)
+      (tag_list
+        (tag)))))
+
+==================
+Hyphenated TODO keyword
+==================
+* IN-PROGRESS Work item
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (todo)
+      (title))))
+
+==================
+Tag region with multiple tags
+==================
+* Foo :work:urgent:home:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title)
+      (tag_list
+        (tag)
+        (tag)
+        (tag)))))
+
+==================
+Title with internal colon (NOT a tag)
+==================
+* Section: continued
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))))
+
+==================
+URL in title (colon not a tag)
+==================
+* See https://example.com for details
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))))
