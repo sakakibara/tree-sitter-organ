@@ -56,6 +56,8 @@ module.exports = grammar({
     $._diary_sexp_line,
     $._inline_content_line,
     $._empty_line,
+    $._comment_body_text,
+    $._fixed_width_body_text,
   ],
 
   extras: _ => [],
@@ -229,6 +231,7 @@ module.exports = grammar({
       $.table,
       $.inlinetask,
       $.clock,
+      $.formula,
       $.keyword,
       $.affiliated_keyword,
       $.comment,
@@ -429,7 +432,19 @@ module.exports = grammar({
     /* File-level / element-level directive line (`#+TITLE: foo`).
      * The scanner emits `_keyword_line` covering only the `#+`
      * prefix; JS rules consume the keyword name, separator, and value
-     * as separate named children. */
+     * as separate named children.
+     *
+     * `formula` is a `#+TBLFM:` directive — a separate node type so
+     * consumers can locate table formulas without string-matching the
+     * directive name.  prec(2) on the literal name beats the more
+     * general `directive_name` regex. */
+    formula: $ => seq(
+      $._keyword_line,
+      field('name', alias(token(prec(2, 'TBLFM')), $.directive_name)),
+      ':',
+      optional(seq(/[ \t]+/, field('value', $.directive_value))),
+      /[ \t]*\r?\n/,
+    ),
     keyword: $ => seq(
       $._keyword_line,
       field('name', $.directive_name),
@@ -447,16 +462,25 @@ module.exports = grammar({
 
     directive_name:  $ => /[A-Za-z][A-Za-z0-9_-]*/,
     directive_value: $ => /[^\n]+/,
-    /* Comment / fixed-width paragraphs left as line-aggregates.  An
-     * earlier attempt to expose a `body` field via regex tokens
-     * (`/[^\n]+/`) created a parse-table interaction that drove the
-     * GLR lookahead to fixed-point on inputs combining a lesser block
-     * (`#+begin_…#+end_…`) with an `inlinetask` open line in the same
-     * section — a real-world pattern that hung the parser.  Until a
-     * non-regex decomposition is found, keep them opaque; consumers
-     * read body text from the line node directly. */
-    comment: $ => prec.right(repeat1($._comment_line)),
-    fixed_width: $ => prec.right(repeat1($._fixed_width_line)),
+    /* Comment / fixed-width paragraphs.  The body content is exposed
+     * as a `comment_body` / `fixed_width_body` field via an external
+     * scanner token (NOT a `/[^\n]+/` regex — that earlier attempt
+     * caused a parse-table hang when src_block + inlinetask appeared
+     * together).  Scanner emits `_comment_body_text` /
+     * `_fixed_width_body_text` covering body bytes (excluding leading
+     * `#` / `:` and trailing newline). */
+    comment: $ => prec.right(repeat1($.comment_line)),
+    comment_line: $ => seq(
+      $._comment_line,
+      optional(field('body', alias($._comment_body_text, $.comment_body))),
+      /\r?\n/,
+    ),
+    fixed_width: $ => prec.right(repeat1($.fixed_width_line)),
+    fixed_width_line: $ => seq(
+      $._fixed_width_line,
+      optional(field('body', alias($._fixed_width_body_text, $.fixed_width_body))),
+      /\r?\n/,
+    ),
     horizontal_rule: $ => $._hrule_line,
     /* Diary sexp. Two surface forms — bare `%%(...)` and the
      * active-timestamp `<%%(...)>` form — both decompose into a

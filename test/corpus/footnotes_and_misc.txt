@@ -35,7 +35,28 @@ Comment: multi-line
 
 (document
   (zeroth_section
-    (comment)))
+    (comment
+      (comment_line
+        (comment_body))
+      (comment_line
+        (comment_body)))))
+
+==================
+Comment: empty body
+==================
+#
+# next
+#
+
+---
+
+(document
+  (zeroth_section
+    (comment
+      (comment_line)
+      (comment_line
+        (comment_body))
+      (comment_line))))
 
 ==================
 Fixed-width: multi-line
@@ -47,7 +68,28 @@ Fixed-width: multi-line
 
 (document
   (zeroth_section
-    (fixed_width)))
+    (fixed_width
+      (fixed_width_line
+        (fixed_width_body))
+      (fixed_width_line
+        (fixed_width_body)))))
+
+==================
+Fixed-width: empty body interleaved
+==================
+:
+: actual line
+:
+
+---
+
+(document
+  (zeroth_section
+    (fixed_width
+      (fixed_width_line)
+      (fixed_width_line
+        (fixed_width_body))
+      (fixed_width_line))))
 
 ==================
 Diary sexp: bare form
@@ -114,3 +156,33 @@ Table without header
       (table_row
         (table_cell)
         (table_cell)))))
+
+==================
+Formula: #+TBLFM:
+==================
+#+TBLFM: $3=$1+$2
+
+---
+
+(document
+  (zeroth_section
+    (formula
+      (directive_name)
+      (directive_value))))
+
+==================
+Formula vs keyword: TBLFM is formula, others are keyword
+==================
+#+TITLE: Doc
+#+TBLFM: $1=2
+
+---
+
+(document
+  (zeroth_section
+    (keyword
+      (directive_name)
+      (directive_value))
+    (formula
+      (directive_name)
+      (directive_value))))

@@ -63,6 +63,8 @@ enum OrgExternal {
     EXT_DIARY_SEXP_LINE,
     EXT_INLINE_CONTENT_LINE,
     EXT_EMPTY_LINE,
+    EXT_COMMENT_BODY_TEXT,
+    EXT_FIXED_WIDTH_BODY_TEXT,
 };
 
 /* Map prepass LineTokenType → tree-sitter external symbol (non-heading types). */
@@ -489,6 +491,35 @@ static bool scan_headline_priority(TSLexer *lexer) {
 bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                                              const bool *valid_symbols) {
     ScannerState *s = (ScannerState *)payload;
+
+    /* ── Priority 0z: body-text token for comment_line / fixed_width_line.
+     * Fires when the parser, having just consumed a prefix-only
+     * `_comment_line` / `_fixed_width_line` token, asks for the body
+     * field.  We read until end-of-line, marking_end after each non-
+     * whitespace byte so trailing whitespace is excluded.  Returning
+     * `false` (no body content) lets the parser skip the optional
+     * field and match the trailing newline regex. */
+    if (valid_symbols[EXT_COMMENT_BODY_TEXT]
+        || valid_symbols[EXT_FIXED_WIDTH_BODY_TEXT]) {
+        int sym = valid_symbols[EXT_COMMENT_BODY_TEXT]
+                    ? EXT_COMMENT_BODY_TEXT : EXT_FIXED_WIDTH_BODY_TEXT;
+        bool any_non_ws = false;
+        /* Skip past leading whitespace, but include it in the token if
+         * non-ws content follows (so `# foo` body is ` foo` — including
+         * the leading space — which is the natural body slice). */
+        while (!lexer->eof(lexer) && lexer->lookahead != '\n'
+               && lexer->lookahead != '\r') {
+            int32_t la = lexer->lookahead;
+            lexer->advance(lexer, false);
+            if (la != ' ' && la != '\t') {
+                any_non_ws = true;
+                lexer->mark_end(lexer);
+            }
+        }
+        if (!any_non_ws) return false;
+        lexer->result_symbol = (TSSymbol)sym;
+        return true;
+    }
 
     /* ── Priority 0a: list checkbox. Fires only when valid (i.e.
      * inside a list_item, immediately after the bullet's ws). */
@@ -1105,13 +1136,11 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                         ws_only = false; break;
                     }
                 }
-                /* `:` after only whitespace → drawer/property mark.
-                 * Skip when the next char makes this a fixed-width
-                 * line (`: text` / bare `:`) so the whole line is
-                 * emitted as one `_fixed_width_line` token. */
-                if (ws_only
-                    && lexer->lookahead != ' ' && lexer->lookahead != '\t'
-                    && lexer->lookahead != '\n' && !lexer->eof(lexer)) {
+                /* `:` after only whitespace → drawer/property OR
+                 * fixed-width prefix.  Mark at `:` so the emitted
+                 * token covers only the colon; JS rules consume the
+                 * rest (name + closing `:`, or body text). */
+                if (ws_only) {
                     lexer->mark_end(lexer);
                     have_b2_mark = true;
                     continue;
@@ -1289,7 +1318,7 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
      */
     enum { MARK_NONE, MARK_HASH, MARK_LBLOCK, MARK_COLON,
            MARK_DRAWER, MARK_PROPERTY, MARK_PLANNING, MARK_CLOCK,
-           MARK_INLINETASK, MARK_DIARY_SEXP };
+           MARK_INLINETASK, MARK_DIARY_SEXP, MARK_COMMENT_LINE };
     int mark_kind = MARK_NONE;
     bool have_prefix_mark = false;
     static const uint32_t name_len_for_kind[] = {0, 3, 7, 6, 5, 7};
@@ -1302,20 +1331,12 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
         line_buf[line_len++] = (uint8_t)lexer->lookahead;
         lexer->advance(lexer, false);
 
-        /* `:`-leading line (after optional leading whitespace): drawer
-         * or node_property. Snapshot mark_end at the first `:` so the
-         * eventual `_drawer_open` / `_node_property_line` token covers
-         * only that single colon; JS rules consume name + closing `:`
-         * + (value/newline) from there.
-         *
-         * Skip when the next char is whitespace / EOL — that's a
-         * fixed-width line (`: text` or bare `:`), which is a single
-         * opaque `_fixed_width_line` token covering the whole line.
-         * Setting MARK_COLON here would mark_end at the first `:`,
-         * leaving the rest of the line unconsumed. */
-        if (mark_kind == MARK_NONE && line_buf[line_len - 1] == ':'
-            && lexer->lookahead != ' ' && lexer->lookahead != '\t'
-            && lexer->lookahead != '\n' && !lexer->eof(lexer)) {
+        /* `:`-leading line (after optional leading whitespace).  Mark
+         * after the first `:` so the eventual `_drawer_open` /
+         * `_node_property_line` / `_fixed_width_line` token covers
+         * only that single colon; JS rules then consume the rest
+         * (name + closing `:` + value, or body text). */
+        if (mark_kind == MARK_NONE && line_buf[line_len - 1] == ':') {
             /* Verify all preceding chars in the line so far are
              * whitespace — i.e., this is the FIRST non-ws char. */
             bool ws_only = true;
@@ -1362,7 +1383,22 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
             || mark_kind == MARK_PLANNING
             || mark_kind == MARK_CLOCK
             || mark_kind == MARK_INLINETASK
-            || mark_kind == MARK_DIARY_SEXP) continue;
+            || mark_kind == MARK_DIARY_SEXP
+            || mark_kind == MARK_COMMENT_LINE) continue;
+
+        /* Comment line: `#` followed by non-`+` (i.e. NOT a `#+keyword`
+         * directive — that's caught by the MARK_HASH branch below).
+         * Mark after `#` so the emitted `_comment_line` token covers
+         * only the prefix; the JS `comment_line` rule consumes the
+         * body text via `_comment_body_text` (an external token —
+         * regex bodies caused a parse-table hang in the past). */
+        if (mark_kind == MARK_NONE && line_len == 1 && line_buf[0] == '#'
+            && lexer->lookahead != '+') {
+            lexer->mark_end(lexer);
+            mark_kind = MARK_COMMENT_LINE;
+            have_prefix_mark = true;
+            continue;
+        }
 
         /* Diary sexp — bare `%%(...)` or active-form `<%%(...)>`.
          * Mark after the opening prefix so JS rules consume the body

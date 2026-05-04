@@ -69,12 +69,38 @@
   {
     "type": "comment",
     "named": true,
-    "fields": {}
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "comment_line",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "comment_block",
     "named": true,
     "fields": {}
+  },
+  {
+    "type": "comment_line",
+    "named": true,
+    "fields": {
+      "body": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "comment_body",
+            "named": true
+          }
+        ]
+      }
+    }
   },
   {
     "type": "comment_marker",
@@ -186,6 +212,10 @@
           "named": true
         },
         {
+          "type": "formula",
+          "named": true
+        },
+        {
           "type": "greater_block",
           "named": true
         },
@@ -289,6 +319,10 @@
           "named": true
         },
         {
+          "type": "formula",
+          "named": true
+        },
+        {
           "type": "greater_block",
           "named": true
         },
@@ -384,7 +418,33 @@
   {
     "type": "fixed_width",
     "named": true,
-    "fields": {}
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "fixed_width_line",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "fixed_width_line",
+    "named": true,
+    "fields": {
+      "body": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "fixed_width_body",
+            "named": true
+          }
+        ]
+      }
+    }
   },
   {
     "type": "footnote_definition",
@@ -446,6 +506,10 @@
           "named": true
         },
         {
+          "type": "formula",
+          "named": true
+        },
+        {
           "type": "greater_block",
           "named": true
         },
@@ -494,6 +558,32 @@
           "named": true
         }
       ]
+    }
+  },
+  {
+    "type": "formula",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "directive_name",
+            "named": true
+          }
+        ]
+      },
+      "value": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "directive_value",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -546,6 +636,10 @@
         },
         {
           "type": "footnote_definition",
+          "named": true
+        },
+        {
+          "type": "formula",
           "named": true
         },
         {
@@ -753,6 +847,10 @@
         },
         {
           "type": "footnote_definition",
+          "named": true
+        },
+        {
+          "type": "formula",
           "named": true
         },
         {
@@ -1142,6 +1240,10 @@
           "named": true
         },
         {
+          "type": "formula",
+          "named": true
+        },
+        {
           "type": "greater_block",
           "named": true
         },
@@ -1388,6 +1490,10 @@
           "named": true
         },
         {
+          "type": "formula",
+          "named": true
+        },
+        {
           "type": "greater_block",
           "named": true
         },
@@ -1491,6 +1597,10 @@
     "named": true
   },
   {
+    "type": "comment_body",
+    "named": true
+  },
+  {
     "type": "diary_sexp_body",
     "named": true
   },
@@ -1500,6 +1610,10 @@
   },
   {
     "type": "drawer_name",
+    "named": true
+  },
+  {
+    "type": "fixed_width_body",
     "named": true
   },
   {

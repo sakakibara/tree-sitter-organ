@@ -585,6 +585,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "formula"
+        },
+        {
+          "type": "SYMBOL",
           "name": "keyword"
         },
         {
@@ -1519,6 +1523,68 @@
       "type": "PATTERN",
       "value": "\\d+:\\d{2}"
     },
+    "formula": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_keyword_line"
+        },
+        {
+          "type": "FIELD",
+          "name": "name",
+          "content": {
+            "type": "ALIAS",
+            "content": {
+              "type": "TOKEN",
+              "content": {
+                "type": "PREC",
+                "value": 2,
+                "content": {
+                  "type": "STRING",
+                  "value": "TBLFM"
+                }
+              }
+            },
+            "named": true,
+            "value": "directive_name"
+          }
+        },
+        {
+          "type": "STRING",
+          "value": ":"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "PATTERN",
+                  "value": "[ \\t]+"
+                },
+                {
+                  "type": "FIELD",
+                  "name": "value",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "directive_value"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "PATTERN",
+          "value": "[ \\t]*\\r?\\n"
+        }
+      ]
+    },
     "keyword": {
       "type": "SEQ",
       "members": [
@@ -1634,9 +1700,43 @@
         "type": "REPEAT1",
         "content": {
           "type": "SYMBOL",
-          "name": "_comment_line"
+          "name": "comment_line"
         }
       }
+    },
+    "comment_line": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_comment_line"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "body",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_comment_body_text"
+                },
+                "named": true,
+                "value": "comment_body"
+              }
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "PATTERN",
+          "value": "\\r?\\n"
+        }
+      ]
     },
     "fixed_width": {
       "type": "PREC_RIGHT",
@@ -1645,9 +1745,43 @@
         "type": "REPEAT1",
         "content": {
           "type": "SYMBOL",
-          "name": "_fixed_width_line"
+          "name": "fixed_width_line"
         }
       }
+    },
+    "fixed_width_line": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_fixed_width_line"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "body",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_fixed_width_body_text"
+                },
+                "named": true,
+                "value": "fixed_width_body"
+              }
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "PATTERN",
+          "value": "\\r?\\n"
+        }
+      ]
     },
     "horizontal_rule": {
       "type": "SYMBOL",
@@ -1925,6 +2059,14 @@
     {
       "type": "SYMBOL",
       "name": "_empty_line"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_comment_body_text"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_fixed_width_body_text"
     }
   ],
   "inline": [],
