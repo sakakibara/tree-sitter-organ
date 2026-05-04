@@ -1091,6 +1091,7 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
          * clock is detected, we leave mark_end at start. */
         bool have_b2_mark = false;
         bool have_b2_zero_width = false;
+        int  b2_forced_sym = -1;  /* >=0 = override prepass with this symbol */
         lexer->mark_end(lexer);
         while (!lexer->eof(lexer) && lexer->lookahead != '\n'
                && ll < ORG_LINE_BUF_MAX) {
@@ -1126,21 +1127,41 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                         && p[4]=='L' && p[5]=='I' && p[6]=='N' && p[7]=='E') match = true;
                     else if (klen == 6 && p[0]=='C' && p[1]=='L' && p[2]=='O' && p[3]=='S'
                         && p[4]=='E' && p[5]=='D') match = true;
-                    /* CLOCK removed (single-token rule). */
+                    else if (klen == 5 && p[0]=='C' && p[1]=='L' && p[2]=='O' && p[3]=='C'
+                        && p[4]=='K') match = true;
                     if (match) {
-                        /* Don't mark_end — leave it at line start so
-                         * the emitted token is zero-width. */
+                        if (klen == 5) {
+                            /* CLOCK: emit prefix-covering token (up to
+                             * and including the `:`). Avoids zero-
+                             * width which causes error-recovery loops
+                             * inside unclosed drawers. */
+                            lexer->mark_end(lexer);
+                            b2_forced_sym = EXT_CLOCK_LINE;
+                        } else {
+                            /* Planning: zero-width (mark stays at
+                             * line start) — JS rule consumes keyword
+                             * + timestamp pairs. */
+                            b2_forced_sym = EXT_PLANNING_LINE;
+                        }
                         have_b2_mark = true;
-                        have_b2_zero_width = true;
+                        have_b2_zero_width = (klen != 5);
                         continue;
                     }
                 }
             }
         }
-        (void)have_b2_zero_width;
         if (!lexer->eof(lexer) && lexer->lookahead == '\n')
             lexer->advance(lexer, false);
         if (!have_b2_mark) lexer->mark_end(lexer);
+
+        /* Forced-symbol path takes precedence over the prepass
+         * classification (which may not recognise indented CLOCK /
+         * SCHEDULED lines as TT_CLOCK / TT_PLANNING). */
+        if (b2_forced_sym >= 0) {
+            if (!valid_symbols[b2_forced_sym]) return false;
+            lexer->result_symbol = (TSSymbol)b2_forced_sym;
+            return true;
+        }
 
         LineClassification rr = prepass_classify_line(s->prepass, line_buf2, ll);
         if (rr.type == TT_HEADING) return false;
@@ -1353,15 +1374,20 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                 && p[4]=='E' && p[5]=='D') {
                 match = true; new_kind = MARK_PLANNING;
             }
-            /* CLOCK keyword removed from zero-width handling — the
-             * `clock` JS rule is a single-token pass-through, so the
-             * scanner emits the regular line-classified token. */
+            else if (klen == 5 && p[0]=='C' && p[1]=='L' && p[2]=='O' && p[3]=='C'
+                && p[4]=='K') {
+                match = true; new_kind = MARK_CLOCK;
+            }
             if (match) {
-                /* Don't call mark_end — leaving it where it was at
-                 * the start of priority 5 (line start) makes the
-                 * emitted `_planning_line` / `_clock_line` token
-                 * zero-width. JS rules then consume the whole line
-                 * structurally. */
+                if (new_kind == MARK_CLOCK) {
+                    /* Mark covers up to and including the `:`. Non-
+                     * zero-width to avoid tree-sitter error-recovery
+                     * loops inside unclosed drawers. */
+                    lexer->mark_end(lexer);
+                }
+                /* MARK_PLANNING stays zero-width (mark from line-
+                 * start pre-mark). JS rule consumes keyword +
+                 * timestamp pairs. */
                 mark_kind = new_kind;
                 have_prefix_mark = true;
                 continue;

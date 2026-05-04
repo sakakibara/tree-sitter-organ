@@ -336,6 +336,13 @@ module.exports = grammar({
      * compute statistics cookies on the parent headline. */
     checkbox: $ => $._list_checkbox,
 
+    /* Table. Header rows (rows immediately followed by a `|---|`
+     * rule) are not exposed as a distinct node here — tree-sitter's
+     * GLR + dynamic precedence couldn't pick the header-path
+     * unambiguously without extensive grammar restructuring. Per
+     * Emacs convention this distinction is recoverable by walking
+     * siblings: a `table_row` whose next sibling is `table_rule`
+     * is the header. */
     table: $ => prec.right(repeat1(choice(
       $.table_row,
       $.table_rule,
@@ -354,7 +361,27 @@ module.exports = grammar({
     footnote_definition: $ => prec.right(seq($._footnote_def_line, repeat($._footnote_body_content_line))),
     inlinetask: $ => seq($._inlinetask_open, repeat($._content_line), $._inlinetask_close),
 
-    clock: $ => $._clock_line,
+    /* Clock entry: `CLOCK: [start]` (running) or
+     * `CLOCK: [start]--[end] => H:MM` (closed).  Scanner emits
+     * `_clock_line` covering `[ws]*CLOCK:` (the prefix); JS rules
+     * consume the timestamp(s) + optional duration as named fields. */
+    clock: $ => seq(
+      $._clock_line,
+      /[ \t]+/,
+      field('start', $.clock_timestamp),
+      optional(seq(
+        /[ \t]*--[ \t]*/,
+        field('end', $.clock_timestamp),
+        optional(seq(
+          /[ \t]*=>[ \t]+/,
+          field('duration', $.clock_duration),
+        )),
+      )),
+      /[ \t]*\r?\n/,
+    ),
+
+    clock_timestamp: $ => /\[[^\]\n]+\]/,
+    clock_duration:  $ => /\d+:\d{2}/,
     /* File-level / element-level directive line (`#+TITLE: foo`).
      * The scanner emits `_keyword_line` covering only the `#+`
      * prefix; JS rules consume the keyword name, separator, and value

@@ -1233,8 +1233,87 @@
       ]
     },
     "clock": {
-      "type": "SYMBOL",
-      "name": "_clock_line"
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_clock_line"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[ \\t]+"
+        },
+        {
+          "type": "FIELD",
+          "name": "start",
+          "content": {
+            "type": "SYMBOL",
+            "name": "clock_timestamp"
+          }
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "PATTERN",
+                  "value": "[ \\t]*--[ \\t]*"
+                },
+                {
+                  "type": "FIELD",
+                  "name": "end",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "clock_timestamp"
+                  }
+                },
+                {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "SEQ",
+                      "members": [
+                        {
+                          "type": "PATTERN",
+                          "value": "[ \\t]*=>[ \\t]+"
+                        },
+                        {
+                          "type": "FIELD",
+                          "name": "duration",
+                          "content": {
+                            "type": "SYMBOL",
+                            "name": "clock_duration"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "BLANK"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "PATTERN",
+          "value": "[ \\t]*\\r?\\n"
+        }
+      ]
+    },
+    "clock_timestamp": {
+      "type": "PATTERN",
+      "value": "\\[[^\\]\\n]+\\]"
+    },
+    "clock_duration": {
+      "type": "PATTERN",
+      "value": "\\d+:\\d{2}"
     },
     "keyword": {
       "type": "SEQ",

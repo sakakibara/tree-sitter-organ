@@ -33,7 +33,38 @@
   {
     "type": "clock",
     "named": true,
-    "fields": {}
+    "fields": {
+      "duration": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "clock_duration",
+            "named": true
+          }
+        ]
+      },
+      "end": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "clock_timestamp",
+            "named": true
+          }
+        ]
+      },
+      "start": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "clock_timestamp",
+            "named": true
+          }
+        ]
+      }
+    }
   },
   {
     "type": "comment",
@@ -1309,6 +1340,14 @@
   },
   {
     "type": "bullet",
+    "named": true
+  },
+  {
+    "type": "clock_duration",
+    "named": true
+  },
+  {
+    "type": "clock_timestamp",
     "named": true
   },
   {
