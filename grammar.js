@@ -6,9 +6,12 @@ module.exports = grammar({
     $._heading_open,
     $._heading_close,
     $._headline_todo,     // uppercase TODO keyword
+    $._headline_comment,  // literal "COMMENT" keyword
     $._headline_priority, // `[#A]` cookie
     $._headline_title,    // text from current pos to before tag_list / EOL
+    $._headline_stats_cookie, // `[N%]` or `[N/M]` between title and tags
     $._headline_tag_list_open, // zero-width validator at tag-list start
+    $._list_checkbox,          // `[ ]` / `[x]` / `[X]` / `[-]` after bullet
     $._planning_line,
     $._propdrawer_open,
     $._propdrawer_close,
@@ -103,18 +106,30 @@ module.exports = grammar({
       field('stars',     alias($._heading_open, $.stars)),
       /[ \t]+/,
       optional(seq(field('todo',     $.todo),     /[ \t]+/)),
+      optional(seq(field('comment',  $.comment_marker), /[ \t]+/)),
       optional(seq(field('priority', $.priority), /[ \t]+/)),
       optional(field('title',    $.title)),
+      optional(field('cookie',   $.statistics_cookie)),
       optional(field('tag_list', $.tag_list)),
     ),
 
-    /* TODO keyword. External token: uppercase word (>= 2 chars)
-     * followed by whitespace. Consumers classify against the
-     * configured `org-todo-keywords` sequence to label active/done. */
+    /* TODO keyword. External token: uppercase word (>= 2 chars,
+     * letters/digits/_/-) followed by whitespace. Consumers classify
+     * against the configured `org-todo-keywords` sequence. */
     todo: $ => $._headline_todo,
+
+    /* `COMMENT` keyword: marks the heading as a "commented" subtree
+     * (excluded from agenda / export per Emacs `org-element-comment-p`).
+     * Always literal "COMMENT" + ws. */
+    comment_marker: $ => $._headline_comment,
 
     /* Priority cookie `[#A]` / `[#B]` / `[#1]`. */
     priority: $ => $._headline_priority,
+
+    /* Statistics cookie at the end of a headline: `[N%]` or `[N/M]`.
+     * Per Emacs convention the cookie is a per-headline progress
+     * indicator (typically auto-updated from child checkboxes). */
+    statistics_cookie: $ => $._headline_stats_cookie,
 
     /* Headline title. Single external token: the scanner peeks from
      * current position to find either end-of-line OR the start of a
@@ -197,11 +212,55 @@ module.exports = grammar({
     drawer: $ => seq($._drawer_open, repeat($._content_line), $._drawer_close),
     greater_block: $ => seq($._gblock_open, repeat($._content_line), $._gblock_close),
     dynamic_block: $ => seq($._dynblock_open, repeat($._content_line), $._dynblock_close),
-    src_block:     $ => seq($._src_block_open,     repeat($._lblock_body), $._src_block_close),
-    example_block: $ => seq($._example_block_open, repeat($._lblock_body), $._example_block_close),
-    export_block:  $ => seq($._export_block_open,  repeat($._lblock_body), $._export_block_close),
-    verse_block:   $ => seq($._verse_block_open,   repeat($._lblock_body), $._verse_block_close),
-    comment_block: $ => seq($._comment_block_open, repeat($._lblock_body), $._comment_block_close),
+
+    /* Lesser blocks. The C scanner emits `_*_block_open` covering only
+     * the directive prefix (`#+begin_src` / `#+begin_example` / …),
+     * leaving the language identifier + header arguments + newline to
+     * be parsed as JS rules. That makes `language`, `header_args` real
+     * named children (a Babel-aware consumer can read them directly). */
+    src_block: $ => seq(
+      $._src_block_open,
+      optional(seq(/[ \t]+/, field('language',    $.src_block_language))),
+      optional(seq(/[ \t]+/, field('header_args', $.block_header_args))),
+      /[ \t]*\r?\n/,
+      repeat($._lblock_body),
+      $._src_block_close,
+    ),
+    example_block: $ => seq(
+      $._example_block_open,
+      optional(seq(/[ \t]+/, field('header_args', $.block_header_args))),
+      /[ \t]*\r?\n/,
+      repeat($._lblock_body),
+      $._example_block_close,
+    ),
+    export_block: $ => seq(
+      $._export_block_open,
+      optional(seq(/[ \t]+/, field('format',      $.src_block_language))),
+      optional(seq(/[ \t]+/, field('header_args', $.block_header_args))),
+      /[ \t]*\r?\n/,
+      repeat($._lblock_body),
+      $._export_block_close,
+    ),
+    verse_block: $ => seq(
+      $._verse_block_open,
+      optional(seq(/[ \t]+/, field('header_args', $.block_header_args))),
+      /[ \t]*\r?\n/,
+      repeat($._lblock_body),
+      $._verse_block_close,
+    ),
+    comment_block: $ => seq(
+      $._comment_block_open,
+      /[ \t]*\r?\n/,
+      repeat($._lblock_body),
+      $._comment_block_close,
+    ),
+
+    /* Source-block language identifier (`lua`, `python`, `org`, …). */
+    src_block_language: $ => /[A-Za-z][A-Za-z0-9_+-]*/,
+
+    /* Babel-style header arguments: `:key value :key2 v2 …`. Captured
+     * as one node; consumers can split on `:` for individual pairs. */
+    block_header_args: $ => /:[^\n]*/,
     latex_environment: $ => seq($._latexenv_open, repeat($._latexenv_body), $._latexenv_close),
 
     list: $ => prec.right(seq(
@@ -210,10 +269,17 @@ module.exports = grammar({
       $._plain_list_close,
     )),
     list_item: $ => prec.right(seq(
-      $._list_item_bullet,
+      field('bullet', alias($._list_item_bullet, $.bullet)),
+      optional(field('checkbox', $.checkbox)),
       optional($.paragraph),
       repeat($.list),
     )),
+
+    /* Checkbox glyph at start of a list item: `[ ]` / `[x]` / `[X]`
+     * / `[-]`. The `[X]` form is uppercase done; `[-]` is "in
+     * progress" / "partially done". Consumers tally these to
+     * compute statistics cookies on the parent headline. */
+    checkbox: $ => $._list_checkbox,
 
     table: $ => prec.right(repeat1(choice(
       $.table_row,

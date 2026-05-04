@@ -5,6 +5,11 @@
     "fields": {}
   },
   {
+    "type": "checkbox",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "clock",
     "named": true,
     "fields": {}
@@ -16,6 +21,11 @@
   },
   {
     "type": "comment_block",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "comment_marker",
     "named": true,
     "fields": {}
   },
@@ -253,12 +263,44 @@
   {
     "type": "example_block",
     "named": true,
-    "fields": {}
+    "fields": {
+      "header_args": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "block_header_args",
+            "named": true
+          }
+        ]
+      }
+    }
   },
   {
     "type": "export_block",
     "named": true,
-    "fields": {}
+    "fields": {
+      "format": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "src_block_language",
+            "named": true
+          }
+        ]
+      },
+      "header_args": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "block_header_args",
+            "named": true
+          }
+        ]
+      }
+    }
   },
   {
     "type": "fixed_width",
@@ -494,6 +536,26 @@
     "type": "headline_line",
     "named": true,
     "fields": {
+      "comment": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "comment_marker",
+            "named": true
+          }
+        ]
+      },
+      "cookie": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "statistics_cookie",
+            "named": true
+          }
+        ]
+      },
       "priority": {
         "multiple": false,
         "required": false,
@@ -682,7 +744,28 @@
   {
     "type": "list_item",
     "named": true,
-    "fields": {},
+    "fields": {
+      "bullet": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "bullet",
+            "named": true
+          }
+        ]
+      },
+      "checkbox": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "checkbox",
+            "named": true
+          }
+        ]
+      }
+    },
     "children": {
       "multiple": true,
       "required": false,
@@ -839,6 +922,32 @@
   {
     "type": "src_block",
     "named": true,
+    "fields": {
+      "header_args": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "block_header_args",
+            "named": true
+          }
+        ]
+      },
+      "language": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "src_block_language",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "statistics_cookie",
+    "named": true,
     "fields": {}
   },
   {
@@ -914,7 +1023,18 @@
   {
     "type": "verse_block",
     "named": true,
-    "fields": {}
+    "fields": {
+      "header_args": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "block_header_args",
+            "named": true
+          }
+        ]
+      }
+    }
   },
   {
     "type": "zeroth_section",
@@ -1022,6 +1142,18 @@
   {
     "type": ":",
     "named": false
+  },
+  {
+    "type": "block_header_args",
+    "named": true
+  },
+  {
+    "type": "bullet",
+    "named": true
+  },
+  {
+    "type": "src_block_language",
+    "named": true
   },
   {
     "type": "stars",

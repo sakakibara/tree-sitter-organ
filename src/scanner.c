@@ -12,9 +12,12 @@ enum OrgExternal {
     EXT_HEADING_OPEN = 0,
     EXT_HEADING_CLOSE,
     EXT_HEADLINE_TODO,
+    EXT_HEADLINE_COMMENT,        /* literal "COMMENT" keyword */
     EXT_HEADLINE_PRIORITY,
     EXT_HEADLINE_TITLE,
+    EXT_HEADLINE_STATS_COOKIE,   /* `[N%]` or `[N/M]` at end of title */
     EXT_HEADLINE_TAG_LIST_OPEN,  /* zero-width validator at tag-list start */
+    EXT_LIST_CHECKBOX,           /* `[ ]` / `[x]` / `[X]` / `[-]` after bullet */
     EXT_PLANNING_LINE,
     EXT_PROPDRAWER_OPEN,
     EXT_PROPDRAWER_CLOSE,
@@ -348,9 +351,37 @@ static bool consume_tag_region(TSLexer *lexer) {
     }
 }
 
+/* Peek-test a statistics cookie at current position: `[N%]` or
+ * `[N/M]`. Advances past the candidate; on return true the caller
+ * should NOT mark_end past — keep the cookie outside the current
+ * token's range. */
+static bool consume_stats_cookie(TSLexer *lexer) {
+    if (lexer->lookahead != '[') return false;
+    lexer->advance(lexer, false);
+    /* Optional digits before %/`/`. Empty `[/N]` and `[%]` are valid. */
+    while (lexer->lookahead >= '0' && lexer->lookahead <= '9')
+        lexer->advance(lexer, false);
+    int32_t c = lexer->lookahead;
+    if (c == '%') {
+        lexer->advance(lexer, false);
+        return lexer->lookahead == ']' && (lexer->advance(lexer, false), true);
+    }
+    if (c == '/') {
+        lexer->advance(lexer, false);
+        while (lexer->lookahead >= '0' && lexer->lookahead <= '9')
+            lexer->advance(lexer, false);
+        return lexer->lookahead == ']' && (lexer->advance(lexer, false), true);
+    }
+    return false;
+}
+
 /* Scan a headline title from the current position to end-of-line OR
- * the start of a trailing tag region. Returns true if at least one
- * char was consumed. */
+ * the start of a trailing tag region OR a statistics cookie. The
+ * title token covers everything UP TO the cookie / tag boundary
+ * marker (`[` or `:` preceded by ws); the lexer rewinds to that
+ * position so the next external scanner can fire on the marker
+ * char directly. Trailing ws right before the boundary is included
+ * in the title (Emacs convention; consumers may trim). */
 static bool scan_headline_title(TSLexer *lexer) {
     bool any_title_chars = false;
     char prev = '\n';
@@ -358,16 +389,14 @@ static bool scan_headline_title(TSLexer *lexer) {
         int32_t c = lexer->lookahead;
         if (c == '\n' || c == 0 || lexer->eof(lexer)) break;
         if (c == ':' && (prev == ' ' || prev == '\t')) {
-            /* Try to consume a tag region from this `:`. mark_end is
-             * at the position before this `:` (and before any leading
-             * whitespace). If consume succeeds, returning true rewinds
-             * the lexer to mark_end, leaving the tag region for the
-             * next scan. */
-            if (consume_tag_region(lexer)) {
-                return any_title_chars;
-            }
-            /* Peek failed: the chars we consumed during the peek are
-             * actually part of the title. Move mark_end forward. */
+            if (consume_tag_region(lexer)) return any_title_chars;
+            any_title_chars = true;
+            lexer->mark_end(lexer);
+            prev = (char)lexer->lookahead;
+            continue;
+        }
+        if (c == '[' && (prev == ' ' || prev == '\t')) {
+            if (consume_stats_cookie(lexer)) return any_title_chars;
             any_title_chars = true;
             lexer->mark_end(lexer);
             prev = (char)lexer->lookahead;
@@ -381,6 +410,33 @@ static bool scan_headline_title(TSLexer *lexer) {
     return any_title_chars;
 }
 
+/* Scan a statistics cookie `[N%]` / `[N/M]` at current position. */
+static bool scan_stats_cookie(TSLexer *lexer) {
+    if (lexer->lookahead != '[') return false;
+    if (!consume_stats_cookie(lexer)) return false;
+    lexer->mark_end(lexer);
+    return true;
+}
+
+/* List checkbox: `[ ]` / `[x]` / `[X]` / `[-]` at the start of a
+ * list_item's content, immediately after the bullet's whitespace. */
+static bool scan_list_checkbox(TSLexer *lexer) {
+    if (lexer->lookahead != '[') return false;
+    lexer->advance(lexer, false);
+    int32_t c = lexer->lookahead;
+    bool ok = (c == ' ' || c == 'x' || c == 'X' || c == '-');
+    if (!ok) return false;
+    lexer->advance(lexer, false);
+    if (lexer->lookahead != ']') return false;
+    lexer->advance(lexer, false);
+    /* Eat trailing inline whitespace so the paragraph's first
+     * `_inline_content_line` token starts at the actual text. */
+    while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
+        lexer->advance(lexer, false);
+    lexer->mark_end(lexer);
+    return true;
+}
+
 /* Zero-width validator: returns true iff the current position starts
  * a valid tag region (`:tag1:tag2:[ws]*` ending at newline/EOF).
  * The internal advances during validation are discarded by tree-sitter
@@ -392,22 +448,20 @@ static bool scan_tag_list_open(TSLexer *lexer) {
     return consume_tag_region(lexer);
 }
 
-/* Scan a TODO keyword: an uppercase word (>= 2 chars) followed by
- * whitespace. The trailing whitespace is NOT consumed (the JS rule's
- * /[ \t]+/ between todo and the next field does that). */
+/* Scan a TODO keyword: an uppercase word (>= 2 chars) optionally
+ * containing digits / `_` / `-`, followed by whitespace. */
 static bool scan_headline_todo(TSLexer *lexer) {
     if (lexer->lookahead < 'A' || lexer->lookahead > 'Z') return false;
     int n = 0;
     while ((lexer->lookahead >= 'A' && lexer->lookahead <= 'Z')
            || (lexer->lookahead >= '0' && lexer->lookahead <= '9')
-           || lexer->lookahead == '_') {
+           || lexer->lookahead == '_' || lexer->lookahead == '-') {
         lexer->advance(lexer, false);
         n++;
     }
     if (n < 2) return false;
-    /* Must be followed by whitespace to qualify. */
     if (lexer->lookahead != ' ' && lexer->lookahead != '\t') return false;
-    lexer->mark_end(lexer);  /* don't include the trailing ws */
+    lexer->mark_end(lexer);
     return true;
 }
 
@@ -435,6 +489,15 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                                              const bool *valid_symbols) {
     ScannerState *s = (ScannerState *)payload;
 
+    /* ── Priority 0a: list checkbox. Fires only when valid (i.e.
+     * inside a list_item, immediately after the bullet's ws). */
+    if (valid_symbols[EXT_LIST_CHECKBOX] && lexer->lookahead == '[') {
+        if (scan_list_checkbox(lexer)) {
+            lexer->result_symbol = EXT_LIST_CHECKBOX;
+            return true;
+        }
+    }
+
     /* ── Priority 0: headline_line sub-tokens. Tree-sitter restores
      * lexer state on scan() return false but NOT between sub-scanner
      * attempts within the same call. So we pick exactly ONE token
@@ -443,8 +506,103 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
      * the consumed chars. */
     if (valid_symbols[EXT_HEADLINE_TODO] || valid_symbols[EXT_HEADLINE_TITLE]
         || valid_symbols[EXT_HEADLINE_PRIORITY]
+        || valid_symbols[EXT_HEADLINE_COMMENT]
+        || valid_symbols[EXT_HEADLINE_STATS_COOKIE]
         || valid_symbols[EXT_HEADLINE_TAG_LIST_OPEN]) {
         int32_t la = lexer->lookahead;
+
+        /* `[` — could be priority `[#X]`, cookie `[N%]` / `[N/M]`,
+         * or part of the title. We commit to advancing past `[`,
+         * peek the next char to decide which branch, and either
+         * emit that token OR fall through to title (with the `[`
+         * already included). Note: tree-sitter rollback on false
+         * return only happens BETWEEN scan() calls, not within. */
+        if (la == '['
+            && (valid_symbols[EXT_HEADLINE_PRIORITY]
+                || valid_symbols[EXT_HEADLINE_STATS_COOKIE])) {
+            lexer->advance(lexer, false);  /* past `[` */
+            int32_t c1 = lexer->lookahead;
+            /* Priority `[#X]`. */
+            if (c1 == '#' && valid_symbols[EXT_HEADLINE_PRIORITY]) {
+                lexer->advance(lexer, false);
+                int32_t cx = lexer->lookahead;
+                if ((cx >= 'A' && cx <= 'Z') || (cx >= '0' && cx <= '9')) {
+                    lexer->advance(lexer, false);
+                    if (lexer->lookahead == ']') {
+                        lexer->advance(lexer, false);
+                        lexer->mark_end(lexer);
+                        lexer->result_symbol = EXT_HEADLINE_PRIORITY;
+                        return true;
+                    }
+                }
+                /* malformed — fall through to title fallback below */
+            }
+            /* Cookie `[N%]` / `[N/M]`. */
+            else if (((c1 >= '0' && c1 <= '9') || c1 == '%' || c1 == '/')
+                     && valid_symbols[EXT_HEADLINE_STATS_COOKIE]) {
+                while (lexer->lookahead >= '0' && lexer->lookahead <= '9')
+                    lexer->advance(lexer, false);
+                int32_t c = lexer->lookahead;
+                bool ok = false;
+                if (c == '%') {
+                    lexer->advance(lexer, false);
+                    if (lexer->lookahead == ']') {
+                        lexer->advance(lexer, false); ok = true;
+                    }
+                } else if (c == '/') {
+                    lexer->advance(lexer, false);
+                    while (lexer->lookahead >= '0' && lexer->lookahead <= '9')
+                        lexer->advance(lexer, false);
+                    if (lexer->lookahead == ']') {
+                        lexer->advance(lexer, false); ok = true;
+                    }
+                }
+                if (ok) {
+                    /* Consume trailing inline whitespace too, so the
+                     * subsequent `tag_list` external scanner sees `:`
+                     * directly (it requires `:` at lookahead). */
+                    while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
+                        lexer->advance(lexer, false);
+                    lexer->mark_end(lexer);
+                    lexer->result_symbol = EXT_HEADLINE_STATS_COOKIE;
+                    return true;
+                }
+                /* malformed — fall through to title fallback below */
+            }
+            /* Neither matched — `[...` is plain title content. We've
+             * already advanced past `[`; continue title scan from here
+             * and include those bytes in the title token. */
+            if (!valid_symbols[EXT_HEADLINE_TITLE]) return false;
+            lexer->mark_end(lexer);
+            char prev = (char)lexer->lookahead;
+            while (true) {
+                int32_t c = lexer->lookahead;
+                if (c == '\n' || c == 0 || lexer->eof(lexer)) break;
+                if (c == ':' && (prev == ' ' || prev == '\t')) {
+                    if (consume_tag_region(lexer)) {
+                        lexer->result_symbol = EXT_HEADLINE_TITLE;
+                        return true;
+                    }
+                    lexer->mark_end(lexer);
+                    prev = (char)lexer->lookahead;
+                    continue;
+                }
+                if (c == '[' && (prev == ' ' || prev == '\t')) {
+                    if (consume_stats_cookie(lexer)) {
+                        lexer->result_symbol = EXT_HEADLINE_TITLE;
+                        return true;
+                    }
+                    lexer->mark_end(lexer);
+                    prev = (char)lexer->lookahead;
+                    continue;
+                }
+                lexer->advance(lexer, false);
+                lexer->mark_end(lexer);
+                prev = (char)c;
+            }
+            lexer->result_symbol = EXT_HEADLINE_TITLE;
+            return true;
+        }
 
         /* Priority cookie. */
         if (la == '[' && valid_symbols[EXT_HEADLINE_PRIORITY]) {
@@ -479,44 +637,68 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
             return false;
         }
 
-        /* TODO keyword OR title. Both can start with uppercase letters,
-         * so we advance through letters/digits/_ once and decide based
-         * on the trailing context. */
+        /* TODO / COMMENT / title disambiguation. All can start with
+         * uppercase letters; we advance through the word once and
+         * decide based on what we matched.
+         *
+         * Order: COMMENT (literal "COMMENT") wins over generic TODO.
+         * Both require trailing whitespace. If neither matches, the
+         * consumed chars fold into the title. */
         if (la >= 'A' && la <= 'Z'
             && (valid_symbols[EXT_HEADLINE_TODO]
+                || valid_symbols[EXT_HEADLINE_COMMENT]
                 || valid_symbols[EXT_HEADLINE_TITLE])) {
+            /* Buffer the word so we can string-compare against COMMENT. */
+            char word[16];
+            int wlen = 0;
             int letters = 0;
             while (lexer->lookahead >= 'A' && lexer->lookahead <= 'Z') {
+                if (wlen < 15) word[wlen++] = (char)lexer->lookahead;
                 lexer->advance(lexer, false); letters++;
             }
             while ((lexer->lookahead >= 'A' && lexer->lookahead <= 'Z')
                    || (lexer->lookahead >= '0' && lexer->lookahead <= '9')
-                   || lexer->lookahead == '_') {
+                   || lexer->lookahead == '_'
+                   || lexer->lookahead == '-') {
+                if (wlen < 15) word[wlen++] = (char)lexer->lookahead;
                 lexer->advance(lexer, false);
             }
-            /* TODO qualifier: >= 2 uppercase letters at start, followed
-             * by whitespace (the JS rule's separator between todo and
-             * the next field). */
-            if (valid_symbols[EXT_HEADLINE_TODO] && letters >= 2
-                && (lexer->lookahead == ' ' || lexer->lookahead == '\t')) {
+            word[wlen] = '\0';
+            bool ws_after = (lexer->lookahead == ' ' || lexer->lookahead == '\t');
+            /* COMMENT: exact match + ws. */
+            if (valid_symbols[EXT_HEADLINE_COMMENT]
+                && ws_after && wlen == 7
+                && word[0] == 'C' && word[1] == 'O' && word[2] == 'M'
+                && word[3] == 'M' && word[4] == 'E' && word[5] == 'N'
+                && word[6] == 'T') {
+                lexer->mark_end(lexer);
+                lexer->result_symbol = EXT_HEADLINE_COMMENT;
+                return true;
+            }
+            /* TODO: >= 2 uppercase letters at start + ws. */
+            if (valid_symbols[EXT_HEADLINE_TODO] && letters >= 2 && ws_after) {
                 lexer->mark_end(lexer);
                 lexer->result_symbol = EXT_HEADLINE_TODO;
                 return true;
             }
-            /* Not a TODO. The chars we consumed become the start of
-             * the title; continue title-scanning for the rest of the
-             * line. */
+            /* Not TODO/COMMENT — fall through to title. */
             if (!valid_symbols[EXT_HEADLINE_TITLE]) return false;
             lexer->mark_end(lexer);
-            /* Continue as title from current position. The rest of the
-             * line might contain more chars, possibly including a
-             * trailing tag region. */
             char prev = (char)lexer->lookahead;
             while (true) {
                 int32_t c = lexer->lookahead;
                 if (c == '\n' || c == 0 || lexer->eof(lexer)) break;
                 if (c == ':' && (prev == ' ' || prev == '\t')) {
                     if (consume_tag_region(lexer)) {
+                        lexer->result_symbol = EXT_HEADLINE_TITLE;
+                        return true;
+                    }
+                    lexer->mark_end(lexer);
+                    prev = (char)lexer->lookahead;
+                    continue;
+                }
+                if (c == '[' && (prev == ' ' || prev == '\t')) {
+                    if (consume_stats_cookie(lexer)) {
                         lexer->result_symbol = EXT_HEADLINE_TITLE;
                         return true;
                     }
@@ -1007,20 +1189,44 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
     if (lexer->eof(lexer) && line_len == 0)
         return false;
 
+    /* Track the lblock-opener prefix end inside line_buf. When the
+     * line is `#+begin_src ...` etc., we want EXT_*_BLOCK_OPEN to
+     * cover only `#+begin_src` (the directive prefix), so JS rules
+     * can consume the language and header arguments. We snapshot
+     * mark_end at the prefix end during the read; if classification
+     * later disagrees, we overwrite mark_end at the final position. */
+    bool have_prefix_mark = false;
+    static const uint32_t name_len_for_kind[] = {0, 3, 7, 6, 5, 7};
     while (!lexer->eof(lexer) && lexer->lookahead != '\n'
            && line_len < ORG_LINE_BUF_MAX) {
         line_buf[line_len++] = (uint8_t)lexer->lookahead;
         lexer->advance(lexer, false);
+        if (!have_prefix_mark) {
+            uint32_t off = lblock_name_offset(line_buf, line_len);
+            if (off > 0) {
+                uint8_t kind = lblock_kind_from(line_buf, off, line_len);
+                if (kind > 0 && kind <= 5) {
+                    uint32_t prefix_end = off + name_len_for_kind[kind];
+                    if (line_len == prefix_end) {
+                        int32_t la2 = lexer->lookahead;
+                        if (la2 == ' ' || la2 == '\t' || la2 == '\n'
+                            || la2 == 0 || lexer->eof(lexer)) {
+                            lexer->mark_end(lexer);
+                            have_prefix_mark = true;
+                        }
+                    }
+                }
+            }
+        }
     }
     /* Consume the trailing newline (if any). */
     if (!lexer->eof(lexer) && lexer->lookahead == '\n')
         lexer->advance(lexer, false);
 
-    /* Token must end at the lexer's current position.  Without this,
-     * the early mark_end (set before advancing through leading stars)
-     * remains in effect and the emitted token is zero-width — tree-sitter
-     * then re-presents the same byte to the scanner forever. */
-    lexer->mark_end(lexer);
+    /* Default token end = current position (whole line consumed).
+     * If we DID set a prefix mark, that one stays in effect for an
+     * lblock-open emit. */
+    if (!have_prefix_mark) lexer->mark_end(lexer);
 
     LineClassification r = prepass_classify_line(s->prepass, line_buf, line_len);
 
@@ -1048,6 +1254,9 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
             default: return false;
         }
         if (!valid_symbols[open_sym]) return false;
+        /* If the prefix-mark wasn't set during the read (e.g.
+         * line_len overflowed buf), fall back to the whole-line
+         * mark_end (which `lexer->mark_end(lexer)` above set). */
         lexer->result_symbol = (TSSymbol)open_sym;
         return true;
     }
