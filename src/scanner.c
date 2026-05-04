@@ -11,6 +11,10 @@
 enum OrgExternal {
     EXT_HEADING_OPEN = 0,
     EXT_HEADING_CLOSE,
+    EXT_HEADLINE_TODO,
+    EXT_HEADLINE_PRIORITY,
+    EXT_HEADLINE_TITLE,
+    EXT_HEADLINE_TAG_LIST_OPEN,  /* zero-width validator at tag-list start */
     EXT_PLANNING_LINE,
     EXT_PROPDRAWER_OPEN,
     EXT_PROPDRAWER_CLOSE,
@@ -295,6 +299,134 @@ static uint8_t closes_needed(const ScannerState *s, uint8_t level) {
     return n;
 }
 
+/* ---------------------------------------------------------------------------
+ * Headline-line sub-scanners.
+ *
+ * `_heading_open` covers only the leading `*+` stars. After that, the JS
+ * rule for `headline_line` parses:
+ *
+ *     headline_line: stars + ws + priority? + title? + tag_list?
+ *
+ * `priority` is a simple regex; `title` and `tag_list` have a context-
+ * sensitive boundary — title ends at either end-of-line OR the start of
+ * a trailing `:tag1:tag2:` block. Tree-sitter regex can't express that
+ * (no lookahead), so we handle title + tag_list here.
+ *
+ * Tree-sitter mark_end semantics: mark_end records token end. Calls to
+ * advance after mark_end move the lexer forward, but on scan() return
+ * true the lexer position is reset to the LAST mark_end call. We use
+ * this to peek-then-rewind: advance through a candidate tag region;
+ * on success set mark_end to the position BEFORE the tag region.
+ * --------------------------------------------------------------------- */
+
+static inline bool is_tag_char(int32_t c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+        || (c >= '0' && c <= '9')
+        || c == '_' || c == '@' || c == '#' || c == '%';
+}
+
+/* From the current lexer position, ADVANCE through a candidate tag
+ * region (`:tag:tag:[ws]*` ending at newline/EOF) and return true if
+ * we found one. On success the lexer is past the region (caller can
+ * use mark_end to bound the actual emitted token). */
+static bool consume_tag_region(TSLexer *lexer) {
+    if (lexer->lookahead != ':') return false;
+    lexer->advance(lexer, false);  /* opening `:` */
+    if (!is_tag_char(lexer->lookahead)) return false;
+    while (true) {
+        while (is_tag_char(lexer->lookahead)) lexer->advance(lexer, false);
+        if (lexer->lookahead != ':') return false;
+        lexer->advance(lexer, false);  /* closing `:` of this tag */
+        int32_t la = lexer->lookahead;
+        if (is_tag_char(la)) continue;          /* `:tag1:tag2:` next iter */
+        /* End of tag region. Skip trailing inline whitespace then
+         * verify we reached end-of-line. */
+        while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
+            lexer->advance(lexer, false);
+        return lexer->lookahead == '\n' || lexer->lookahead == 0
+            || lexer->eof(lexer);
+    }
+}
+
+/* Scan a headline title from the current position to end-of-line OR
+ * the start of a trailing tag region. Returns true if at least one
+ * char was consumed. */
+static bool scan_headline_title(TSLexer *lexer) {
+    bool any_title_chars = false;
+    char prev = '\n';
+    while (true) {
+        int32_t c = lexer->lookahead;
+        if (c == '\n' || c == 0 || lexer->eof(lexer)) break;
+        if (c == ':' && (prev == ' ' || prev == '\t')) {
+            /* Try to consume a tag region from this `:`. mark_end is
+             * at the position before this `:` (and before any leading
+             * whitespace). If consume succeeds, returning true rewinds
+             * the lexer to mark_end, leaving the tag region for the
+             * next scan. */
+            if (consume_tag_region(lexer)) {
+                return any_title_chars;
+            }
+            /* Peek failed: the chars we consumed during the peek are
+             * actually part of the title. Move mark_end forward. */
+            any_title_chars = true;
+            lexer->mark_end(lexer);
+            prev = (char)lexer->lookahead;
+            continue;
+        }
+        lexer->advance(lexer, false);
+        any_title_chars = true;
+        lexer->mark_end(lexer);
+        prev = (char)c;
+    }
+    return any_title_chars;
+}
+
+/* Zero-width validator: returns true iff the current position starts
+ * a valid tag region (`:tag1:tag2:[ws]*` ending at newline/EOF).
+ * The internal advances during validation are discarded by tree-sitter
+ * on return false; on return true, mark_end was called at start so the
+ * lexer position rewinds to the `:` and the JS rule consumes it. */
+static bool scan_tag_list_open(TSLexer *lexer) {
+    if (lexer->lookahead != ':') return false;
+    lexer->mark_end(lexer);  /* zero-width emit */
+    return consume_tag_region(lexer);
+}
+
+/* Scan a TODO keyword: an uppercase word (>= 2 chars) followed by
+ * whitespace. The trailing whitespace is NOT consumed (the JS rule's
+ * /[ \t]+/ between todo and the next field does that). */
+static bool scan_headline_todo(TSLexer *lexer) {
+    if (lexer->lookahead < 'A' || lexer->lookahead > 'Z') return false;
+    int n = 0;
+    while ((lexer->lookahead >= 'A' && lexer->lookahead <= 'Z')
+           || (lexer->lookahead >= '0' && lexer->lookahead <= '9')
+           || lexer->lookahead == '_') {
+        lexer->advance(lexer, false);
+        n++;
+    }
+    if (n < 2) return false;
+    /* Must be followed by whitespace to qualify. */
+    if (lexer->lookahead != ' ' && lexer->lookahead != '\t') return false;
+    lexer->mark_end(lexer);  /* don't include the trailing ws */
+    return true;
+}
+
+/* Scan a priority cookie `[#X]` where X is uppercase letter or digit. */
+static bool scan_headline_priority(TSLexer *lexer) {
+    if (lexer->lookahead != '[') return false;
+    lexer->advance(lexer, false);
+    if (lexer->lookahead != '#') return false;
+    lexer->advance(lexer, false);
+    int32_t c = lexer->lookahead;
+    bool ok = (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+    if (!ok) return false;
+    lexer->advance(lexer, false);
+    if (lexer->lookahead != ']') return false;
+    lexer->advance(lexer, false);
+    lexer->mark_end(lexer);
+    return true;
+}
+
 /* -----------------------------------------------------------------------
  * Main scanner
  * --------------------------------------------------------------------- */
@@ -302,6 +434,112 @@ static uint8_t closes_needed(const ScannerState *s, uint8_t level) {
 bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                                              const bool *valid_symbols) {
     ScannerState *s = (ScannerState *)payload;
+
+    /* ── Priority 0: headline_line sub-tokens. Tree-sitter restores
+     * lexer state on scan() return false but NOT between sub-scanner
+     * attempts within the same call. So we pick exactly ONE token
+     * based on lookahead, optionally falling through to title for
+     * "candidate todo that turns out not to be one" without losing
+     * the consumed chars. */
+    if (valid_symbols[EXT_HEADLINE_TODO] || valid_symbols[EXT_HEADLINE_TITLE]
+        || valid_symbols[EXT_HEADLINE_PRIORITY]
+        || valid_symbols[EXT_HEADLINE_TAG_LIST_OPEN]) {
+        int32_t la = lexer->lookahead;
+
+        /* Priority cookie. */
+        if (la == '[' && valid_symbols[EXT_HEADLINE_PRIORITY]) {
+            if (scan_headline_priority(lexer)) {
+                lexer->result_symbol = EXT_HEADLINE_PRIORITY;
+                return true;
+            }
+            /* If priority validation failed mid-advance, fall through
+             * to title (which can include `[` as ordinary content). */
+            if (valid_symbols[EXT_HEADLINE_TITLE]) {
+                if (scan_headline_title(lexer)) {
+                    lexer->result_symbol = EXT_HEADLINE_TITLE;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /* Tag list opener (zero-width validator). */
+        if (la == ':' && valid_symbols[EXT_HEADLINE_TAG_LIST_OPEN]) {
+            if (scan_tag_list_open(lexer)) {
+                lexer->result_symbol = EXT_HEADLINE_TAG_LIST_OPEN;
+                return true;
+            }
+            /* `:` here is not a tag region — treat as title content. */
+            if (valid_symbols[EXT_HEADLINE_TITLE]) {
+                if (scan_headline_title(lexer)) {
+                    lexer->result_symbol = EXT_HEADLINE_TITLE;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /* TODO keyword OR title. Both can start with uppercase letters,
+         * so we advance through letters/digits/_ once and decide based
+         * on the trailing context. */
+        if (la >= 'A' && la <= 'Z'
+            && (valid_symbols[EXT_HEADLINE_TODO]
+                || valid_symbols[EXT_HEADLINE_TITLE])) {
+            int letters = 0;
+            while (lexer->lookahead >= 'A' && lexer->lookahead <= 'Z') {
+                lexer->advance(lexer, false); letters++;
+            }
+            while ((lexer->lookahead >= 'A' && lexer->lookahead <= 'Z')
+                   || (lexer->lookahead >= '0' && lexer->lookahead <= '9')
+                   || lexer->lookahead == '_') {
+                lexer->advance(lexer, false);
+            }
+            /* TODO qualifier: >= 2 uppercase letters at start, followed
+             * by whitespace (the JS rule's separator between todo and
+             * the next field). */
+            if (valid_symbols[EXT_HEADLINE_TODO] && letters >= 2
+                && (lexer->lookahead == ' ' || lexer->lookahead == '\t')) {
+                lexer->mark_end(lexer);
+                lexer->result_symbol = EXT_HEADLINE_TODO;
+                return true;
+            }
+            /* Not a TODO. The chars we consumed become the start of
+             * the title; continue title-scanning for the rest of the
+             * line. */
+            if (!valid_symbols[EXT_HEADLINE_TITLE]) return false;
+            lexer->mark_end(lexer);
+            /* Continue as title from current position. The rest of the
+             * line might contain more chars, possibly including a
+             * trailing tag region. */
+            char prev = (char)lexer->lookahead;
+            while (true) {
+                int32_t c = lexer->lookahead;
+                if (c == '\n' || c == 0 || lexer->eof(lexer)) break;
+                if (c == ':' && (prev == ' ' || prev == '\t')) {
+                    if (consume_tag_region(lexer)) {
+                        lexer->result_symbol = EXT_HEADLINE_TITLE;
+                        return true;
+                    }
+                    lexer->mark_end(lexer);
+                    prev = (char)lexer->lookahead;
+                    continue;
+                }
+                lexer->advance(lexer, false);
+                lexer->mark_end(lexer);
+                prev = (char)c;
+            }
+            lexer->result_symbol = EXT_HEADLINE_TITLE;
+            return true;
+        }
+
+        /* Default: title (lowercase / digits / punctuation start). */
+        if (valid_symbols[EXT_HEADLINE_TITLE]) {
+            if (scan_headline_title(lexer)) {
+                lexer->result_symbol = EXT_HEADLINE_TITLE;
+                return true;
+            }
+        }
+    }
 
     /* ── Priority 1: drain queued _heading_close tokens (zero-width). ── */
     if (s->pending_closes > 0 && valid_symbols[EXT_HEADING_CLOSE]) {
@@ -331,15 +569,20 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
         return true;
     }
 
-    /* ── Priority 2: emit queued _heading_open (consume the line). ──── */
+    /* ── Priority 2: emit queued _heading_open (covers the stars). ──
+     * The OPEN token covers the leading `*+` of the heading line. JS
+     * rules then consume the rest (space + priority + title + tags +
+     * newline) and expose them as named nodes. The lookahead is at
+     * the line-start position (heading_close was zero-width), so we
+     * advance past `level` stars before mark_end. */
     if (s->pending_open_level > 0 && valid_symbols[EXT_HEADING_OPEN]) {
         uint8_t level = s->pending_open_level;
         s->pending_open_level = 0;
-        /* Advance through the heading line bytes. */
-        while (!lexer->eof(lexer) && lexer->lookahead != '\n')
+        for (uint8_t i = 0; i < level; i++) {
+            if (lexer->lookahead != '*') break;
             lexer->advance(lexer, false);
-        if (!lexer->eof(lexer) && lexer->lookahead == '\n')
-            lexer->advance(lexer, false);
+        }
+        lexer->mark_end(lexer);
         s->heading_levels[s->heading_depth++] = level;
         lexer->result_symbol = EXT_HEADING_OPEN;
         return true;
@@ -423,15 +666,14 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                 return true;
             }
 
-            /* No closes; emit open directly (consume rest of line). */
+            /* No closes; emit OPEN covering only the stars. The JS
+             * rules for `headline_line` consume the rest (space +
+             * priority + title + tag_list + newline) so the parse
+             * tree exposes those as named nodes. mark_end was called
+             * at line start (above); calling it again here moves the
+             * end to the current position (after stars). */
             if (valid_symbols[EXT_HEADING_OPEN]) {
-                /* Advance through remainder of line (past the ' ' and title). */
-                while (!lexer->eof(lexer) && lexer->lookahead != '\n')
-                    lexer->advance(lexer, false);
-                if (!lexer->eof(lexer) && lexer->lookahead == '\n')
-                    lexer->advance(lexer, false);
-                /* Update mark_end to include the whole line. */
-                lexer->mark_end(lexer);
+                lexer->mark_end(lexer);  /* token spans the stars */
                 s->heading_levels[s->heading_depth++] = level;
                 lexer->result_symbol = EXT_HEADING_OPEN;
                 return true;

@@ -63,7 +63,7 @@
         "members": [
           {
             "type": "SYMBOL",
-            "name": "_heading_open"
+            "name": "headline_line"
           },
           {
             "type": "REPEAT",
@@ -106,6 +106,163 @@
           }
         ]
       }
+    },
+    "headline_line": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "FIELD",
+          "name": "stars",
+          "content": {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_heading_open"
+            },
+            "named": true,
+            "value": "stars"
+          }
+        },
+        {
+          "type": "PATTERN",
+          "value": "[ \\t]+"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "FIELD",
+                  "name": "todo",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "todo"
+                  }
+                },
+                {
+                  "type": "PATTERN",
+                  "value": "[ \\t]+"
+                }
+              ]
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "FIELD",
+                  "name": "priority",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "priority"
+                  }
+                },
+                {
+                  "type": "PATTERN",
+                  "value": "[ \\t]+"
+                }
+              ]
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "title",
+              "content": {
+                "type": "SYMBOL",
+                "name": "title"
+              }
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "tag_list",
+              "content": {
+                "type": "SYMBOL",
+                "name": "tag_list"
+              }
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        }
+      ]
+    },
+    "todo": {
+      "type": "SYMBOL",
+      "name": "_headline_todo"
+    },
+    "priority": {
+      "type": "SYMBOL",
+      "name": "_headline_priority"
+    },
+    "title": {
+      "type": "SYMBOL",
+      "name": "_headline_title"
+    },
+    "tag_list": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_headline_tag_list_open"
+        },
+        {
+          "type": "STRING",
+          "value": ":"
+        },
+        {
+          "type": "REPEAT1",
+          "content": {
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "FIELD",
+                "name": "tag",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "tag"
+                }
+              },
+              {
+                "type": "STRING",
+                "value": ":"
+              }
+            ]
+          }
+        },
+        {
+          "type": "PATTERN",
+          "value": "[ \\t]*"
+        }
+      ]
+    },
+    "tag": {
+      "type": "PATTERN",
+      "value": "[A-Za-z0-9_@#%]+"
     },
     "planning": {
       "type": "PREC_RIGHT",
@@ -707,6 +864,22 @@
     },
     {
       "type": "SYMBOL",
+      "name": "_headline_todo"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_headline_priority"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_headline_title"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_headline_tag_list_open"
+    },
+    {
+      "type": "SYMBOL",
       "name": "_planning_line"
     },
     {
@@ -883,5 +1056,6 @@
     }
   ],
   "inline": [],
-  "supertypes": []
+  "supertypes": [],
+  "reserved": {}
 }

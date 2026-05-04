@@ -5,6 +5,10 @@ module.exports = grammar({
     // Order MUST match grammar/src/scanner.c's `enum OrgExternal`.
     $._heading_open,
     $._heading_close,
+    $._headline_todo,     // uppercase TODO keyword
+    $._headline_priority, // `[#A]` cookie
+    $._headline_title,    // text from current pos to before tag_list / EOL
+    $._headline_tag_list_open, // zero-width validator at tag-list start
     $._planning_line,
     $._propdrawer_open,
     $._propdrawer_close,
@@ -73,12 +77,64 @@ module.exports = grammar({
     )),
 
     headline: $ => prec.right(seq(
-      $._heading_open,
+      $.headline_line,
       repeat($._empty_line),
       optional($.section),
       repeat(choice($._empty_line, $.headline)),
       $._heading_close,
     )),
+
+    /* The heading line itself, decomposed into named nodes:
+     *
+     *   * TODO [#A] Title text :tag1:tag2:\n
+     *   ^^^^                                 stars (from external scanner)
+     *        ^^^^^                           todo (regex; config-aware
+     *                                              classification done by
+     *                                              consumers)
+     *              ^^^^                      priority
+     *                   ^^^^^^^^^^           title
+     *                              ^^^^^^^^^^ tag_list (with tag children)
+     *                                       ^ newline
+     *
+     * `stars` aliases the `_heading_open` external token (which covers
+     * `*+`). The remainder of the line is parsed by JS rules below.
+     */
+    headline_line: $ => seq(
+      field('stars',     alias($._heading_open, $.stars)),
+      /[ \t]+/,
+      optional(seq(field('todo',     $.todo),     /[ \t]+/)),
+      optional(seq(field('priority', $.priority), /[ \t]+/)),
+      optional(field('title',    $.title)),
+      optional(field('tag_list', $.tag_list)),
+    ),
+
+    /* TODO keyword. External token: uppercase word (>= 2 chars)
+     * followed by whitespace. Consumers classify against the
+     * configured `org-todo-keywords` sequence to label active/done. */
+    todo: $ => $._headline_todo,
+
+    /* Priority cookie `[#A]` / `[#B]` / `[#1]`. */
+    priority: $ => $._headline_priority,
+
+    /* Headline title. Single external token: the scanner peeks from
+     * current position to find either end-of-line OR the start of a
+     * trailing tag block, then emits everything before that. Trailing
+     * whitespace before tags is included. */
+    title: $ => $._headline_title,
+
+    /* Trailing tag block. Validation handled by external token
+     * `_headline_tag_list_open` (zero-width) — fires only at a real
+     * `:tag1:tag2:[ws]*\n` position. JS rules then consume the
+     * `:` separators and `tag` names with regex tokens, exposing
+     * each tag as a named child. */
+    tag_list: $ => seq(
+      $._headline_tag_list_open,
+      ':',
+      repeat1(seq(field('tag', $.tag), ':')),
+      /[ \t]*/,
+    ),
+
+    tag: $ => /[A-Za-z0-9_@#%]+/,
 
     planning: $ => prec.right(repeat1($._planning_line)),
 

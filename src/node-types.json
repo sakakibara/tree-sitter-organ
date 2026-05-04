@@ -473,10 +473,14 @@
     "fields": {},
     "children": {
       "multiple": true,
-      "required": false,
+      "required": true,
       "types": [
         {
           "type": "headline",
+          "named": true
+        },
+        {
+          "type": "headline_line",
           "named": true
         },
         {
@@ -484,6 +488,62 @@
           "named": true
         }
       ]
+    }
+  },
+  {
+    "type": "headline_line",
+    "named": true,
+    "fields": {
+      "priority": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "priority",
+            "named": true
+          }
+        ]
+      },
+      "stars": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "stars",
+            "named": true
+          }
+        ]
+      },
+      "tag_list": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "tag_list",
+            "named": true
+          }
+        ]
+      },
+      "title": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "title",
+            "named": true
+          }
+        ]
+      },
+      "todo": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "todo",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -650,6 +710,11 @@
   },
   {
     "type": "planning",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "priority",
     "named": true,
     "fields": {}
   },
@@ -821,6 +886,32 @@
     "fields": {}
   },
   {
+    "type": "tag_list",
+    "named": true,
+    "fields": {
+      "tag": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "tag",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "title",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "todo",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "verse_block",
     "named": true,
     "fields": {}
@@ -927,5 +1018,17 @@
         }
       ]
     }
+  },
+  {
+    "type": ":",
+    "named": false
+  },
+  {
+    "type": "stars",
+    "named": true
+  },
+  {
+    "type": "tag",
+    "named": true
   }
 ]
