@@ -358,7 +358,17 @@ module.exports = grammar({
     ),
     table_rule: $ => $._table_rule_line,
 
-    footnote_definition: $ => prec.right(seq($._footnote_def_line, repeat($._footnote_body_content_line))),
+    /* Footnote definition: `[fn:LABEL]` followed by body lines.
+     * Scanner emits `_footnote_def_line` covering only `[fn:`; JS
+     * consumes label + `]` and then any body content. */
+    footnote_definition: $ => prec.right(seq(
+      $._footnote_def_line,
+      field('label', $.footnote_label),
+      ']',
+      repeat($._footnote_body_content_line),
+    )),
+
+    footnote_label: $ => /[A-Za-z0-9_-]+/,
     /* Inlinetask: a 15+-star "task" mini-headline that nests inside
      * a section. The opening line is decomposed (same fields as a
      * regular headline) — scanner emits `_inlinetask_open` covering
@@ -424,9 +434,34 @@ module.exports = grammar({
 
     directive_name:  $ => /[A-Za-z][A-Za-z0-9_-]*/,
     directive_value: $ => /[^\n]+/,
-    comment: $ => prec.right(repeat1($._comment_line)),
-    fixed_width: $ => prec.right(repeat1($._fixed_width_line)),
+    /* Org comment paragraph: 1+ lines starting with `# ` or just `#`.
+     * Each line's `#` prefix is now its own token; JS rules consume
+     * the body text as a `comment_body` field. */
+    comment: $ => prec.right(repeat1($.comment_line)),
+
+    comment_line: $ => seq(
+      $._comment_line,
+      optional(seq(/[ \t]*/, field('body', $.comment_body))),
+      /\r?\n/,
+    ),
+
+    comment_body: $ => /[^\n]+/,
+
+    /* Fixed-width paragraph: 1+ lines starting with `: ` or just `:`.
+     * The body is exposed as a field. */
+    fixed_width: $ => prec.right(repeat1($.fixed_width_line)),
+
+    fixed_width_line: $ => seq(
+      $._fixed_width_line,
+      optional(seq(/[ \t]*/, field('body', $.fixed_width_body))),
+      /\r?\n/,
+    ),
+
+    fixed_width_body: $ => /[^\n]+/,
     horizontal_rule: $ => $._hrule_line,
+    /* Diary sexp. Single-token leaf — the `<%%(...)>` vs `%%(...)`
+     * forms have different prepass classifications and the scanner
+     * detection is too varied to expose a uniform body field here. */
     diary_sexp: $ => $._diary_sexp_line,
     paragraph: $ => prec.right(repeat1($._inline_content_line)),
   },

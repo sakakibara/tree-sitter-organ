@@ -69,12 +69,43 @@
   {
     "type": "comment",
     "named": true,
-    "fields": {}
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "comment_line",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "comment_block",
     "named": true,
     "fields": {}
+  },
+  {
+    "type": "comment_body",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "comment_line",
+    "named": true,
+    "fields": {
+      "body": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "comment_body",
+            "named": true
+          }
+        ]
+      }
+    }
   },
   {
     "type": "comment_marker",
@@ -373,12 +404,54 @@
   {
     "type": "fixed_width",
     "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "fixed_width_line",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "fixed_width_body",
+    "named": true,
     "fields": {}
+  },
+  {
+    "type": "fixed_width_line",
+    "named": true,
+    "fields": {
+      "body": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "fixed_width_body",
+            "named": true
+          }
+        ]
+      }
+    }
   },
   {
     "type": "footnote_definition",
     "named": true,
-    "fields": {},
+    "fields": {
+      "label": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "footnote_label",
+            "named": true
+          }
+        ]
+      }
+    },
     "children": {
       "multiple": true,
       "required": false,
@@ -1415,6 +1488,10 @@
     "named": false
   },
   {
+    "type": "]",
+    "named": false
+  },
+  {
     "type": "block_header_args",
     "named": true
   },
@@ -1436,6 +1513,10 @@
   },
   {
     "type": "drawer_name",
+    "named": true
+  },
+  {
+    "type": "footnote_label",
     "named": true
   },
   {

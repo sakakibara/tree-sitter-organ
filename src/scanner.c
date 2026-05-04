@@ -1197,6 +1197,8 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                 if (lexer->lookahead == ':') {
                     fn_consumed[fn_len++] = ':';
                     lexer->advance(lexer, false);
+                    /* Mark after `[fn:` so JS rules consume label + `]`. */
+                    lexer->mark_end(lexer);
                     uint32_t label_len = 0;
                     while (((lexer->lookahead >= 'A' && lexer->lookahead <= 'Z')
                             || (lexer->lookahead >= 'a' && lexer->lookahead <= 'z')
@@ -1221,7 +1223,9 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
         }
 
         if (fn_ok) {
-            lexer->mark_end(lexer);
+            /* mark_end was set after `[fn:` above; keep it there so
+             * the emitted `_footnote_def_line` covers only the prefix
+             * and JS rules consume label + `]` as named children. */
             lexer->result_symbol = EXT_FOOTNOTE_DEF_LINE;
             return true;
         }
@@ -1280,7 +1284,8 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
      */
     enum { MARK_NONE, MARK_HASH, MARK_LBLOCK, MARK_COLON,
            MARK_DRAWER, MARK_PROPERTY, MARK_PLANNING, MARK_CLOCK,
-           MARK_INLINETASK };
+           MARK_INLINETASK, MARK_COMMENT_LINE, MARK_FIXED_WIDTH,
+           MARK_DIARY_SEXP };
     int mark_kind = MARK_NONE;
     bool have_prefix_mark = false;
     static const uint32_t name_len_for_kind[] = {0, 3, 7, 6, 5, 7};
@@ -1344,7 +1349,36 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
             || mark_kind == MARK_PROPERTY
             || mark_kind == MARK_PLANNING
             || mark_kind == MARK_CLOCK
-            || mark_kind == MARK_INLINETASK) continue;
+            || mark_kind == MARK_INLINETASK
+            || mark_kind == MARK_COMMENT_LINE
+            || mark_kind == MARK_FIXED_WIDTH
+            || mark_kind == MARK_DIARY_SEXP) continue;
+
+        /* Org-comment line `# text` (NOT `#+keyword:` directive — the
+         * `#+` check below handles that). At line_len=1 with `#` and
+         * lookahead is space/tab/newline/EOF (NOT `+`), it's a comment. */
+        if (mark_kind == MARK_NONE && line_len == 1 && line_buf[0] == '#'
+            && lexer->lookahead != '+') {
+            lexer->mark_end(lexer);
+            mark_kind = MARK_COMMENT_LINE;
+            have_prefix_mark = true;
+            continue;
+        }
+
+        /* Fixed-width line `: text` (colon + space + text, OR a bare
+         * colon at end of line). Differs from drawer/property which
+         * has `:NAME:` (multi-char between colons). */
+        if (mark_kind == MARK_NONE && line_len == 1 && line_buf[0] == ':'
+            && (lexer->lookahead == ' ' || lexer->lookahead == '\t'
+                || lexer->lookahead == '\n' || lexer->eof(lexer))) {
+            lexer->mark_end(lexer);
+            mark_kind = MARK_FIXED_WIDTH;
+            have_prefix_mark = true;
+            continue;
+        }
+
+        /* Diary sexp left as a single-token leaf (the prepass
+         * classifies only `%%(...)`, not `<%%(...)>`). */
 
         /* Inlinetask open line: `***************<+> TITLE`.  Priority
          * 4 above pre-consumed the 15+ leading stars (and pre-filled
