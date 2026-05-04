@@ -413,14 +413,6 @@ static bool scan_headline_title(TSLexer *lexer) {
     return any_title_chars;
 }
 
-/* Scan a statistics cookie `[N%]` / `[N/M]` at current position. */
-static bool scan_stats_cookie(TSLexer *lexer) {
-    if (lexer->lookahead != '[') return false;
-    if (!consume_stats_cookie(lexer)) return false;
-    lexer->mark_end(lexer);
-    return true;
-}
-
 /* List checkbox: `[ ]` / `[x]` / `[X]` / `[-]` at the start of a
  * list_item's content, immediately after the bullet's whitespace. */
 static bool scan_list_checkbox(TSLexer *lexer) {
@@ -449,23 +441,6 @@ static bool scan_tag_list_open(TSLexer *lexer) {
     if (lexer->lookahead != ':') return false;
     lexer->mark_end(lexer);  /* zero-width emit */
     return consume_tag_region(lexer);
-}
-
-/* Scan a TODO keyword: an uppercase word (>= 2 chars) optionally
- * containing digits / `_` / `-`, followed by whitespace. */
-static bool scan_headline_todo(TSLexer *lexer) {
-    if (lexer->lookahead < 'A' || lexer->lookahead > 'Z') return false;
-    int n = 0;
-    while ((lexer->lookahead >= 'A' && lexer->lookahead <= 'Z')
-           || (lexer->lookahead >= '0' && lexer->lookahead <= '9')
-           || lexer->lookahead == '_' || lexer->lookahead == '-') {
-        lexer->advance(lexer, false);
-        n++;
-    }
-    if (n < 2) return false;
-    if (lexer->lookahead != ' ' && lexer->lookahead != '\t') return false;
-    lexer->mark_end(lexer);
-    return true;
 }
 
 /* Scan a priority cookie `[#X]` where X is uppercase letter or digit. */
@@ -1121,7 +1096,6 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
          * possible.  Mid-loop colon-mark moves it forward; if planning/
          * clock is detected, we leave mark_end at start. */
         bool have_b2_mark = false;
-        bool have_b2_zero_width = false;
         int  b2_forced_sym = -1;  /* >=0 = override prepass with this symbol */
         lexer->mark_end(lexer);
         while (!lexer->eof(lexer) && lexer->lookahead != '\n'
@@ -1178,7 +1152,6 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                             b2_forced_sym = EXT_PLANNING_LINE;
                         }
                         have_b2_mark = true;
-                        have_b2_zero_width = (klen != 5);
                         continue;
                     }
                 }

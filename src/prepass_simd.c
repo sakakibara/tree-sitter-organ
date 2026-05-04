@@ -2,8 +2,8 @@
 #include <string.h>
 
 uint16_t organ_leading_indent_swar(const uint8_t *p, uint32_t len) {
-    uint16_t i = 0;
-    while (i + 8 <= len) {
+    uint32_t i = 0;
+    while (i + 8u <= len) {
         uint64_t w;
         memcpy(&w, p + i, 8);
         uint64_t sp_mask = w ^ 0x2020202020202020ULL;
@@ -13,9 +13,9 @@ uint16_t organ_leading_indent_swar(const uint8_t *p, uint32_t len) {
         uint64_t neither = ~(zero_sp | zero_ht);
         uint64_t bad = neither & 0x8080808080808080ULL;
         if (bad == 0) { i += 8; continue; }
-        i += (uint16_t)(__builtin_ctzll(bad) / 8);
-        return i;
+        i += (uint32_t)(__builtin_ctzll(bad) / 8);
+        return (uint16_t)i;
     }
     while (i < len && (p[i] == ' ' || p[i] == '\t')) i++;
-    return i;
+    return (uint16_t)i;
 }
