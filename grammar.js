@@ -155,10 +155,28 @@ module.exports = grammar({
 
     property_drawer: $ => seq(
       $._propdrawer_open,
+      'PROPERTIES',
+      ':',
+      /[ \t]*\r?\n/,
       repeat($.node_property),
       $._propdrawer_close,
+      'END',
+      ':',
+      /[ \t]*\r?\n/,
     ),
-    node_property: $ => $._node_property_line,
+    /* Property line inside a property_drawer: `:KEY: value`. Scanner
+     * emits `_node_property_line` covering only the leading `:` so
+     * JS rules expose `name` and optional `value` as named children. */
+    node_property: $ => seq(
+      $._node_property_line,
+      field('name', $.property_name),
+      ':',
+      optional(seq(/[ \t]+/, field('value', $.property_value))),
+      /[ \t]*\r?\n/,
+    ),
+
+    property_name:  $ => /[A-Za-z_][A-Za-z0-9_+-]*/,
+    property_value: $ => /[^\n]+/,
 
     section: $ => prec.right(seq(
       $._meaningful_content_line,
@@ -209,7 +227,22 @@ module.exports = grammar({
       $._empty_line,
     ),
 
-    drawer: $ => seq($._drawer_open, repeat($._content_line), $._drawer_close),
+    /* Custom-named drawer `:NAME: ... :END:`. Scanner emits both
+     * `_drawer_open` and `_drawer_close` covering only the leading
+     * `:` so JS rules expose the name as a child field. */
+    drawer: $ => seq(
+      $._drawer_open,
+      field('name', $.drawer_name),
+      ':',
+      /[ \t]*\r?\n/,
+      repeat($._content_line),
+      $._drawer_close,
+      'END',
+      ':',
+      /[ \t]*\r?\n/,
+    ),
+
+    drawer_name: $ => /[A-Za-z_][A-Za-z0-9_-]*/,
     greater_block: $ => seq($._gblock_open, repeat($._content_line), $._gblock_close),
     dynamic_block: $ => seq($._dynblock_open, repeat($._content_line), $._dynblock_close),
 
@@ -300,8 +333,27 @@ module.exports = grammar({
     inlinetask: $ => seq($._inlinetask_open, repeat($._content_line), $._inlinetask_close),
 
     clock: $ => $._clock_line,
-    keyword: $ => $._keyword_line,
-    affiliated_keyword: $ => $._affiliated_keyword_line,
+    /* File-level / element-level directive line (`#+TITLE: foo`).
+     * The scanner emits `_keyword_line` covering only the `#+`
+     * prefix; JS rules consume the keyword name, separator, and value
+     * as separate named children. */
+    keyword: $ => seq(
+      $._keyword_line,
+      field('name', $.directive_name),
+      ':',
+      optional(seq(/[ \t]+/, field('value', $.directive_value))),
+      /[ \t]*\r?\n/,
+    ),
+    affiliated_keyword: $ => seq(
+      $._affiliated_keyword_line,
+      field('name', $.directive_name),
+      ':',
+      optional(seq(/[ \t]+/, field('value', $.directive_value))),
+      /[ \t]*\r?\n/,
+    ),
+
+    directive_name:  $ => /[A-Za-z][A-Za-z0-9_-]*/,
+    directive_value: $ => /[^\n]+/,
     comment: $ => prec.right(repeat1($._comment_line)),
     fixed_width: $ => prec.right(repeat1($._fixed_width_line)),
     horizontal_rule: $ => $._hrule_line,

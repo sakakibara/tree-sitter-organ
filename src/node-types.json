@@ -2,7 +2,28 @@
   {
     "type": "affiliated_keyword",
     "named": true,
-    "fields": {}
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "directive_name",
+            "named": true
+          }
+        ]
+      },
+      "value": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "directive_value",
+            "named": true
+          }
+        ]
+      }
+    }
   },
   {
     "type": "checkbox",
@@ -35,6 +56,11 @@
     "fields": {}
   },
   {
+    "type": "directive_value",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "document",
     "named": true,
     "root": true,
@@ -57,7 +83,18 @@
   {
     "type": "drawer",
     "named": true,
-    "fields": {},
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "drawer_name",
+            "named": true
+          }
+        ]
+      }
+    },
     "children": {
       "multiple": true,
       "required": false,
@@ -719,7 +756,28 @@
   {
     "type": "keyword",
     "named": true,
-    "fields": {}
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "directive_name",
+            "named": true
+          }
+        ]
+      },
+      "value": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "directive_value",
+            "named": true
+          }
+        ]
+      }
+    }
   },
   {
     "type": "latex_environment",
@@ -784,7 +842,28 @@
   {
     "type": "node_property",
     "named": true,
-    "fields": {}
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "property_name",
+            "named": true
+          }
+        ]
+      },
+      "value": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "property_value",
+            "named": true
+          }
+        ]
+      }
+    }
   },
   {
     "type": "paragraph",
@@ -815,6 +894,11 @@
         }
       ]
     }
+  },
+  {
+    "type": "property_value",
+    "named": true,
+    "fields": {}
   },
   {
     "type": "section",
@@ -1144,11 +1228,31 @@
     "named": false
   },
   {
+    "type": "END",
+    "named": false
+  },
+  {
+    "type": "PROPERTIES",
+    "named": false
+  },
+  {
     "type": "block_header_args",
     "named": true
   },
   {
     "type": "bullet",
+    "named": true
+  },
+  {
+    "type": "directive_name",
+    "named": true
+  },
+  {
+    "type": "drawer_name",
+    "named": true
+  },
+  {
+    "type": "property_name",
     "named": true
   },
   {

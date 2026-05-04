@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -1077,19 +1078,35 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
         }
 
         /* No list open and not a bullet — fall through to Priority 5 with
-         * the consumed bytes prepended so prepass sees the full line. */
+         * the consumed bytes prepended so prepass sees the full line.
+         * Apply the same MARK_COLON shortcut here so an indented
+         * `  :PROPERTIES:` / `  :KEY: value` exposes the leading `:`
+         * as a separate token. */
         static uint8_t line_buf2[ORG_LINE_BUF_MAX];
         uint32_t ll = 0;
         for (uint32_t i = 0; i < bullet_consumed_len && ll < ORG_LINE_BUF_MAX; i++)
             line_buf2[ll++] = bullet_consumed[i];
+        bool have_b2_mark = false;
         while (!lexer->eof(lexer) && lexer->lookahead != '\n'
                && ll < ORG_LINE_BUF_MAX) {
             line_buf2[ll++] = (uint8_t)lexer->lookahead;
             lexer->advance(lexer, false);
+            if (!have_b2_mark && line_buf2[ll - 1] == ':') {
+                bool ws_only = true;
+                for (uint32_t i = 0; i + 1 < ll; i++) {
+                    if (line_buf2[i] != ' ' && line_buf2[i] != '\t') {
+                        ws_only = false; break;
+                    }
+                }
+                if (ws_only) {
+                    lexer->mark_end(lexer);
+                    have_b2_mark = true;
+                }
+            }
         }
         if (!lexer->eof(lexer) && lexer->lookahead == '\n')
             lexer->advance(lexer, false);
-        lexer->mark_end(lexer);
+        if (!have_b2_mark) lexer->mark_end(lexer);
 
         LineClassification rr = prepass_classify_line(s->prepass, line_buf2, ll);
         if (rr.type == TT_HEADING) return false;
@@ -1189,19 +1206,60 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
     if (lexer->eof(lexer) && line_len == 0)
         return false;
 
-    /* Track the lblock-opener prefix end inside line_buf. When the
-     * line is `#+begin_src ...` etc., we want EXT_*_BLOCK_OPEN to
-     * cover only `#+begin_src` (the directive prefix), so JS rules
-     * can consume the language and header arguments. We snapshot
-     * mark_end at the prefix end during the read; if classification
-     * later disagrees, we overwrite mark_end at the final position. */
+    /* Track sub-line mark_end positions. We snapshot mark_end during
+     * the read to expose internal structure of single-line tokens.
+     * Specificity order (later overrides earlier within the same
+     * line read):
+     *
+     *   keyword / affiliated_keyword: cover `#+` (2 chars).
+     *   lblock open: cover `#+begin_<name>` (more specific).
+     *   drawer open: cover `:NAME:` (whole drawer marker).
+     *   node_property: cover `:KEY:` (so JS picks up value).
+     *
+     * Once the most-specific marker has fired (lblock or drawer/
+     * property), no later check runs.  If the prepass later
+     * classifies the line as something we DIDN'T mark (e.g., a
+     * paragraph that happens to start with `#+`), the post-loop
+     * `if (!have_prefix_mark) lexer->mark_end(lexer);` extends to
+     * end-of-line.
+     */
+    enum { MARK_NONE, MARK_HASH, MARK_LBLOCK, MARK_COLON,
+           MARK_DRAWER, MARK_PROPERTY };
+    int mark_kind = MARK_NONE;
     bool have_prefix_mark = false;
     static const uint32_t name_len_for_kind[] = {0, 3, 7, 6, 5, 7};
     while (!lexer->eof(lexer) && lexer->lookahead != '\n'
            && line_len < ORG_LINE_BUF_MAX) {
         line_buf[line_len++] = (uint8_t)lexer->lookahead;
         lexer->advance(lexer, false);
-        if (!have_prefix_mark) {
+
+        /* `:`-leading line (after optional leading whitespace): drawer
+         * or node_property. Snapshot mark_end at the first `:` so the
+         * eventual `_drawer_open` / `_node_property_line` token covers
+         * only that single colon; JS rules consume name + closing `:`
+         * + (value/newline) from there. */
+        if (mark_kind == MARK_NONE && line_buf[line_len - 1] == ':') {
+            /* Verify all preceding chars in the line so far are
+             * whitespace — i.e., this is the FIRST non-ws char. */
+            bool ws_only = true;
+            for (uint32_t i = 0; i + 1 < line_len; i++) {
+                if (line_buf[i] != ' ' && line_buf[i] != '\t') {
+                    ws_only = false; break;
+                }
+            }
+            if (ws_only) {
+                lexer->mark_end(lexer);
+                mark_kind = MARK_COLON;
+                have_prefix_mark = true;
+                continue;
+            }
+        }
+
+        /* Lblock open is the most specific `#+` form — always allow
+         * upgrade from MARK_HASH to MARK_LBLOCK. */
+        if (mark_kind != MARK_LBLOCK
+            && mark_kind != MARK_DRAWER
+            && mark_kind != MARK_PROPERTY) {
             uint32_t off = lblock_name_offset(line_buf, line_len);
             if (off > 0) {
                 uint8_t kind = lblock_kind_from(line_buf, off, line_len);
@@ -1212,12 +1270,28 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                         if (la2 == ' ' || la2 == '\t' || la2 == '\n'
                             || la2 == 0 || lexer->eof(lexer)) {
                             lexer->mark_end(lexer);
+                            mark_kind = MARK_LBLOCK;
                             have_prefix_mark = true;
+                            continue;
                         }
                     }
                 }
             }
         }
+
+        if (mark_kind == MARK_LBLOCK
+            || mark_kind == MARK_DRAWER
+            || mark_kind == MARK_PROPERTY) continue;
+
+        /* Keyword / affiliated keyword: `#+` prefix at line start. */
+        if (mark_kind == MARK_NONE
+            && line_len == 2 && line_buf[0] == '#' && line_buf[1] == '+') {
+            lexer->mark_end(lexer);
+            mark_kind = MARK_HASH;
+            have_prefix_mark = true;
+            continue;
+        }
+
     }
     /* Consume the trailing newline (if any). */
     if (!lexer->eof(lexer) && lexer->lookahead == '\n')
