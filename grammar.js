@@ -447,30 +447,16 @@ module.exports = grammar({
 
     directive_name:  $ => /[A-Za-z][A-Za-z0-9_-]*/,
     directive_value: $ => /[^\n]+/,
-    /* Org comment paragraph: 1+ lines starting with `# ` or just `#`.
-     * Each line's `#` prefix is now its own token; JS rules consume
-     * the body text as a `comment_body` field. */
-    comment: $ => prec.right(repeat1($.comment_line)),
-
-    comment_line: $ => seq(
-      $._comment_line,
-      optional(seq(/[ \t]*/, field('body', $.comment_body))),
-      /\r?\n/,
-    ),
-
-    comment_body: $ => /[^\n]+/,
-
-    /* Fixed-width paragraph: 1+ lines starting with `: ` or just `:`.
-     * The body is exposed as a field. */
-    fixed_width: $ => prec.right(repeat1($.fixed_width_line)),
-
-    fixed_width_line: $ => seq(
-      $._fixed_width_line,
-      optional(seq(/[ \t]*/, field('body', $.fixed_width_body))),
-      /\r?\n/,
-    ),
-
-    fixed_width_body: $ => /[^\n]+/,
+    /* Comment / fixed-width paragraphs left as line-aggregates.  An
+     * earlier attempt to expose a `body` field via regex tokens
+     * (`/[^\n]+/`) created a parse-table interaction that drove the
+     * GLR lookahead to fixed-point on inputs combining a lesser block
+     * (`#+begin_…#+end_…`) with an `inlinetask` open line in the same
+     * section — a real-world pattern that hung the parser.  Until a
+     * non-regex decomposition is found, keep them opaque; consumers
+     * read body text from the line node directly. */
+    comment: $ => prec.right(repeat1($._comment_line)),
+    fixed_width: $ => prec.right(repeat1($._fixed_width_line)),
     horizontal_rule: $ => $._hrule_line,
     /* Diary sexp. Two surface forms — bare `%%(...)` and the
      * active-timestamp `<%%(...)>` form — both decompose into a

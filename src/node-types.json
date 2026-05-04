@@ -69,43 +69,12 @@
   {
     "type": "comment",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "comment_line",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "comment_block",
     "named": true,
     "fields": {}
-  },
-  {
-    "type": "comment_body",
-    "named": true,
-    "fields": {}
-  },
-  {
-    "type": "comment_line",
-    "named": true,
-    "fields": {
-      "body": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "comment_body",
-            "named": true
-          }
-        ]
-      }
-    }
   },
   {
     "type": "comment_marker",
@@ -415,38 +384,7 @@
   {
     "type": "fixed_width",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "fixed_width_line",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "fixed_width_body",
-    "named": true,
     "fields": {}
-  },
-  {
-    "type": "fixed_width_line",
-    "named": true,
-    "fields": {
-      "body": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "fixed_width_body",
-            "named": true
-          }
-        ]
-      }
-    }
   },
   {
     "type": "footnote_definition",

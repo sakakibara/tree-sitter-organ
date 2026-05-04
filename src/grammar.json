@@ -1634,51 +1634,9 @@
         "type": "REPEAT1",
         "content": {
           "type": "SYMBOL",
-          "name": "comment_line"
+          "name": "_comment_line"
         }
       }
-    },
-    "comment_line": {
-      "type": "SEQ",
-      "members": [
-        {
-          "type": "SYMBOL",
-          "name": "_comment_line"
-        },
-        {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "SEQ",
-              "members": [
-                {
-                  "type": "PATTERN",
-                  "value": "[ \\t]*"
-                },
-                {
-                  "type": "FIELD",
-                  "name": "body",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "comment_body"
-                  }
-                }
-              ]
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
-        },
-        {
-          "type": "PATTERN",
-          "value": "\\r?\\n"
-        }
-      ]
-    },
-    "comment_body": {
-      "type": "PATTERN",
-      "value": "[^\\n]+"
     },
     "fixed_width": {
       "type": "PREC_RIGHT",
@@ -1687,51 +1645,9 @@
         "type": "REPEAT1",
         "content": {
           "type": "SYMBOL",
-          "name": "fixed_width_line"
+          "name": "_fixed_width_line"
         }
       }
-    },
-    "fixed_width_line": {
-      "type": "SEQ",
-      "members": [
-        {
-          "type": "SYMBOL",
-          "name": "_fixed_width_line"
-        },
-        {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "SEQ",
-              "members": [
-                {
-                  "type": "PATTERN",
-                  "value": "[ \\t]*"
-                },
-                {
-                  "type": "FIELD",
-                  "name": "body",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "fixed_width_body"
-                  }
-                }
-              ]
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
-        },
-        {
-          "type": "PATTERN",
-          "value": "\\r?\\n"
-        }
-      ]
-    },
-    "fixed_width_body": {
-      "type": "PATTERN",
-      "value": "[^\\n]+"
     },
     "horizontal_rule": {
       "type": "SYMBOL",
@@ -2012,6 +1928,5 @@
     }
   ],
   "inline": [],
-  "supertypes": [],
-  "reserved": {}
+  "supertypes": []
 }

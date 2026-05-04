@@ -1098,7 +1098,6 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
             line_buf2[ll++] = (uint8_t)lexer->lookahead;
             lexer->advance(lexer, false);
             if (have_b2_mark) continue;
-            /* `:` after only whitespace → drawer/property mark. */
             if (line_buf2[ll - 1] == ':') {
                 bool ws_only = true;
                 for (uint32_t i = 0; i + 1 < ll; i++) {
@@ -1106,7 +1105,13 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                         ws_only = false; break;
                     }
                 }
-                if (ws_only) {
+                /* `:` after only whitespace → drawer/property mark.
+                 * Skip when the next char makes this a fixed-width
+                 * line (`: text` / bare `:`) so the whole line is
+                 * emitted as one `_fixed_width_line` token. */
+                if (ws_only
+                    && lexer->lookahead != ' ' && lexer->lookahead != '\t'
+                    && lexer->lookahead != '\n' && !lexer->eof(lexer)) {
                     lexer->mark_end(lexer);
                     have_b2_mark = true;
                     continue;
@@ -1284,8 +1289,7 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
      */
     enum { MARK_NONE, MARK_HASH, MARK_LBLOCK, MARK_COLON,
            MARK_DRAWER, MARK_PROPERTY, MARK_PLANNING, MARK_CLOCK,
-           MARK_INLINETASK, MARK_COMMENT_LINE, MARK_FIXED_WIDTH,
-           MARK_DIARY_SEXP };
+           MARK_INLINETASK, MARK_DIARY_SEXP };
     int mark_kind = MARK_NONE;
     bool have_prefix_mark = false;
     static const uint32_t name_len_for_kind[] = {0, 3, 7, 6, 5, 7};
@@ -1302,8 +1306,16 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
          * or node_property. Snapshot mark_end at the first `:` so the
          * eventual `_drawer_open` / `_node_property_line` token covers
          * only that single colon; JS rules consume name + closing `:`
-         * + (value/newline) from there. */
-        if (mark_kind == MARK_NONE && line_buf[line_len - 1] == ':') {
+         * + (value/newline) from there.
+         *
+         * Skip when the next char is whitespace / EOL — that's a
+         * fixed-width line (`: text` or bare `:`), which is a single
+         * opaque `_fixed_width_line` token covering the whole line.
+         * Setting MARK_COLON here would mark_end at the first `:`,
+         * leaving the rest of the line unconsumed. */
+        if (mark_kind == MARK_NONE && line_buf[line_len - 1] == ':'
+            && lexer->lookahead != ' ' && lexer->lookahead != '\t'
+            && lexer->lookahead != '\n' && !lexer->eof(lexer)) {
             /* Verify all preceding chars in the line so far are
              * whitespace — i.e., this is the FIRST non-ws char. */
             bool ws_only = true;
@@ -1350,32 +1362,7 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
             || mark_kind == MARK_PLANNING
             || mark_kind == MARK_CLOCK
             || mark_kind == MARK_INLINETASK
-            || mark_kind == MARK_COMMENT_LINE
-            || mark_kind == MARK_FIXED_WIDTH
             || mark_kind == MARK_DIARY_SEXP) continue;
-
-        /* Org-comment line `# text` (NOT `#+keyword:` directive — the
-         * `#+` check below handles that). At line_len=1 with `#` and
-         * lookahead is space/tab/newline/EOF (NOT `+`), it's a comment. */
-        if (mark_kind == MARK_NONE && line_len == 1 && line_buf[0] == '#'
-            && lexer->lookahead != '+') {
-            lexer->mark_end(lexer);
-            mark_kind = MARK_COMMENT_LINE;
-            have_prefix_mark = true;
-            continue;
-        }
-
-        /* Fixed-width line `: text` (colon + space + text, OR a bare
-         * colon at end of line). Differs from drawer/property which
-         * has `:NAME:` (multi-char between colons). */
-        if (mark_kind == MARK_NONE && line_len == 1 && line_buf[0] == ':'
-            && (lexer->lookahead == ' ' || lexer->lookahead == '\t'
-                || lexer->lookahead == '\n' || lexer->eof(lexer))) {
-            lexer->mark_end(lexer);
-            mark_kind = MARK_FIXED_WIDTH;
-            have_prefix_mark = true;
-            continue;
-        }
 
         /* Diary sexp — bare `%%(...)` or active-form `<%%(...)>`.
          * Mark after the opening prefix so JS rules consume the body

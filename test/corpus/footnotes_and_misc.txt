@@ -35,11 +35,7 @@ Comment: multi-line
 
 (document
   (zeroth_section
-    (comment
-      (comment_line
-        (comment_body))
-      (comment_line
-        (comment_body)))))
+    (comment)))
 
 ==================
 Fixed-width: multi-line
@@ -51,11 +47,7 @@ Fixed-width: multi-line
 
 (document
   (zeroth_section
-    (fixed_width
-      (fixed_width_line
-        (fixed_width_body))
-      (fixed_width_line
-        (fixed_width_body)))))
+    (fixed_width)))
 
 ==================
 Diary sexp: bare form
