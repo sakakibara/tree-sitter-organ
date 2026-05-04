@@ -1128,24 +1128,71 @@
       "name": "_list_checkbox"
     },
     "table": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "REPEAT1",
-        "content": {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "SYMBOL",
-              "name": "table_row"
-            },
-            {
-              "type": "SYMBOL",
-              "name": "table_rule"
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PREC_DYNAMIC",
+          "value": 2,
+          "content": {
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "FIELD",
+                "name": "header",
+                "content": {
+                  "type": "ALIAS",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "table_row"
+                  },
+                  "named": true,
+                  "value": "table_header_row"
+                }
+              },
+              {
+                "type": "SYMBOL",
+                "name": "table_rule"
+              },
+              {
+                "type": "REPEAT",
+                "content": {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "SYMBOL",
+                      "name": "table_row"
+                    },
+                    {
+                      "type": "SYMBOL",
+                      "name": "table_rule"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "PREC_RIGHT",
+          "value": 0,
+          "content": {
+            "type": "REPEAT1",
+            "content": {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "SYMBOL",
+                  "name": "table_row"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "table_rule"
+                }
+              ]
             }
-          ]
+          }
         }
-      }
+      ]
     },
     "table_row": {
       "type": "SEQ",
@@ -1691,8 +1738,42 @@
       "name": "_hrule_line"
     },
     "diary_sexp": {
-      "type": "SYMBOL",
-      "name": "_diary_sexp_line"
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_diary_sexp_line"
+        },
+        {
+          "type": "FIELD",
+          "name": "body",
+          "content": {
+            "type": "SYMBOL",
+            "name": "diary_sexp_body"
+          }
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "STRING",
+              "value": ")"
+            },
+            {
+              "type": "STRING",
+              "value": ")>"
+            }
+          ]
+        },
+        {
+          "type": "PATTERN",
+          "value": "[ \\t]*\\r?\\n"
+        }
+      ]
+    },
+    "diary_sexp_body": {
+      "type": "PATTERN",
+      "value": "[^\\n)]*"
     },
     "paragraph": {
       "type": "PREC_RIGHT",
@@ -1710,6 +1791,9 @@
   "conflicts": [
     [
       "headline"
+    ],
+    [
+      "table"
     ]
   ],
   "precedences": [],

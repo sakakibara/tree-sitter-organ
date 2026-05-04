@@ -66,6 +66,10 @@ module.exports = grammar({
      * outer document/headline's repeat.  GLR explores both; precedence
      * via prec.right(headline) keeps them inside the inner headline. */
     [$.headline],
+    /* `table` has two structurally-distinct shapes (with/without
+     * header) that match overlapping byte sequences; GLR explores
+     * both and prec.dynamic(2) on the header path wins ties. */
+    [$.table],
   ],
 
   rules: {
@@ -343,10 +347,19 @@ module.exports = grammar({
      * Emacs convention this distinction is recoverable by walking
      * siblings: a `table_row` whose next sibling is `table_rule`
      * is the header. */
-    table: $ => prec.right(repeat1(choice(
-      $.table_row,
-      $.table_rule,
-    ))),
+    /* A table EITHER opens with a header (a row immediately followed
+     * by a `|---|` rule) OR has no header.  The two shapes are
+     * structurally distinct — `seq(header, rule, ...)` vs `repeat1(...)` —
+     * but the no-header path can also match the bytes of a header
+     * shape; declare the conflict and bias toward the header path. */
+    table: $ => choice(
+      prec.dynamic(2, seq(
+        field('header', alias($.table_row, $.table_header_row)),
+        $.table_rule,
+        repeat(choice($.table_row, $.table_rule)),
+      )),
+      prec.right(repeat1(choice($.table_row, $.table_rule))),
+    ),
     table_row: $ => seq(
       $._table_row_start,
       repeat($.table_cell),
@@ -459,10 +472,17 @@ module.exports = grammar({
 
     fixed_width_body: $ => /[^\n]+/,
     horizontal_rule: $ => $._hrule_line,
-    /* Diary sexp. Single-token leaf — the `<%%(...)>` vs `%%(...)`
-     * forms have different prepass classifications and the scanner
-     * detection is too varied to expose a uniform body field here. */
-    diary_sexp: $ => $._diary_sexp_line,
+    /* Diary sexp. Two surface forms — bare `%%(...)` and the
+     * active-timestamp `<%%(...)>` form — both decompose into a
+     * `body` field plus a closing-punctuation choice. */
+    diary_sexp: $ => seq(
+      $._diary_sexp_line,
+      field('body', $.diary_sexp_body),
+      choice(')', ')>'),
+      /[ \t]*\r?\n/,
+    ),
+
+    diary_sexp_body: $ => /[^\n)]*/,
     paragraph: $ => prec.right(repeat1($._inline_content_line)),
   },
 });

@@ -115,7 +115,18 @@
   {
     "type": "diary_sexp",
     "named": true,
-    "fields": {}
+    "fields": {
+      "body": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "diary_sexp_body",
+            "named": true
+          }
+        ]
+      }
+    }
   },
   {
     "type": "directive_value",
@@ -1277,7 +1288,18 @@
   {
     "type": "table",
     "named": true,
-    "fields": {},
+    "fields": {
+      "header": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "table_header_row",
+            "named": true
+          }
+        ]
+      }
+    },
     "children": {
       "multiple": true,
       "required": true,
@@ -1297,6 +1319,21 @@
     "type": "table_cell",
     "named": true,
     "fields": {}
+  },
+  {
+    "type": "table_header_row",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "table_cell",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "table_row",
@@ -1464,6 +1501,14 @@
     }
   },
   {
+    "type": ")",
+    "named": false
+  },
+  {
+    "type": ")>",
+    "named": false
+  },
+  {
     "type": ":",
     "named": false
   },
@@ -1505,6 +1550,10 @@
   },
   {
     "type": "clock_timestamp",
+    "named": true
+  },
+  {
+    "type": "diary_sexp_body",
     "named": true
   },
   {

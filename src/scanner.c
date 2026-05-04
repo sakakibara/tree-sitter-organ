@@ -1377,8 +1377,25 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
             continue;
         }
 
-        /* Diary sexp left as a single-token leaf (the prepass
-         * classifies only `%%(...)`, not `<%%(...)>`). */
+        /* Diary sexp — bare `%%(...)` or active-form `<%%(...)>`.
+         * Mark after the opening prefix so JS rules consume the body
+         * + closing punctuation (and discriminate the trailing `>`). */
+        if (mark_kind == MARK_NONE) {
+            if (line_len == 3 && line_buf[0] == '%' && line_buf[1] == '%'
+                && line_buf[2] == '(') {
+                lexer->mark_end(lexer);
+                mark_kind = MARK_DIARY_SEXP;
+                have_prefix_mark = true;
+                continue;
+            }
+            if (line_len == 4 && line_buf[0] == '<' && line_buf[1] == '%'
+                && line_buf[2] == '%' && line_buf[3] == '(') {
+                lexer->mark_end(lexer);
+                mark_kind = MARK_DIARY_SEXP;
+                have_prefix_mark = true;
+                continue;
+            }
+        }
 
         /* Inlinetask open line: `***************<+> TITLE`.  Priority
          * 4 above pre-consumed the 15+ leading stars (and pre-filled
