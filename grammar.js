@@ -151,7 +151,29 @@ module.exports = grammar({
 
     tag: $ => /[A-Za-z0-9_@#%]+/,
 
-    planning: $ => prec.right(repeat1($._planning_line)),
+    /* Planning section beneath a heading. Each line carries 1+
+     * SCHEDULED / DEADLINE / CLOSED entries (Emacs allows multiple
+     * keywords on one line). The scanner emits a zero-width
+     * `_planning_line` at the start of each such line so JS rules
+     * can consume every keyword + timestamp pair on it. */
+    planning: $ => prec.right(repeat1($.planning_line)),
+
+    planning_line: $ => seq(
+      $._planning_line,
+      repeat1($.planning_entry),
+      /[ \t]*\r?\n/,
+    ),
+
+    planning_entry: $ => seq(
+      /[ \t]*/,
+      field('keyword',   $.planning_keyword),
+      ':',
+      /[ \t]+/,
+      field('timestamp', $.planning_timestamp),
+    ),
+
+    planning_keyword:   $ => choice('SCHEDULED', 'DEADLINE', 'CLOSED'),
+    planning_timestamp: $ => /[<\[][^\n>\]]+[>\]]/,
 
     property_drawer: $ => seq(
       $._propdrawer_open,

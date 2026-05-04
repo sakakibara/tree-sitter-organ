@@ -320,9 +320,83 @@
         "type": "REPEAT1",
         "content": {
           "type": "SYMBOL",
-          "name": "_planning_line"
+          "name": "planning_line"
         }
       }
+    },
+    "planning_line": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_planning_line"
+        },
+        {
+          "type": "REPEAT1",
+          "content": {
+            "type": "SYMBOL",
+            "name": "planning_entry"
+          }
+        },
+        {
+          "type": "PATTERN",
+          "value": "[ \\t]*\\r?\\n"
+        }
+      ]
+    },
+    "planning_entry": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "PATTERN",
+          "value": "[ \\t]*"
+        },
+        {
+          "type": "FIELD",
+          "name": "keyword",
+          "content": {
+            "type": "SYMBOL",
+            "name": "planning_keyword"
+          }
+        },
+        {
+          "type": "STRING",
+          "value": ":"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[ \\t]+"
+        },
+        {
+          "type": "FIELD",
+          "name": "timestamp",
+          "content": {
+            "type": "SYMBOL",
+            "name": "planning_timestamp"
+          }
+        }
+      ]
+    },
+    "planning_keyword": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "SCHEDULED"
+        },
+        {
+          "type": "STRING",
+          "value": "DEADLINE"
+        },
+        {
+          "type": "STRING",
+          "value": "CLOSED"
+        }
+      ]
+    },
+    "planning_timestamp": {
+      "type": "PATTERN",
+      "value": "[<\\[][^\\n>\\]]+[>\\]]"
     },
     "property_drawer": {
       "type": "SEQ",

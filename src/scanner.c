@@ -1086,12 +1086,19 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
         uint32_t ll = 0;
         for (uint32_t i = 0; i < bullet_consumed_len && ll < ORG_LINE_BUF_MAX; i++)
             line_buf2[ll++] = bullet_consumed[i];
+        /* Pre-mark at start so a zero-width emit (planning / clock) is
+         * possible.  Mid-loop colon-mark moves it forward; if planning/
+         * clock is detected, we leave mark_end at start. */
         bool have_b2_mark = false;
+        bool have_b2_zero_width = false;
+        lexer->mark_end(lexer);
         while (!lexer->eof(lexer) && lexer->lookahead != '\n'
                && ll < ORG_LINE_BUF_MAX) {
             line_buf2[ll++] = (uint8_t)lexer->lookahead;
             lexer->advance(lexer, false);
-            if (!have_b2_mark && line_buf2[ll - 1] == ':') {
+            if (have_b2_mark) continue;
+            /* `:` after only whitespace → drawer/property mark. */
+            if (line_buf2[ll - 1] == ':') {
                 bool ws_only = true;
                 for (uint32_t i = 0; i + 1 < ll; i++) {
                     if (line_buf2[i] != ' ' && line_buf2[i] != '\t') {
@@ -1101,9 +1108,36 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                 if (ws_only) {
                     lexer->mark_end(lexer);
                     have_b2_mark = true;
+                    continue;
+                }
+                /* Planning / clock keyword (`SCHEDULED:` / `DEADLINE:`
+                 * / `CLOSED:` / `CLOCK:`) at the start of the trimmed
+                 * content. Emit zero-width so JS rules consume the
+                 * keyword + timestamp(s). */
+                if (ll >= 6) {
+                    uint32_t i = 0;
+                    while (i < ll && (line_buf2[i] == ' ' || line_buf2[i] == '\t')) i++;
+                    uint32_t klen = (ll - 1) - i;
+                    const uint8_t *p = line_buf2 + i;
+                    bool match = false;
+                    if (klen == 9 && p[0]=='S' && p[1]=='C' && p[2]=='H' && p[3]=='E'
+                        && p[4]=='D' && p[5]=='U' && p[6]=='L' && p[7]=='E' && p[8]=='D') match = true;
+                    else if (klen == 8 && p[0]=='D' && p[1]=='E' && p[2]=='A' && p[3]=='D'
+                        && p[4]=='L' && p[5]=='I' && p[6]=='N' && p[7]=='E') match = true;
+                    else if (klen == 6 && p[0]=='C' && p[1]=='L' && p[2]=='O' && p[3]=='S'
+                        && p[4]=='E' && p[5]=='D') match = true;
+                    /* CLOCK removed (single-token rule). */
+                    if (match) {
+                        /* Don't mark_end — leave it at line start so
+                         * the emitted token is zero-width. */
+                        have_b2_mark = true;
+                        have_b2_zero_width = true;
+                        continue;
+                    }
                 }
             }
         }
+        (void)have_b2_zero_width;
         if (!lexer->eof(lexer) && lexer->lookahead == '\n')
             lexer->advance(lexer, false);
         if (!have_b2_mark) lexer->mark_end(lexer);
@@ -1224,10 +1258,14 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
      * end-of-line.
      */
     enum { MARK_NONE, MARK_HASH, MARK_LBLOCK, MARK_COLON,
-           MARK_DRAWER, MARK_PROPERTY };
+           MARK_DRAWER, MARK_PROPERTY, MARK_PLANNING, MARK_CLOCK };
     int mark_kind = MARK_NONE;
     bool have_prefix_mark = false;
     static const uint32_t name_len_for_kind[] = {0, 3, 7, 6, 5, 7};
+    /* Pre-mark at line start so a zero-width emit (planning / clock)
+     * is possible. mid-loop mark_end calls move this forward; if
+     * planning/clock is detected, we leave mark_end untouched. */
+    lexer->mark_end(lexer);
     while (!lexer->eof(lexer) && lexer->lookahead != '\n'
            && line_len < ORG_LINE_BUF_MAX) {
         line_buf[line_len++] = (uint8_t)lexer->lookahead;
@@ -1281,7 +1319,9 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
 
         if (mark_kind == MARK_LBLOCK
             || mark_kind == MARK_DRAWER
-            || mark_kind == MARK_PROPERTY) continue;
+            || mark_kind == MARK_PROPERTY
+            || mark_kind == MARK_PLANNING
+            || mark_kind == MARK_CLOCK) continue;
 
         /* Keyword / affiliated keyword: `#+` prefix at line start. */
         if (mark_kind == MARK_NONE
@@ -1290,6 +1330,42 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
             mark_kind = MARK_HASH;
             have_prefix_mark = true;
             continue;
+        }
+
+        /* Planning line keyword (`SCHEDULED:` / `DEADLINE:` / `CLOSED:`)
+         * or clock line (`CLOCK:`). Emit a ZERO-WIDTH token at line
+         * start so JS rules consume keyword + `:` + ws + timestamp. */
+        if (mark_kind == MARK_NONE
+            && line_buf[line_len - 1] == ':' && line_len >= 6) {
+            uint32_t i = 0;
+            while (i < line_len && (line_buf[i] == ' ' || line_buf[i] == '\t')) i++;
+            uint32_t klen = (line_len - 1) - i;
+            const uint8_t *p = line_buf + i;
+            bool match = false;
+            int new_kind = MARK_NONE;
+            if (klen == 9 && p[0]=='S' && p[1]=='C' && p[2]=='H' && p[3]=='E'
+                && p[4]=='D' && p[5]=='U' && p[6]=='L' && p[7]=='E' && p[8]=='D') {
+                match = true; new_kind = MARK_PLANNING;
+            } else if (klen == 8 && p[0]=='D' && p[1]=='E' && p[2]=='A' && p[3]=='D'
+                && p[4]=='L' && p[5]=='I' && p[6]=='N' && p[7]=='E') {
+                match = true; new_kind = MARK_PLANNING;
+            } else if (klen == 6 && p[0]=='C' && p[1]=='L' && p[2]=='O' && p[3]=='S'
+                && p[4]=='E' && p[5]=='D') {
+                match = true; new_kind = MARK_PLANNING;
+            }
+            /* CLOCK keyword removed from zero-width handling — the
+             * `clock` JS rule is a single-token pass-through, so the
+             * scanner emits the regular line-classified token. */
+            if (match) {
+                /* Don't call mark_end — leaving it where it was at
+                 * the start of priority 5 (line start) makes the
+                 * emitted `_planning_line` / `_clock_line` token
+                 * zero-width. JS rules then consume the whole line
+                 * structurally. */
+                mark_kind = new_kind;
+                have_prefix_mark = true;
+                continue;
+            }
         }
 
     }

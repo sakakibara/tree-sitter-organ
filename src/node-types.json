@@ -873,7 +873,63 @@
   {
     "type": "planning",
     "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "planning_line",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "planning_entry",
+    "named": true,
+    "fields": {
+      "keyword": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "planning_keyword",
+            "named": true
+          }
+        ]
+      },
+      "timestamp": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "planning_timestamp",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "planning_keyword",
+    "named": true,
     "fields": {}
+  },
+  {
+    "type": "planning_line",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "planning_entry",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "priority",
@@ -1228,11 +1284,23 @@
     "named": false
   },
   {
+    "type": "CLOSED",
+    "named": false
+  },
+  {
+    "type": "DEADLINE",
+    "named": false
+  },
+  {
     "type": "END",
     "named": false
   },
   {
     "type": "PROPERTIES",
+    "named": false
+  },
+  {
+    "type": "SCHEDULED",
     "named": false
   },
   {
@@ -1249,6 +1317,10 @@
   },
   {
     "type": "drawer_name",
+    "named": true
+  },
+  {
+    "type": "planning_timestamp",
     "named": true
   },
   {
