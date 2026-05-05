@@ -30,39 +30,48 @@ indent          =  *(SP / HTAB)
 non-line        =  %x00-09 / %x0B-FF                  ; any byte except LF
 
 ; --- Document root (Worg §1) ----------------------------------------------
-document        =  zeroth-section *heading
+document        =  zeroth-section *headline
 zeroth-section  =  *content-line
 
 ; --- Heading + section (Worg §2 Headlines, §4 Sections) -------------------
-heading         =  heading-line [planning] [property-drawer] [section] *heading
-heading-line    =  stars SP [todo-keyword SP] [priority SP] [comment-marker SP] title [SP tags] line-end
+headline        =  headline-line [planning] [property-drawer] [section] *headline
+headline-line   =  stars SP [todo SP] [priority SP] [comment-marker SP]
+                   title [SP statistics-cookie] [SP tag-list] line-end
 stars           =  1*"*"
-todo-keyword    =  1*ALPHA                    ; per-document configurable; ABNF accepts any ALL-CAPS word
+todo            =  1*ALPHA                    ; per-document configurable; ABNF accepts any ALL-CAPS word
 priority        =  "[#" %x41-5A "]"           ; [#A] – [#Z]
 comment-marker  =  "COMMENT"                  ; suppresses export
 title           =  1*non-line                 ; injected for inline parsing — see inline rules
-tags            =  ":" 1*(tag ":")
+statistics-cookie =  "[" (1*DIGIT "%" / 1*DIGIT "/" 1*DIGIT) "]"
+                                              ; per-headline progress: [N%] or [N/M]
+tag-list        =  ":" 1*(tag ":")
 tag             =  1*(ALPHA / DIGIT / "_" / "@" / "#" / "%%")
 
 section         =  1*content-line
 content-line    =  drawer / greater-block / dynamic-block / lesser-block /
                    latex-environment / list / table / footnote-definition /
-                   inlinetask / clock / keyword / comment / fixed-width /
-                   horizontal-rule / diary-sexp / paragraph / empty-line
+                   inlinetask / clock / formula / keyword / affiliated-keyword /
+                   comment / fixed-width / horizontal-rule / diary-sexp /
+                   paragraph / empty-line
 empty-line      =  *(SP / HTAB) line-end
 
 ; --- Planning (Worg §2.5 Planning) ----------------------------------------
-planning        =  indent planning-entry *(SP planning-entry) line-end
-planning-entry  =  planning-keyword ":" SP timestamp
-planning-keyword=  "SCHEDULED" / "DEADLINE" / "CLOSED"
+; A planning block is one or more planning-line records beneath a heading.
+planning        =  1*planning-line
+planning-line   =  indent planning-entry *(SP planning-entry) line-end
+planning-entry  =  planning-keyword ":" SP planning-timestamp
+planning-keyword =  "SCHEDULED" / "DEADLINE" / "CLOSED"
+planning-timestamp =  ("<" *non-line ">") / ("[" *non-line "]")
 
 ; --- Property drawer (Worg §2.4 Property Drawers) -------------------------
 property-drawer =  propdrawer-open *node-property propdrawer-close
 propdrawer-open =  indent ":PROPERTIES:" indent line-end
 propdrawer-close=  indent ":END:"        indent line-end
-node-property   =  indent ":" property-key [property-suffix] ":" [SP property-value] line-end
+node-property   =  indent ":" property-name ":" [SP property-value] line-end
+property-name   =  (ALPHA / "_") *(ALPHA / DIGIT / "_" / "+" / "-")
+                                              ; KEY (and optional + suffix) as one token
 property-key    =  1*(ALPHA / DIGIT / "_" / "-")
-property-suffix =  "+"                          ; e.g. :TAGS+: appends to inherited
+property-suffix =  "+"                         ; e.g. :TAGS+: appends to inherited
 property-value  =  1*non-line                  ; may contain inline objects
 
 ; --- Named drawers (Worg §2.3 Drawers) ------------------------------------
@@ -88,21 +97,26 @@ gblock-args     =  1*non-line                     ; trailing parameters (raw)
 ; covers them collectively.
 lesser-block    =  src-block / example-block / export-block /
                    verse-block / comment-block
-src-block       =  indent "#+begin_" %s"src"     [SP lblock-args] indent line-end
+src-block       =  indent "#+begin_" %s"src" [SP src-block-language]
+                   [SP block-header-args] indent line-end
                    lblock-body
-                   indent "#+end_"   %s"src"                       indent line-end
-example-block   =  indent "#+begin_" %s"example" [SP lblock-args] indent line-end
+                   indent "#+end_"   %s"src"  indent line-end
+example-block   =  indent "#+begin_" %s"example" [SP block-header-args] indent line-end
                    lblock-body
-                   indent "#+end_"   %s"example"                   indent line-end
-export-block    =  indent "#+begin_" %s"export"  [SP lblock-args] indent line-end
+                   indent "#+end_"   %s"example"                        indent line-end
+export-block    =  indent "#+begin_" %s"export" [SP src-block-language]
+                   [SP block-header-args] indent line-end
                    lblock-body
-                   indent "#+end_"   %s"export"                    indent line-end
-verse-block     =  indent "#+begin_" %s"verse"   [SP lblock-args] indent line-end
+                   indent "#+end_"   %s"export" indent line-end
+verse-block     =  indent "#+begin_" %s"verse" [SP block-header-args] indent line-end
                    lblock-body
-                   indent "#+end_"   %s"verse"                     indent line-end
-comment-block   =  indent "#+begin_" %s"comment" [SP lblock-args] indent line-end
+                   indent "#+end_"   %s"verse"                        indent line-end
+comment-block   =  indent "#+begin_" %s"comment" indent line-end
                    lblock-body
-                   indent "#+end_"   %s"comment"                   indent line-end
+                   indent "#+end_"   %s"comment" indent line-end
+src-block-language =  ALPHA *(ALPHA / DIGIT / "_" / "+" / "-")
+                                              ; language identifier (lua, python, …)
+block-header-args  =  ":" *non-line           ; Babel-style :key value :key2 v2
 lblock-args     =  1*non-line
 lblock-body     =  *lblock-line
 lblock-line     =  *non-line line-end          ; any line other than the matching #+end_*
@@ -130,19 +144,21 @@ list-item-cont   =  indent item-content line-end       ; continuation lines past
 bullet           =  unordered-bullet / ordered-bullet
 unordered-bullet =  "-" / "+" / "*"                    ; `*` only when not at column 0
 ordered-bullet   =  1*DIGIT ("." / ")")
-description-bullet=  bullet SP item-tag SP "::"
 counter          =  "[@" 1*DIGIT "]"                   ; force-renumber, e.g. [@5]
 checkbox         =  "[" (" " / "X" / "x" / "-") "]"
-item-tag         =  1*non-line                         ; description-list term
+item-tag         =  1*non-line                         ; description-list term (TERM ::)
 item-content     =  1*non-line
 
 ; --- Tables (Worg §3 Tables) ----------------------------------------------
-table            =  1*table-row
-table-row        =  table-data-row / table-rule-row
+; Two row kinds: data rows and rule rows (`|---|`).  The grammar exposes
+; `table-row` for data rows and `table-rule` for rule rows.
+table            =  1*(table-row / table-rule)
+table-row        =  table-data-row
+table-rule       =  table-rule-row
 table-data-row   =  indent "|" *table-cell line-end
 table-rule-row   =  indent "|" 1*("-" / "+") "|" *(SP / HTAB) line-end
 table-cell       =  *cell-content "|"
-cell-content     =  1*(non-line / %x20)               ; cell content; inline objects parsed by inline grammar
+cell-content     =  1*(non-line / %x20)               ; inline objects parsed by inline grammar
 
 ; --- Footnote definitions (Worg §3 Footnote Definitions) ------------------
 footnote-definition =  "[fn:" footnote-label "]" SP 1*non-line line-end *content-line
@@ -150,31 +166,48 @@ footnote-label      =  1*(ALPHA / DIGIT / "_" / "-")
                        ; numeric-only label: anonymous; alpha label: named
 
 ; --- Inlinetask (Worg §3 Inlinetasks) -------------------------------------
-inlinetask          =  inlinetask-open *content-line inlinetask-close
-inlinetask-open     =  15*"*" SP [todo-keyword SP] [priority SP] title [SP tags] line-end
+inlinetask          =  inlinetask-line *content-line inlinetask-close
+inlinetask-line     =  15*"*" SP [todo SP] [comment-marker SP] [priority SP]
+                       title [SP statistics-cookie] [SP tag-list] line-end
+inlinetask-open     =  15*"*" SP [todo SP] [priority SP] title [SP tag-list] line-end
 inlinetask-close    =  15*"*" SP "END" line-end
 
-; --- Misc leaf elements (Worg §4 Elements) --------------------------------
-clock           =  indent "CLOCK:" SP timestamp-or-range [SP "=>" SP duration] line-end
-duration        =  1*DIGIT ":" 2DIGIT
-diary-sexp      =  indent "%%(" 1*non-line ")" line-end
-keyword         =  indent "#+" keyword-key ":" [SP keyword-value] line-end
-keyword-key     =  1*(ALPHA / DIGIT / "_" / "-")
-                   ; keyword-key shall not be one of {begin_*, end_*, begin:, end:}
-                   ; (those are gblock/lblock/dynblock starts), and shall not
-                   ; be an affiliated-keyword name (those have their own rule)
-keyword-value   =  *non-line
+; --- Clock entries (Worg §4 Clock) ----------------------------------------
+clock           =  indent "CLOCK:" SP clock-timestamp
+                   [SP "--" SP clock-timestamp [SP "=>" SP clock-duration]] line-end
+clock-timestamp =  "[" *non-line "]"
+clock-duration  =  1*DIGIT ":" 2DIGIT
 
-; Affiliated keywords attach to the following element rather than standing
-; on their own.  Per Emacs `org-element-affiliated-keywords` plus `ATTR_*`.
-affiliated-keyword     =  indent "#+" affiliated-keyword-key ":"
-                          [SP keyword-value] line-end
+; --- Diary sexps ----------------------------------------------------------
+diary-sexp      =  indent "%%(" diary-sexp-body ")" line-end
+diary-sexp-body =  *(non-line)                ; everything inside the parens
+
+; --- Keywords + affiliated keywords (Worg §4 Elements) --------------------
+; `keyword` is a generic file-level / element-level directive (#+TITLE:,
+; #+OPTIONS:, …).  `formula` is a special case (#+TBLFM:) — separate node
+; so consumers can locate table formulas without name-matching.
+;
+; `affiliated-keyword` (CAPTION / NAME / RESULTS / HEADER / HEADERS / PLOT /
+; ATTR_*) attaches to the FOLLOWING element.  Same shape as keyword on the
+; surface, exposed as a distinct node.
+keyword         =  indent "#+" directive-name ":" [SP directive-value] line-end
+formula         =  indent "#+" %s"TBLFM" ":" [SP directive-value] line-end
+affiliated-keyword     =  indent "#+" directive-name ":"
+                          [SP directive-value] line-end
 affiliated-keyword-key =  "CAPTION"  / "NAME"    / "RESULTS" / "HEADER"
                           / "HEADERS" / "PLOT"
                           / ("ATTR_" 1*(ALPHA / DIGIT / "_" / "-"))
-comment         =  indent "#" [SP 1*non-line] line-end
-fixed-width     =  indent ":" [SP 1*non-line] line-end       ; ": text" or ":" alone
-horizontal-rule =  indent 5*"-" indent line-end              ; 5+ dashes
-paragraph       =  1*paragraph-line
-paragraph-line  =  1*non-line line-end                       ; default fallback
+directive-name  =  ALPHA *(ALPHA / DIGIT / "_" / "-")
+directive-value =  1*non-line
 
+; --- Misc leaf elements ---------------------------------------------------
+; comment / fixed-width are line-oriented; the body is exposed as a
+; separate field via an external scanner token (NOT a regex — earlier
+; regex form caused parse-table hangs for src_block + inlinetask).
+comment           =  1*comment-line
+comment-line      =  indent "#" [SP 1*non-line] line-end
+fixed-width       =  1*fixed-width-line
+fixed-width-line  =  indent ":" [SP 1*non-line] line-end       ; ": text" or ":" alone
+horizontal-rule   =  indent 5*"-" indent line-end              ; 5+ dashes
+paragraph         =  1*paragraph-line
+paragraph-line    =  1*non-line line-end                       ; default fallback

@@ -15,7 +15,7 @@
 #
 # Requires: Node + pnpm (or npm) so we can install tree-sitter-cli.
 
-.PHONY: build install clean test prepass
+.PHONY: build install clean test prepass spec-check
 
 # ---------------------------------------------------------------------------
 # Platform detection. uname -s lower-cased + uname -m gives darwin-arm64,
@@ -93,6 +93,12 @@ install: build
 
 test: build
 	./node_modules/.bin/tree-sitter test
+
+# Verify spec/org.abnf and grammar.js list the same set of named rules.
+# The script reads spec/.spec-check-ignores for shape-only ABNF rules
+# that have no 1:1 grammar.js counterpart by design.
+spec-check:
+	@node scripts/check-abnf-sync.js grammar.js spec/org.abnf
 
 clean:
 	rm -rf build/

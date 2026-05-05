@@ -1,0 +1,81 @@
+# Rule names that exist in spec/org.abnf to describe structural shape
+# but have no 1:1 named node in grammar.js (the parser collapses them
+# into external scanner tokens, regex character classes, or repeats).
+# `make spec-check` skips these in the rule-name diff.
+#
+# Format: one rule name per line, `#` for comments, blank lines OK.
+
+# Primitives — RFC 5234 helpers / organ shape
+line-end
+indent
+non-line
+empty-line
+
+# Headline shape — `stars` is an alias of the `_heading_open` external token
+stars
+
+# Drawer / property-drawer open/close — collapsed into externals
+propdrawer-open
+propdrawer-close
+drawer-open
+drawer-close
+
+# Greater-block open/close + body args — collapsed into externals
+gblock-open
+gblock-close
+gblock-name
+gblock-args
+
+# Dynamic-block open/close + body args — collapsed into externals
+dynblock-open
+dynblock-close
+dynblock-name
+dynblock-args
+
+# Lesser-block body shape — handled by `_lblock_body` external
+lblock-args
+lblock-body
+lblock-line
+
+# `lesser-block` is a documentation alias; grammar exposes each block type
+# as its own node (src-block, example-block, …)
+lesser-block
+
+# LaTeX environment open/close + body shape — collapsed into externals
+latexenv-open
+latexenv-close
+latexenv-body
+latexenv-line
+latexenv-name
+
+# Inlinetask open/close — collapsed into externals
+inlinetask-open
+inlinetask-close
+
+# List-item shape — `bullet` is an alias of `_list_item_bullet`; the
+# unordered/ordered/counter/item-tag/item-content rules describe shape
+bullet
+unordered-bullet
+ordered-bullet
+counter
+item-tag
+item-content
+list-item-cont
+
+# Table shape — grammar exposes table-row + table-rule, not the
+# data/rule sub-forms
+table-data-row
+table-rule-row
+cell-content
+
+# Flow rules — used internally by grammar (`_meaningful_content_line`)
+content-line
+paragraph-line
+
+# Affiliated keyword name — folded into the `directive-name` regex
+affiliated-keyword-key
+
+# Property name — folded into a single regex in grammar.js, no separate
+# key/suffix nodes
+property-key
+property-suffix

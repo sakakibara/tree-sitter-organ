@@ -37,3 +37,16 @@ jobs:
             exit 1
           fi
           echo "PASS: $out built ($(stat -c%s "$out" 2>/dev/null || stat -f%z "$out") bytes)"
+
+  spec-check:
+    name: ABNF ↔ grammar.js sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: setup node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - run: make spec-check
