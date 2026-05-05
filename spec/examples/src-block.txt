@@ -1,0 +1,34 @@
+# Source block: `#+begin_src LANG ... #+end_src`.
+
++~~~
+#+begin_src lua
+print(1)
+#+end_src
+~~~
+
++~~~
+#+begin_src python
+print("hello")
+print("world")
+#+end_src
+~~~
+
++~~~
+#+BEGIN_SRC sh
+echo hi
+#+END_SRC
+~~~
+
+# Note: an unterminated `#+begin_src` block is still recognised as a
+# src_block by the grammar (lenient EOF behavior).  Negatives focus
+# on shape mismatch instead.
+
+# Wrong block kind.
+-~~~
+#+begin_quote
+quoted text
+#+end_quote
+~~~
+
+# Plain prose, no block markers.
+- just text

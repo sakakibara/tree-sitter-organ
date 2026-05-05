@@ -1,0 +1,31 @@
+# Planning lines: SCHEDULED / DEADLINE / CLOSED under a headline.
+
++~~~
+* TODO Task
+SCHEDULED: <2026-05-05 Tue>
+~~~
+
++~~~
+* TODO Task
+DEADLINE: <2026-05-10 Sun>
+~~~
+
++~~~
+* DONE Task
+CLOSED: [2026-05-05 Tue 14:30]
+~~~
+
++~~~
+* TODO Task
+SCHEDULED: <2026-05-05 Tue> DEADLINE: <2026-05-10 Sun>
+~~~
+
+# Note: the grammar accepts a bare `SCHEDULED:` / `DEADLINE:` /
+# `CLOSED:` line in the zeroth section (no parent headline) as a
+# valid planning element.  Lenient by design.
+
+# Made-up keyword.
+-~~~
+* TODO Task
+PLANNED: <2026-05-05 Tue>
+~~~

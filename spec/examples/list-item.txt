@@ -1,0 +1,16 @@
+# List item: `- ` / `+ ` / `* ` at start (with optional indent), or
+# `N.` / `N)` ordered.  Top-level `* ` is NOT a list item -- it's a
+# headline.
+
++ - bullet
++ + plus bullet
++ 1. ordered
++ 1) paren ordered
+
+# Indented `*` IS a list item (vs top-level `*` which is a headline).
++   * indented star bullet
+
+# Top-level `*` is a headline, not a list item.
+- * heading
+# Plain text.
+- just text

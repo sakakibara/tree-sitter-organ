@@ -1,0 +1,27 @@
+# Keyword: `#+NAME: value` line.
+# Each `+` case is fenced because the parser needs a line terminator
+# to recognise the line as a keyword (without trailing newline it
+# parses as ERROR + directive_name + directive_value).
+
++~~~
+#+TITLE: My Doc
+~~~
+
++~~~
+#+AUTHOR: Sho
+~~~
+
++~~~
+#+OPTIONS: toc:nil
+~~~
+
++~~~
+#+STARTUP: overview
+~~~
+
+# Without `#+`.
+- TITLE: My Doc
+# Indented.
+-   #+TITLE: indented
+# Comment line.
+- # plain comment

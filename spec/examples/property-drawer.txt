@@ -1,0 +1,30 @@
+# Property drawer: `:PROPERTIES:` ... `:END:` immediately under a
+# headline (or after planning lines), holding `:NAME: value` lines.
+
++~~~
+* Heading
+:PROPERTIES:
+:ID: 12345
+:CATEGORY: work
+:END:
+~~~
+
++~~~
+* Heading
+SCHEDULED: <2026-05-05 Tue>
+:PROPERTIES:
+:ID: abcdef
+:END:
+~~~
+
+# Properties drawer not directly under a headline.
+- :PROPERTIES:
+- :PROPERTIES:\n:ID: 1\n:END:
+
+# Generic drawer -- not properties.
+-~~~
+* Heading
+:LOGBOOK:
+note
+:END:
+~~~

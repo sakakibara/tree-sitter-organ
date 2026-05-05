@@ -1,0 +1,24 @@
+# Affiliated keyword: `#+NAME: foo`, `#+CAPTION: ...`, `#+ATTR_HTML: ...`
+# attached to a following element.
+
++~~~
+#+NAME: my-table
+| a | b |
+~~~
+
++~~~
+#+CAPTION: example
+#+begin_src lua
+print(1)
+#+end_src
+~~~
+
++~~~
+#+ATTR_HTML: :width 50%
+| col |
+~~~
+
+# Generic keyword (TITLE / AUTHOR / OPTIONS) is NOT affiliated --
+# it's just a keyword.
+- #+TITLE: doc
+- #+AUTHOR: x

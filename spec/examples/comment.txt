@@ -1,0 +1,11 @@
+# Comment line: `# ` at BOL or `#` alone.
+
++ # this is a comment
++ # multi word
+
+# Heading is not a comment.
+- * heading
+# Inline `#` not at BOL is a regex symbol or list bullet, not comment.
+- text # trailing
+# Keyword (#+...) is not a comment.
+- #+TITLE: doc

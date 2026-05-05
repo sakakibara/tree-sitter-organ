@@ -1,0 +1,11 @@
+# Fixed-width: `: value` at BOL.
+
++ : literal example
++ :    indented literal
+
+# Plain text.
+- not a fixed width
+# Drawer / property line.
+- :NAME:
+# Headline.
+- * not fixed width

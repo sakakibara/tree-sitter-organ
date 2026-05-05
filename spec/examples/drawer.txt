@@ -1,0 +1,25 @@
+# Drawer: `:NAME:` ... `:END:` block under a headline.
+
++~~~
+* Heading
+:LOGBOOK:
+- State "DONE" from "TODO" [2026-05-05]
+:END:
+~~~
+
++~~~
+* Heading
+:NOTES:
+some text
+:END:
+~~~
+
+# Single ":NAME:" without END.
+-~~~
+* Heading
+:NOTES:
+just text
+~~~
+
+# Drawer-shaped lines NOT under a headline (zeroth section).
+- :LOGBOOK:

@@ -1,0 +1,20 @@
+# Paragraph: 1+ consecutive content lines that aren't headlines,
+# blocks, drawers, lists, tables, etc.
+
++ plain text
++ first line of paragraph
+
++~~~
+multi
+line
+paragraph
+~~~
+
+# Headline is not a paragraph.
+- * heading
+# Comment line.
+- # comment
+# Keyword.
+- #+TITLE: doc
+# Drawer-ish.
+- :NAME:

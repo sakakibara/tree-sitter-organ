@@ -1,0 +1,15 @@
+# Headline: 1+ asterisks at BOL, optional TODO, priority, title, tags.
+
++ * Top
++ ** Sub
++ *** Deep
++ * TODO Plan
++ * DONE [#A] Title :work:home:
++ * COMMENT not exported
+
+# Bullet list, not headline.
+- - item
+# Plain text.
+- Just a paragraph
+# Stars not at BOL.
+-   * indented stars

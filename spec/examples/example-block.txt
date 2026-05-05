@@ -1,0 +1,27 @@
+# Example block: `#+begin_example ... #+end_example`.
+
++~~~
+#+begin_example
+literal
+text
+#+end_example
+~~~
+
++~~~
+#+BEGIN_EXAMPLE
+also literal
+#+END_EXAMPLE
+~~~
+
+# Different block.
+-~~~
+#+begin_src lua
+print(1)
+#+end_src
+~~~
+
+# Missing end.
+-~~~
+#+begin_example
+unterminated
+~~~

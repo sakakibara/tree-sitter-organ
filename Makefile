@@ -15,7 +15,7 @@
 #
 # Requires: Node + pnpm (or npm) so we can install tree-sitter-cli.
 
-.PHONY: build install clean test prepass spec-check
+.PHONY: build install clean test prepass spec-check test-spec
 
 # ---------------------------------------------------------------------------
 # Platform detection. uname -s lower-cased + uname -m gives darwin-arm64,
@@ -99,6 +99,22 @@ test: build
 # that have no 1:1 grammar.js counterpart by design.
 spec-check:
 	@node scripts/check-abnf-sync.js grammar.js spec/org.abnf
+
+# Per-rule positive/negative example tests under spec/examples/.
+# Behavior matching: feeds each `+ input` line through the parser and
+# asserts the named node appears; feeds each `- input` and asserts it
+# does not.  Stronger than rule-name sync alone.
+#
+# tree-sitter-cli's auto-compile only knows about parser.c + scanner.c,
+# so it links a broken org.so missing prepass_state_new.  Inject the
+# proper Makefile-built org.so into the tree-sitter cache before
+# running the runner.
+TS_CACHE_DIR := $(HOME)/.cache/tree-sitter/lib
+test-spec: build
+	@mkdir -p $(TS_CACHE_DIR)
+	@cp $(ORG_SO) $(TS_CACHE_DIR)/org.so
+	@touch $(TS_CACHE_DIR)/org.so
+	@node scripts/test-rule-examples.js
 
 clean:
 	rm -rf build/

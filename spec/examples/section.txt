@@ -1,0 +1,21 @@
+# Section: the body following a headline (everything until the next
+# headline of <= level).  Always present after a headline, even if
+# only an empty line.
+
++~~~
+* Heading
+some body
+~~~
+
++~~~
+* Heading
+:LOGBOOK:
+- note
+:END:
+~~~
+
+# A bare paragraph (no headline) gets a zeroth_section, not a section.
+- just plain text
+
+# Empty file.
+-

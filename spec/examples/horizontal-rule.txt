@@ -1,0 +1,12 @@
+# Horizontal rule: 5+ dashes alone on a line.
+
++ -----
++ -------
++ ----------
+
+# 4 dashes is too few.
+- ----
+# Dashes mixed with content.
+- ----- text
+# Bullet list.
+- - item

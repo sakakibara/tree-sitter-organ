@@ -1,0 +1,21 @@
+# Org table: lines starting with `|` (with optional leading whitespace).
+# Single-row table is valid; horizontal rule rows look like `|---|`.
+
++~~~
+| a | b | c |
+| 1 | 2 | 3 |
+~~~
+
++~~~
+| header |
+|--------|
+| body   |
+~~~
+
++ | one cell |
+
+# Pipe inside text, not at BOL.
+- text | with pipes
+
+# Plain text.
+- not a table
