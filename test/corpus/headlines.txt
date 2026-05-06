@@ -41,6 +41,24 @@ Headline with TODO and priority
       (title))))
 
 ==================
+Priority cookie without separator (Emacs `[#A]Stretch`)
+==================
+* TODO [#A]Stretch
+Body line.
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (todo)
+      (priority)
+      (title))
+    (section
+      (paragraph))))
+
+==================
 Headline with only tags
 ==================
 * Task :work:urgent:

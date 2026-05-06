@@ -113,7 +113,10 @@ module.exports = grammar({
       /[ \t]+/,
       optional(seq(field('todo',     $.todo),     /[ \t]+/)),
       optional(seq(field('comment',  $.comment_marker), /[ \t]+/)),
-      optional(seq(field('priority', $.priority), /[ \t]+/)),
+      /* The trailing separator after `[#X]` is optional — mirrors Emacs
+       * `org-priority-regexp` ("\\] ?"), so `[#A]Foo` (no space) parses
+       * as priority + title=Foo.  `[ \t]*` (not `[ \t]+`) handles both. */
+      optional(seq(field('priority', $.priority), /[ \t]*/)),
       optional(field('title',    $.title)),
       optional(field('cookie',   $.statistics_cookie)),
       optional(field('tag_list', $.tag_list)),
@@ -402,7 +405,10 @@ module.exports = grammar({
        * covers stars + one ws byte. */
       optional(seq(field('todo',     $.todo),     /[ \t]+/)),
       optional(seq(field('comment',  $.comment_marker), /[ \t]+/)),
-      optional(seq(field('priority', $.priority), /[ \t]+/)),
+      /* The trailing separator after `[#X]` is optional — mirrors Emacs
+       * `org-priority-regexp` ("\\] ?"), so `[#A]Foo` (no space) parses
+       * as priority + title=Foo.  `[ \t]*` (not `[ \t]+`) handles both. */
+      optional(seq(field('priority', $.priority), /[ \t]*/)),
       optional(field('title',    $.title)),
       optional(field('cookie',   $.statistics_cookie)),
       optional(field('tag_list', $.tag_list)),

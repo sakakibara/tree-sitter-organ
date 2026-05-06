@@ -193,7 +193,7 @@
                 },
                 {
                   "type": "PATTERN",
-                  "value": "[ \\t]+"
+                  "value": "[ \\t]*"
                 }
               ]
             },
@@ -1381,7 +1381,7 @@
                 },
                 {
                   "type": "PATTERN",
-                  "value": "[ \\t]+"
+                  "value": "[ \\t]*"
                 }
               ]
             },

@@ -35,8 +35,12 @@ zeroth-section  =  *content-line
 
 ; --- Heading + section (Worg §2 Headlines, §4 Sections) -------------------
 headline        =  headline-line [planning] [property-drawer] [section] *headline
-headline-line   =  stars SP [todo SP] [priority SP] [comment-marker SP]
+headline-line   =  stars SP [todo SP] [priority [SP]] [comment-marker SP]
                    title [SP statistics-cookie] [SP tag-list] line-end
+                                              ; priority's trailing SP is OPTIONAL —
+                                              ; matches Emacs `org-priority-regexp`'s
+                                              ; "\\] ?", so `[#A]Stretch` (no separator)
+                                              ; is still a valid priority + title.
 stars           =  1*"*"
 todo            =  1*ALPHA                    ; per-document configurable; ABNF accepts any ALL-CAPS word
 priority        =  "[#" %x41-5A "]"           ; [#A] – [#Z]
@@ -167,9 +171,9 @@ footnote-label      =  1*(ALPHA / DIGIT / "_" / "-")
 
 ; --- Inlinetask (Worg §3 Inlinetasks) -------------------------------------
 inlinetask          =  inlinetask-line *content-line inlinetask-close
-inlinetask-line     =  15*"*" SP [todo SP] [comment-marker SP] [priority SP]
+inlinetask-line     =  15*"*" SP [todo SP] [comment-marker SP] [priority [SP]]
                        title [SP statistics-cookie] [SP tag-list] line-end
-inlinetask-open     =  15*"*" SP [todo SP] [priority SP] title [SP tag-list] line-end
+inlinetask-open     =  15*"*" SP [todo SP] [priority [SP]] title [SP tag-list] line-end
 inlinetask-close    =  15*"*" SP "END" line-end
 
 ; --- Clock entries (Worg §4 Clock) ----------------------------------------
