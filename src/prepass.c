@@ -322,7 +322,7 @@ static LineTokenType classify_line(struct prepass_state *s,
             uint32_t i = 0;
             while (i < line_len && line[i] == '*') i++;
             if (i < line_len && line[i] == ' ') {
-                if (i >= 15) {
+                if (i >= ORG_INLINETASK_MIN_LEVEL) {
                     uint32_t after_star = i + 1;
                     if (line_len - after_star == 3
                         && memcmp(line + after_star, "END", 3) == 0

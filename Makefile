@@ -41,7 +41,7 @@ ORG_SO_SOURCES = src/parser.c src/scanner.c \
                  src/prepass.c src/prepass_scalar.c src/prepass_simd.c \
                  src/interval_tree.c
 ORG_SO_HEADERS = src/prepass.h src/interval_tree.h
-ORG_SO_CFLAGS  = -std=c99 -O2 -Wall -Wextra -Wpedantic -fPIC -I src
+ORG_SO_CFLAGS  = -std=c99 -O2 -Wall -Wextra -Wpedantic -fPIC -I src $(CFLAGS)
 
 $(BUILD_DIR):
 	@mkdir -p $@

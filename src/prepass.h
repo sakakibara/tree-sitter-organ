@@ -25,6 +25,14 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* Mirrors Emacs `org-inlinetask-min-level` (default 15).  Headlines
+ * with this many or more leading stars are inlinetasks; fewer are
+ * regular outline headings.  Build-time constant — override via
+ * `-DORG_INLINETASK_MIN_LEVEL=N`. */
+#ifndef ORG_INLINETASK_MIN_LEVEL
+#define ORG_INLINETASK_MIN_LEVEL 15
+#endif
+
 typedef enum {
     TT_BODY = 0,
     TT_EMPTY,

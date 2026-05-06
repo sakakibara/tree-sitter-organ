@@ -7,6 +7,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Inlinetask threshold.  Mirrors Emacs `org-inlinetask-min-level`
+ * (default 15): a headline with N stars where N >= this value is
+ * parsed as an inlinetask, not a regular outline heading.  Tree-sitter
+ * scanners can't read user config at parse time, so this is a
+ * build-time constant.  Override by passing `-DORG_INLINETASK_MIN_LEVEL=N`
+ * on the cc line and rebuilding (`make build CFLAGS+=-DORG_INLINETASK_MIN_LEVEL=16`). */
+#ifndef ORG_INLINETASK_MIN_LEVEL
+#define ORG_INLINETASK_MIN_LEVEL 15
+#endif
+
 /* External-token symbols. ORDER MUST MATCH grammar.js's `externals: $ => [...]`
  * declaration EXACTLY. */
 enum OrgExternal {
@@ -838,7 +848,7 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
             lexer->advance(lexer, false);
         }
 
-        bool is_heading = (level > 0 && level < 15
+        bool is_heading = (level > 0 && level < ORG_INLINETASK_MIN_LEVEL
                            && !lexer->eof(lexer)
                            && lexer->lookahead == ' ');
 
@@ -1400,11 +1410,13 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
          * back the mark_end up to the space position so JS rules can
          * reuse the heading-line externals for todo/priority/title. */
         if (mark_kind == MARK_NONE
-            && line_buf[line_len - 1] == ' ' && line_len >= 16) {
+            && line_buf[line_len - 1] == ' '
+            && line_len >= ORG_INLINETASK_MIN_LEVEL + 1) {
             uint32_t star_count = 0;
             while (star_count < line_len - 1
                    && line_buf[star_count] == '*') star_count++;
-            if (star_count >= 15 && star_count == line_len - 1) {
+            if (star_count >= ORG_INLINETASK_MIN_LEVEL
+                && star_count == line_len - 1) {
                 /* mark_end is currently AFTER the trailing space.
                  * That's actually fine — `_inlinetask_open` covers
                  * stars + 1 space; the JS rule just doesn't include
