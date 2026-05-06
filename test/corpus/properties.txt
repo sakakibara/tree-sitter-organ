@@ -1,4 +1,46 @@
 ==================
+Lowercase :properties: drawer (Emacs case-insensitive)
+==================
+* Task
+:properties:
+:custom_id: abc
+:end:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (property_drawer
+        (node_property
+          (property_name)
+          (property_value))))))
+
+==================
+Mixed-case :Properties: drawer with lowercase :End:
+==================
+* Task
+:Properties:
+:Id: 42
+:End:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (property_drawer
+        (node_property
+          (property_name)
+          (property_value))))))
+
+==================
 Empty property drawer
 ==================
 * Task

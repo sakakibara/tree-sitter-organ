@@ -89,12 +89,16 @@ static void prepass_state_reset(struct prepass_state *st) {
 
 static int is_drawer_line(const uint8_t *p, uint32_t rem,
                           uint32_t *name_start, uint32_t *name_end) {
+    /* Emacs `org-drawer-regexp` is `^[ \t]*:\\(\\([-_[:word:]]+\\)\\):
+     * [ \t]*$` — name allows letters of either case, digits, underscore,
+     * and hyphen.  We're permissive on character class to match. */
     if (rem < 3 || p[0] != ':') return 0;
     uint32_t i = 1;
     while (i < rem && (
         (p[i] >= 'A' && p[i] <= 'Z') ||
+        (p[i] >= 'a' && p[i] <= 'z') ||
         (p[i] >= '0' && p[i] <= '9') ||
-        p[i] == '_'
+        p[i] == '_' || p[i] == '-'
     )) i++;
     if (i == 1 || i >= rem || p[i] != ':') return 0;
     uint32_t j = i + 1;
@@ -137,18 +141,32 @@ static int is_planning(const uint8_t *p, uint32_t rem) {
     return 0;
 }
 
-static int name_equals(const uint8_t *p, uint32_t start, uint32_t end,
-                       const char *kw) {
+/* ASCII case-insensitive equals.  Emacs treats drawer keywords
+ * (`:PROPERTIES:` / `:END:` / etc.) case-insensitively per
+ * `org-drawer-regexp` + the surrounding `case-fold-search = t`. */
+static int name_iequals(const uint8_t *p, uint32_t start, uint32_t end,
+                        const char *kw) {
     size_t klen = strlen(kw);
     if (end - start != klen) return 0;
-    return memcmp(p + start, kw, klen) == 0;
+    for (size_t i = 0; i < klen; i++) {
+        uint8_t a = p[start + i];
+        uint8_t b = (uint8_t)kw[i];
+        if (a >= 'A' && a <= 'Z') a = (uint8_t)(a + 32);
+        if (b >= 'A' && b <= 'Z') b = (uint8_t)(b + 32);
+        if (a != b) return 0;
+    }
+    return 1;
 }
 
 static int is_node_property(const uint8_t *p, uint32_t rem) {
+    /* Emacs `org-property-re` accepts `[-_[:alnum:]]+` for the key,
+     * so both upper- and lowercase letters are valid.  The trailing
+     * `+` enables the `KEY+:` value-append syntax. */
     if (rem < 4 || p[0] != ':') return 0;
     uint32_t i = 1;
     while (i < rem && (
         (p[i] >= 'A' && p[i] <= 'Z') ||
+        (p[i] >= 'a' && p[i] <= 'z') ||
         (p[i] >= '0' && p[i] <= '9') ||
         p[i] == '_' || p[i] == '-' || p[i] == '+'
     )) i++;
@@ -364,7 +382,7 @@ static LineTokenType classify_line(struct prepass_state *s,
     if (scope_top(s) == SCOPE_PROPDRAWER) {
         uint32_t ns, ne;
         if (is_drawer_line(trimmed, rem, &ns, &ne)
-            && name_equals(trimmed, ns, ne, "END")) {
+            && name_iequals(trimmed, ns, ne, "END")) {
             scope_pop(s);
             return TT_PROPDRAWER_CLOSE;
         }
@@ -375,7 +393,7 @@ static LineTokenType classify_line(struct prepass_state *s,
     if (scope_top(s) == SCOPE_DRAWER) {
         uint32_t ns, ne;
         if (is_drawer_line(trimmed, rem, &ns, &ne)
-            && name_equals(trimmed, ns, ne, "END")) {
+            && name_iequals(trimmed, ns, ne, "END")) {
             scope_pop(s);
             return TT_DRAWER_CLOSE;
         }
@@ -424,11 +442,13 @@ static LineTokenType classify_line(struct prepass_state *s,
     {
         uint32_t ns, ne;
         if (is_drawer_line(trimmed, rem, &ns, &ne)) {
-            if (name_equals(trimmed, ns, ne, "PROPERTIES")) {
+            /* `:PROPERTIES:` / `:END:` are case-insensitive in Emacs
+             * via `case-fold-search = t` on org's regexes. */
+            if (name_iequals(trimmed, ns, ne, "PROPERTIES")) {
                 scope_push(s, SCOPE_PROPDRAWER);
                 return TT_PROPDRAWER_OPEN;
             }
-            if (name_equals(trimmed, ns, ne, "END")) {
+            if (name_iequals(trimmed, ns, ne, "END")) {
                 return TT_BODY;
             }
             scope_push(s, SCOPE_DRAWER);

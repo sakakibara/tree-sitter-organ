@@ -1143,11 +1143,6 @@
     }
   },
   {
-    "type": "planning_keyword",
-    "named": true,
-    "fields": {}
-  },
-  {
     "type": "planning_line",
     "named": true,
     "fields": {},
@@ -1557,26 +1552,6 @@
     "named": false
   },
   {
-    "type": "CLOSED",
-    "named": false
-  },
-  {
-    "type": "DEADLINE",
-    "named": false
-  },
-  {
-    "type": "END",
-    "named": false
-  },
-  {
-    "type": "PROPERTIES",
-    "named": false
-  },
-  {
-    "type": "SCHEDULED",
-    "named": false
-  },
-  {
     "type": "]",
     "named": false
   },
@@ -1618,6 +1593,10 @@
   },
   {
     "type": "footnote_label",
+    "named": true
+  },
+  {
+    "type": "planning_keyword",
     "named": true
   },
   {

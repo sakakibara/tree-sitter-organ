@@ -181,17 +181,20 @@ module.exports = grammar({
       field('timestamp', $.planning_timestamp),
     ),
 
-    planning_keyword:   $ => choice('SCHEDULED', 'DEADLINE', 'CLOSED'),
+    /* Case-insensitive: Emacs's `org-keyword-time-regexp` is matched
+     * with `case-fold-search = t`, so `scheduled:` / `Closed:` etc.
+     * are recognised the same as the canonical uppercase form. */
+    planning_keyword:   $ => /[Ss][Cc][Hh][Ee][Dd][Uu][Ll][Ee][Dd]|[Dd][Ee][Aa][Dd][Ll][Ii][Nn][Ee]|[Cc][Ll][Oo][Ss][Ee][Dd]/,
     planning_timestamp: $ => /[<\[][^\n>\]]+[>\]]/,
 
     property_drawer: $ => seq(
       $._propdrawer_open,
-      'PROPERTIES',
+      /[Pp][Rr][Oo][Pp][Ee][Rr][Tt][Ii][Ee][Ss]/,
       ':',
       /[ \t]*\r?\n/,
       repeat($.node_property),
       $._propdrawer_close,
-      'END',
+      /[Ee][Nn][Dd]/,
       ':',
       /[ \t]*\r?\n/,
     ),
@@ -269,7 +272,7 @@ module.exports = grammar({
       /[ \t]*\r?\n/,
       repeat($._content_line),
       $._drawer_close,
-      'END',
+      /[Ee][Nn][Dd]/,
       ':',
       /[ \t]*\r?\n/,
     ),

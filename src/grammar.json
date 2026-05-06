@@ -378,21 +378,8 @@
       ]
     },
     "planning_keyword": {
-      "type": "CHOICE",
-      "members": [
-        {
-          "type": "STRING",
-          "value": "SCHEDULED"
-        },
-        {
-          "type": "STRING",
-          "value": "DEADLINE"
-        },
-        {
-          "type": "STRING",
-          "value": "CLOSED"
-        }
-      ]
+      "type": "PATTERN",
+      "value": "[Ss][Cc][Hh][Ee][Dd][Uu][Ll][Ee][Dd]|[Dd][Ee][Aa][Dd][Ll][Ii][Nn][Ee]|[Cc][Ll][Oo][Ss][Ee][Dd]"
     },
     "planning_timestamp": {
       "type": "PATTERN",
@@ -406,8 +393,8 @@
           "name": "_propdrawer_open"
         },
         {
-          "type": "STRING",
-          "value": "PROPERTIES"
+          "type": "PATTERN",
+          "value": "[Pp][Rr][Oo][Pp][Ee][Rr][Tt][Ii][Ee][Ss]"
         },
         {
           "type": "STRING",
@@ -429,8 +416,8 @@
           "name": "_propdrawer_close"
         },
         {
-          "type": "STRING",
-          "value": "END"
+          "type": "PATTERN",
+          "value": "[Ee][Nn][Dd]"
         },
         {
           "type": "STRING",
@@ -691,8 +678,8 @@
           "name": "_drawer_close"
         },
         {
-          "type": "STRING",
-          "value": "END"
+          "type": "PATTERN",
+          "value": "[Ee][Nn][Dd]"
         },
         {
           "type": "STRING",
