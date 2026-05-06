@@ -36,7 +36,7 @@ enum ts_symbol_identifiers {
   aux_sym_clock_token2 = 18,
   sym_clock_timestamp = 19,
   sym_clock_duration = 20,
-  anon_sym_TBLFM = 21,
+  aux_sym_formula_token1 = 21,
   sym_directive_name = 22,
   aux_sym_comment_line_token1 = 23,
   anon_sym_RPAREN = 24,
@@ -191,7 +191,7 @@ static const char * const ts_symbol_names[] = {
   [aux_sym_clock_token2] = "clock_token2",
   [sym_clock_timestamp] = "clock_timestamp",
   [sym_clock_duration] = "clock_duration",
-  [anon_sym_TBLFM] = "directive_name",
+  [aux_sym_formula_token1] = "directive_name",
   [sym_directive_name] = "directive_name",
   [aux_sym_comment_line_token1] = "comment_line_token1",
   [anon_sym_RPAREN] = ")",
@@ -346,7 +346,7 @@ static const TSSymbol ts_symbol_map[] = {
   [aux_sym_clock_token2] = aux_sym_clock_token2,
   [sym_clock_timestamp] = sym_clock_timestamp,
   [sym_clock_duration] = sym_clock_duration,
-  [anon_sym_TBLFM] = sym_directive_name,
+  [aux_sym_formula_token1] = sym_directive_name,
   [sym_directive_name] = sym_directive_name,
   [aux_sym_comment_line_token1] = aux_sym_comment_line_token1,
   [anon_sym_RPAREN] = anon_sym_RPAREN,
@@ -564,7 +564,7 @@ static const TSSymbolMetadata ts_symbol_metadata[] = {
     .visible = true,
     .named = true,
   },
-  [anon_sym_TBLFM] = {
+  [aux_sym_formula_token1] = {
     .visible = true,
     .named = true,
   },
@@ -3365,7 +3365,6 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
         ')', 100,
         ':', 59,
         '<', 50,
-        'T', 60,
         '[', 9,
         ']', 87,
         '\t', 54,
@@ -3374,6 +3373,8 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
         'e', 68,
         'P', 71,
         'p', 71,
+        'T', 60,
+        't', 60,
       );
       if (lookahead == '#' ||
           lookahead == '%' ||
@@ -3407,11 +3408,12 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
         '-', 7,
         ':', 59,
         '=', 11,
-        'T', 94,
         '\t', 4,
         ' ', 4,
         '<', 50,
         '[', 50,
+        'T', 94,
+        't', 94,
       );
       if (('A' <= lookahead && lookahead <= 'Z') ||
           ('a' <= lookahead && lookahead <= 'z')) ADVANCE(98);
@@ -3683,7 +3685,8 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
       END_STATE();
     case 60:
       ACCEPT_TOKEN(sym_tag);
-      if (lookahead == 'B') ADVANCE(62);
+      if (lookahead == 'B' ||
+          lookahead == 'b') ADVANCE(66);
       if (lookahead == '#' ||
           lookahead == '%' ||
           ('0' <= lookahead && lookahead <= '9') ||
@@ -3692,36 +3695,6 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
           ('a' <= lookahead && lookahead <= 'z')) ADVANCE(75);
       END_STATE();
     case 61:
-      ACCEPT_TOKEN(sym_tag);
-      if (lookahead == 'F') ADVANCE(63);
-      if (lookahead == '#' ||
-          lookahead == '%' ||
-          ('0' <= lookahead && lookahead <= '9') ||
-          ('@' <= lookahead && lookahead <= 'Z') ||
-          lookahead == '_' ||
-          ('a' <= lookahead && lookahead <= 'z')) ADVANCE(75);
-      END_STATE();
-    case 62:
-      ACCEPT_TOKEN(sym_tag);
-      if (lookahead == 'L') ADVANCE(61);
-      if (lookahead == '#' ||
-          lookahead == '%' ||
-          ('0' <= lookahead && lookahead <= '9') ||
-          ('@' <= lookahead && lookahead <= 'Z') ||
-          lookahead == '_' ||
-          ('a' <= lookahead && lookahead <= 'z')) ADVANCE(75);
-      END_STATE();
-    case 63:
-      ACCEPT_TOKEN(sym_tag);
-      if (lookahead == 'M') ADVANCE(93);
-      if (lookahead == '#' ||
-          lookahead == '%' ||
-          ('0' <= lookahead && lookahead <= '9') ||
-          ('@' <= lookahead && lookahead <= 'Z') ||
-          lookahead == '_' ||
-          ('a' <= lookahead && lookahead <= 'z')) ADVANCE(75);
-      END_STATE();
-    case 64:
       ACCEPT_TOKEN(sym_tag);
       if (lookahead == 'D' ||
           lookahead == 'd') ADVANCE(75);
@@ -3732,7 +3705,7 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
           lookahead == '_' ||
           ('a' <= lookahead && lookahead <= 'z')) ADVANCE(75);
       END_STATE();
-    case 65:
+    case 62:
       ACCEPT_TOKEN(sym_tag);
       if (lookahead == 'E' ||
           lookahead == 'e') ADVANCE(73);
@@ -3743,7 +3716,7 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
           lookahead == '_' ||
           ('a' <= lookahead && lookahead <= 'z')) ADVANCE(75);
       END_STATE();
-    case 66:
+    case 63:
       ACCEPT_TOKEN(sym_tag);
       if (lookahead == 'E' ||
           lookahead == 'e') ADVANCE(72);
@@ -3754,10 +3727,43 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
           lookahead == '_' ||
           ('a' <= lookahead && lookahead <= 'z')) ADVANCE(75);
       END_STATE();
-    case 67:
+    case 64:
+      ACCEPT_TOKEN(sym_tag);
+      if (lookahead == 'F' ||
+          lookahead == 'f') ADVANCE(67);
+      if (lookahead == '#' ||
+          lookahead == '%' ||
+          ('0' <= lookahead && lookahead <= '9') ||
+          ('@' <= lookahead && lookahead <= 'Z') ||
+          lookahead == '_' ||
+          ('a' <= lookahead && lookahead <= 'z')) ADVANCE(75);
+      END_STATE();
+    case 65:
       ACCEPT_TOKEN(sym_tag);
       if (lookahead == 'I' ||
-          lookahead == 'i') ADVANCE(65);
+          lookahead == 'i') ADVANCE(62);
+      if (lookahead == '#' ||
+          lookahead == '%' ||
+          ('0' <= lookahead && lookahead <= '9') ||
+          ('@' <= lookahead && lookahead <= 'Z') ||
+          lookahead == '_' ||
+          ('a' <= lookahead && lookahead <= 'z')) ADVANCE(75);
+      END_STATE();
+    case 66:
+      ACCEPT_TOKEN(sym_tag);
+      if (lookahead == 'L' ||
+          lookahead == 'l') ADVANCE(64);
+      if (lookahead == '#' ||
+          lookahead == '%' ||
+          ('0' <= lookahead && lookahead <= '9') ||
+          ('@' <= lookahead && lookahead <= 'Z') ||
+          lookahead == '_' ||
+          ('a' <= lookahead && lookahead <= 'z')) ADVANCE(75);
+      END_STATE();
+    case 67:
+      ACCEPT_TOKEN(sym_tag);
+      if (lookahead == 'M' ||
+          lookahead == 'm') ADVANCE(93);
       if (lookahead == '#' ||
           lookahead == '%' ||
           ('0' <= lookahead && lookahead <= '9') ||
@@ -3768,7 +3774,7 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
     case 68:
       ACCEPT_TOKEN(sym_tag);
       if (lookahead == 'N' ||
-          lookahead == 'n') ADVANCE(64);
+          lookahead == 'n') ADVANCE(61);
       if (lookahead == '#' ||
           lookahead == '%' ||
           ('0' <= lookahead && lookahead <= '9') ||
@@ -3790,7 +3796,7 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
     case 70:
       ACCEPT_TOKEN(sym_tag);
       if (lookahead == 'P' ||
-          lookahead == 'p') ADVANCE(66);
+          lookahead == 'p') ADVANCE(63);
       if (lookahead == '#' ||
           lookahead == '%' ||
           ('0' <= lookahead && lookahead <= '9') ||
@@ -3834,7 +3840,7 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
     case 74:
       ACCEPT_TOKEN(sym_tag);
       if (lookahead == 'T' ||
-          lookahead == 't') ADVANCE(67);
+          lookahead == 't') ADVANCE(65);
       if (lookahead == '#' ||
           lookahead == '%' ||
           ('0' <= lookahead && lookahead <= '9') ||
@@ -3936,11 +3942,12 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
       ACCEPT_TOKEN(sym_clock_duration);
       END_STATE();
     case 93:
-      ACCEPT_TOKEN(anon_sym_TBLFM);
+      ACCEPT_TOKEN(aux_sym_formula_token1);
       END_STATE();
     case 94:
       ACCEPT_TOKEN(sym_directive_name);
-      if (lookahead == 'B') ADVANCE(96);
+      if (lookahead == 'B' ||
+          lookahead == 'b') ADVANCE(96);
       if (lookahead == '-' ||
           ('0' <= lookahead && lookahead <= '9') ||
           ('A' <= lookahead && lookahead <= 'Z') ||
@@ -3949,7 +3956,8 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
       END_STATE();
     case 95:
       ACCEPT_TOKEN(sym_directive_name);
-      if (lookahead == 'F') ADVANCE(97);
+      if (lookahead == 'F' ||
+          lookahead == 'f') ADVANCE(97);
       if (lookahead == '-' ||
           ('0' <= lookahead && lookahead <= '9') ||
           ('A' <= lookahead && lookahead <= 'Z') ||
@@ -3958,7 +3966,8 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
       END_STATE();
     case 96:
       ACCEPT_TOKEN(sym_directive_name);
-      if (lookahead == 'L') ADVANCE(95);
+      if (lookahead == 'L' ||
+          lookahead == 'l') ADVANCE(95);
       if (lookahead == '-' ||
           ('0' <= lookahead && lookahead <= '9') ||
           ('A' <= lookahead && lookahead <= 'Z') ||
@@ -3967,7 +3976,8 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
       END_STATE();
     case 97:
       ACCEPT_TOKEN(sym_directive_name);
-      if (lookahead == 'M') ADVANCE(93);
+      if (lookahead == 'M' ||
+          lookahead == 'm') ADVANCE(93);
       if (lookahead == '-' ||
           ('0' <= lookahead && lookahead <= '9') ||
           ('A' <= lookahead && lookahead <= 'Z') ||
@@ -5374,7 +5384,7 @@ static const uint16_t ts_parse_table[LARGE_STATE_COUNT][SYMBOL_COUNT] = {
     [aux_sym_property_drawer_token2] = ACTIONS(1),
     [anon_sym_RBRACK] = ACTIONS(1),
     [sym_clock_timestamp] = ACTIONS(1),
-    [anon_sym_TBLFM] = ACTIONS(1),
+    [aux_sym_formula_token1] = ACTIONS(1),
     [aux_sym_comment_line_token1] = ACTIONS(1),
     [anon_sym_RPAREN] = ACTIONS(1),
     [anon_sym_RPAREN_GT] = ACTIONS(1),
@@ -30432,7 +30442,7 @@ static const uint16_t ts_small_parse_table[] = {
       sym__fixed_width_body_text,
   [23223] = 2,
     ACTIONS(2844), 1,
-      anon_sym_TBLFM,
+      aux_sym_formula_token1,
     ACTIONS(2846), 1,
       sym_directive_name,
   [23230] = 2,
@@ -30806,7 +30816,7 @@ static const uint16_t ts_small_parse_table[] = {
       sym_directive_value,
   [23746] = 2,
     ACTIONS(3080), 1,
-      anon_sym_TBLFM,
+      aux_sym_formula_token1,
     ACTIONS(3082), 1,
       sym_directive_name,
   [23753] = 2,
@@ -30821,7 +30831,7 @@ static const uint16_t ts_small_parse_table[] = {
       sym_block_header_args,
   [23767] = 2,
     ACTIONS(3092), 1,
-      anon_sym_TBLFM,
+      aux_sym_formula_token1,
     ACTIONS(3094), 1,
       sym_directive_name,
   [23774] = 2,
@@ -30836,7 +30846,7 @@ static const uint16_t ts_small_parse_table[] = {
       sym_block_header_args,
   [23788] = 2,
     ACTIONS(3104), 1,
-      anon_sym_TBLFM,
+      aux_sym_formula_token1,
     ACTIONS(3106), 1,
       sym_directive_name,
   [23795] = 2,
@@ -30851,7 +30861,7 @@ static const uint16_t ts_small_parse_table[] = {
       sym_block_header_args,
   [23809] = 2,
     ACTIONS(3116), 1,
-      anon_sym_TBLFM,
+      aux_sym_formula_token1,
     ACTIONS(3118), 1,
       sym_directive_name,
   [23816] = 2,
@@ -30866,7 +30876,7 @@ static const uint16_t ts_small_parse_table[] = {
       sym_block_header_args,
   [23830] = 2,
     ACTIONS(3128), 1,
-      anon_sym_TBLFM,
+      aux_sym_formula_token1,
     ACTIONS(3130), 1,
       sym_directive_name,
   [23837] = 2,

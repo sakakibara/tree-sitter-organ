@@ -449,7 +449,9 @@ module.exports = grammar({
      * general `directive_name` regex. */
     formula: $ => seq(
       $._keyword_line,
-      field('name', alias(token(prec(2, 'TBLFM')), $.directive_name)),
+      /* Case-insensitive (Emacs `case-fold-search` on
+       * `org-table-formula-regexp`).  `#+tblfm:` and `#+Tblfm:` work. */
+      field('name', alias(token(prec(2, /[Tt][Bb][Ll][Ff][Mm]/)), $.directive_name)),
       ':',
       optional(seq(/[ \t]+/, field('value', $.directive_value))),
       /[ \t]*\r?\n/,

@@ -1528,8 +1528,8 @@
                 "type": "PREC",
                 "value": 2,
                 "content": {
-                  "type": "STRING",
-                  "value": "TBLFM"
+                  "type": "PATTERN",
+                  "value": "[Tt][Bb][Ll][Ff][Mm]"
                 }
               }
             },
