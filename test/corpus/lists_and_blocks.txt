@@ -209,6 +209,36 @@ Description definition starting with a metacharacter
         (paragraph)))))
 
 ==================
+Description item with empty definition
+==================
+- term ::
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (item_tag)))))
+
+==================
+Description definition on a continuation line
+==================
+- term ::
+  the definition
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (item_tag)
+        (paragraph)))))
+
+==================
 List item with checkbox: DONE uppercase
 ==================
 - [X] done item

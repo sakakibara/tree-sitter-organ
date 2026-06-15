@@ -600,7 +600,18 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                 while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
                     lexer->advance(lexer, false);
                 lexer->mark_end(lexer);
-                s->at_item_def = 1;
+                if (lexer->lookahead == '\n' || lexer->lookahead == '\r'
+                    || lexer->eof(lexer)) {
+                    /* Empty same-line definition: pull the lone newline into
+                     * the separator so the item ends with no paragraph (or
+                     * the definition continues on the next line). */
+                    if (lexer->lookahead == '\r') lexer->advance(lexer, false);
+                    if (lexer->lookahead == '\n') lexer->advance(lexer, false);
+                    lexer->mark_end(lexer);
+                } else {
+                    /* Real definition on this line — the next scan emits it. */
+                    s->at_item_def = 1;
+                }
                 lexer->result_symbol = EXT_ITEM_TAG_SEP;
                 return true;
             }
