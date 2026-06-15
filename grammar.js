@@ -386,9 +386,13 @@ module.exports = grammar({
       )),
       prec.right(repeat1(choice($.table_row, $.table_rule))),
     ),
+    /* A row's last cell may omit its closing `|` (Emacs accepts
+     * `| a | b` and aligns it to `| a | b |`); the trailing pipe-less
+     * cell is the optional `_table_cell_content` before the row end. */
     table_row: $ => seq(
       $._table_row_start,
       repeat($.table_cell),
+      optional(alias($._table_cell_content, $.table_cell)),
       $._table_row_end,
     ),
     table_cell: $ => seq(

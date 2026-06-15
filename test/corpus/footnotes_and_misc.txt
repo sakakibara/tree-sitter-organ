@@ -158,6 +158,24 @@ Table without header
         (table_cell)))))
 
 ==================
+Table row without trailing pipe
+==================
+| a | b
+| c | d
+
+---
+
+(document
+  (zeroth_section
+    (table
+      (table_row
+        (table_cell)
+        (table_cell))
+      (table_row
+        (table_cell)
+        (table_cell)))))
+
+==================
 Formula: #+TBLFM:
 ==================
 #+TBLFM: $3=$1+$2

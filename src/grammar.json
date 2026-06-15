@@ -1249,6 +1249,23 @@
           }
         },
         {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_table_cell_content"
+              },
+              "named": true,
+              "value": "table_cell"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
           "type": "SYMBOL",
           "name": "_table_row_end"
         }
