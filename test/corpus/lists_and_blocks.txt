@@ -120,6 +120,65 @@ Description tag after a checkbox
         (paragraph)))))
 
 ==================
+Item content starting with a bullet character is text
+==================
+- + plus content
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (paragraph)))))
+
+==================
+Numbered description term
+==================
+- 5 apples :: count
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (item_tag)
+        (paragraph)))))
+
+==================
+Description term starting with a metacharacter
+==================
+- * starred :: def
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (item_tag)
+        (paragraph)))))
+
+==================
+Description definition starting with a metacharacter
+==================
+- term :: | piped
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (item_tag)
+        (paragraph)))))
+
+==================
 List item with checkbox: DONE uppercase
 ==================
 - [X] done item

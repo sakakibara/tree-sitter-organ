@@ -152,6 +152,14 @@ typedef struct {
      * so a single byte suffices.
      *   0 = none, 1 = src, 2 = example, 3 = export, 4 = verse, 5 = comment */
     uint8_t          lblock_kind;
+
+    /* Set right after a description-list tag separator (` :: `) is
+     * emitted: the next line content is the item's definition, on the
+     * same line, so it must be emitted as paragraph content rather than
+     * run through heading / bullet / line classification (which would
+     * mis-handle a definition that starts with `*` / `+` / `|` / `#`).
+     * Consumed (and cleared) by the very next scan. */
+    uint8_t          at_item_def;
 } ScannerState;
 
 /* Match an ASCII-CI block name in `buf` of length `n` starting at
@@ -234,7 +242,7 @@ unsigned tree_sitter_org_external_scanner_serialize(void *payload, char *buffer)
      *   [5 + heading_depth + list_depth ..]       : pending_list_open_indent (2 bytes, signed)
      *   [7 + heading_depth + list_depth ..]       : prepass serialized state
      */
-    size_t hdr = 8u + (size_t)s->heading_depth + (size_t)s->list_depth;
+    size_t hdr = 9u + (size_t)s->heading_depth + (size_t)s->list_depth;
     if (hdr > cap) return 0;
 
     size_t pos = 0;
@@ -255,6 +263,7 @@ unsigned tree_sitter_org_external_scanner_serialize(void *payload, char *buffer)
     buf[pos++] = (uint8_t)(s->pending_list_open_indent & 0xff);
     buf[pos++] = (uint8_t)((s->pending_list_open_indent >> 8) & 0xff);
     buf[pos++] = s->lblock_kind;
+    buf[pos++] = s->at_item_def;
 
     size_t pp_n = prepass_serialize(s->prepass, buf + pos, cap - pos);
     if (pp_n > cap - pos) return 0;
@@ -268,6 +277,7 @@ void tree_sitter_org_external_scanner_deserialize(void *payload,
     const uint8_t   *buf = (const uint8_t *)buffer;
     if (length == 0) {
         s->pending_list_open_indent = -1;
+        s->at_item_def = 0;
         return;
     }
 
@@ -298,6 +308,7 @@ void tree_sitter_org_external_scanner_deserialize(void *payload,
         (int16_t)((uint16_t)buf[pos] | ((uint16_t)buf[pos + 1] << 8));
     pos += 2;
     s->lblock_kind = (length > pos) ? buf[pos++] : 0;
+    s->at_item_def = (length > pos) ? buf[pos++] : 0;
 
     if (length > pos)
         prepass_deserialize(s->prepass, buf + pos, (size_t)length - pos);
@@ -560,10 +571,82 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                 while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
                     lexer->advance(lexer, false);
                 lexer->mark_end(lexer);
+                s->at_item_def = 1;
                 lexer->result_symbol = EXT_ITEM_TAG_SEP;
                 return true;
             }
         }
+    }
+
+    /* ── Priority 0b: a description item's definition (the content after
+     * ` :: `, on the same line).  Flagged by the separator emit above.
+     * Like the item's first content line it is paragraph text, so emit it
+     * directly instead of letting heading / bullet / line classification
+     * mis-handle a `*` / `+` / `|` / `#`-leading definition. */
+    if (s->at_item_def) {
+        s->at_item_def = 0;
+        /* Emit the rest of the line (including an empty definition's lone
+         * newline, so it is consumed like a normal content line) as the
+         * definition's first paragraph line.  At EOF there is nothing to
+         * consume, so fall through and let the item end with no paragraph. */
+        if (valid_symbols[EXT_INLINE_CONTENT_LINE] && !lexer->eof(lexer)) {
+            while (!lexer->eof(lexer) && lexer->lookahead != '\n')
+                lexer->advance(lexer, false);
+            if (!lexer->eof(lexer) && lexer->lookahead == '\n')
+                lexer->advance(lexer, false);
+            lexer->mark_end(lexer);
+            lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
+            return true;
+        }
+    }
+
+    /* ── Priority 0b: a list item's first content line.  EXT_ITEM_TAG_TEXT
+     * is valid only right after the bullet (and any counter / checkbox),
+     * where the rest of the line is the item's content — never a heading /
+     * bullet / table / comment.  Take over here, before the structural
+     * detectors, so content beginning with a metacharacter (`*`, `+`, `-`,
+     * `|`, `#`, digits) stays item text.  A ` :: ` separator makes it a
+     * description item: emit the TERM as _item_tag_text (the separator is
+     * re-lexed as _item_tag_sep).  Otherwise emit the whole line as the
+     * first paragraph line.  The TERM is the shortest match (first
+     * separator), matching Emacs `org-list-full-item-re`. */
+    if (valid_symbols[EXT_ITEM_TAG_TEXT]
+        && valid_symbols[EXT_INLINE_CONTENT_LINE]
+        && lexer->lookahead != '\n' && lexer->lookahead != '\r'
+        && !lexer->eof(lexer)) {
+        bool any = false;     /* a non-ws term char has been seen */
+        bool marked = false;  /* mark_end sits at a term-end candidate */
+        for (;;) {
+            int32_t c = lexer->lookahead;
+            if (c == '\n' || c == '\r' || lexer->eof(lexer)) break;
+            if (c == ' ' || c == '\t') {
+                if (any) { lexer->mark_end(lexer); marked = true; }
+                while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
+                    lexer->advance(lexer, false);
+                if (lexer->lookahead == ':') {
+                    lexer->advance(lexer, false);
+                    if (lexer->lookahead == ':') {
+                        lexer->advance(lexer, false);
+                        int32_t a2 = lexer->lookahead;
+                        if ((a2 == ' ' || a2 == '\t' || a2 == '\n'
+                             || a2 == '\r' || lexer->eof(lexer))
+                            && any && marked) {
+                            lexer->result_symbol = EXT_ITEM_TAG_TEXT;
+                            return true;
+                        }
+                    }
+                }
+                continue;
+            }
+            lexer->advance(lexer, false);
+            any = true;
+        }
+        /* No separator — the whole line is the first paragraph line. */
+        if (!lexer->eof(lexer) && lexer->lookahead == '\n')
+            lexer->advance(lexer, false);
+        lexer->mark_end(lexer);
+        lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
+        return true;
     }
 
     /* ── Priority 0: headline_line sub-tokens. Tree-sitter restores
@@ -1028,11 +1111,17 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
     /* ── Priority 4c: list-item bullet detection.  Emits a token covering
      * exactly the indent + bullet chars + trailing whitespace.  Supports
      * `- `, `+ `, `* ` (only at indent > 0), and `N.` / `N)` numeric
-     * bullets.  `[@N]` counters and `[X]` checkboxes are not split out
-     * inline yet — they'd require advancing further; for now the
-     * normalizer's wrap_item_content covers items that aren't matched
-     * here. */
+     * bullets.  `[@N]` counters and `[X]` checkboxes following the bullet
+     * are emitted as their own tokens (see Priority 0a).
+     *
+     * Gated to column 0: bullets and list open/close are line-based, so
+     * this must only fire at a line start.  Without the guard it also
+     * fired on an item's mid-line content right after the bullet token
+     * (column > 0) — content beginning with a digit / `-` / `+` / `*`
+     * was then mis-parsed (e.g. detached from the item as a list-ending
+     * line). */
     if (consumed_stars == 0
+        && lexer->get_column(lexer) == 0
         && (valid_symbols[EXT_LIST_ITEM_BULLET]
             || valid_symbols[EXT_PLAIN_LIST_OPEN]
             || valid_symbols[EXT_PLAIN_LIST_CLOSE])
@@ -1356,45 +1445,14 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
     int mark_kind = MARK_NONE;
     bool have_prefix_mark = false;
     static const uint32_t name_len_for_kind[] = {0, 3, 7, 6, 5, 7};
-    /* Description-list tag: when this line is a list-item's first content
-     * line (EXT_ITEM_TAG_TEXT valid), the TERM before ` :: ` is emitted
-     * as _item_tag_text.  `tag_term_marked` records that mark_end sits at
-     * a term-end candidate (just before the whitespace that may precede
-     * `::`).  When no separator is found the candidate is harmlessly
-     * overwritten by the end-of-line mark below, so non-tag lines are
-     * unaffected. */
-    bool item_tag_ok = valid_symbols[EXT_ITEM_TAG_TEXT];
-    bool tag_term_marked = false;
     /* Pre-mark at line start so a zero-width emit (planning / clock)
      * is possible. mid-loop mark_end calls move this forward; if
      * planning/clock is detected, we leave mark_end untouched. */
     lexer->mark_end(lexer);
     while (!lexer->eof(lexer) && lexer->lookahead != '\n'
            && line_len < ORG_LINE_BUF_MAX) {
-        /* Mark the term end just before the whitespace that may precede
-         * a ` :: ` separator. */
-        if (item_tag_ok && mark_kind == MARK_NONE && line_len > 0
-            && (lexer->lookahead == ' ' || lexer->lookahead == '\t')
-            && line_buf[line_len - 1] != ' ' && line_buf[line_len - 1] != '\t') {
-            lexer->mark_end(lexer);
-            tag_term_marked = true;
-        }
         line_buf[line_len++] = (uint8_t)lexer->lookahead;
         lexer->advance(lexer, false);
-
-        /* Separator confirmed: `<term> <ws+> :: <ws|eol>`.  mark_end is
-         * already at the term end; the ` :: ` is re-lexed as
-         * _item_tag_sep. */
-        if (item_tag_ok && mark_kind == MARK_NONE && tag_term_marked
-            && line_len >= 3
-            && line_buf[line_len - 1] == ':' && line_buf[line_len - 2] == ':'
-            && (line_buf[line_len - 3] == ' ' || line_buf[line_len - 3] == '\t')
-            && (lexer->lookahead == ' ' || lexer->lookahead == '\t'
-                || lexer->lookahead == '\n' || lexer->lookahead == '\r'
-                || lexer->eof(lexer))) {
-            lexer->result_symbol = EXT_ITEM_TAG_TEXT;
-            return true;
-        }
 
         /* `:`-leading line (after optional leading whitespace).  Mark
          * after the first `:` so the eventual `_drawer_open` /
