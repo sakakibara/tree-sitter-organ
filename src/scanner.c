@@ -355,6 +355,11 @@ static inline bool is_tag_char(int32_t c) {
         || c == '_' || c == '@' || c == '#' || c == '%';
 }
 
+static inline bool is_alpha(int32_t c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+}
+static inline bool is_digit(int32_t c) { return c >= '0' && c <= '9'; }
+
 /* From the current lexer position, ADVANCE through a candidate tag
  * region (`:tag:tag:[ws]*` ending at newline/EOF) and return true if
  * we found one. On success the lexer is past the region (caller can
@@ -452,19 +457,43 @@ static void finish_list_cookie(TSLexer *lexer) {
  * single `scan()` call cannot roll back between two separate attempts,
  * so consume the `[` once and branch on the next char.  Returns the
  * matched external symbol, or -1.  Per spec/org.abnf:
- * counter = "[@" 1*DIGIT "]". */
+ * counter = "[@" ["start:"] (1*DIGIT / ALPHA) "]" — a digit run or a
+ * single letter, with an optional `start:` prefix, matching Emacs
+ * `org-list-full-item-re`. */
 static int scan_list_bracket_cookie(TSLexer *lexer, const bool *valid_symbols) {
     if (lexer->lookahead != '[') return -1;
     lexer->advance(lexer, false);
     int32_t c = lexer->lookahead;
     if (c == '@' && valid_symbols[EXT_LIST_COUNTER]) {
         lexer->advance(lexer, false);
-        bool any_digit = false;
-        while (lexer->lookahead >= '0' && lexer->lookahead <= '9') {
-            any_digit = true;
+        char run[8];
+        int n = 0;
+        while ((is_alpha(lexer->lookahead) || is_digit(lexer->lookahead))
+               && n < (int)sizeof(run)) {
+            run[n++] = (char)lexer->lookahead;
             lexer->advance(lexer, false);
         }
-        if (!any_digit || lexer->lookahead != ']') return -1;
+        /* Optional `start:` prefix introduces the real value. */
+        if (n == 5 && run[0]=='s' && run[1]=='t' && run[2]=='a'
+            && run[3]=='r' && run[4]=='t' && lexer->lookahead == ':') {
+            lexer->advance(lexer, false);
+            n = 0;
+            while ((is_alpha(lexer->lookahead) || is_digit(lexer->lookahead))
+                   && n < (int)sizeof(run)) {
+                run[n++] = (char)lexer->lookahead;
+                lexer->advance(lexer, false);
+            }
+        }
+        /* Value is a single letter or a run of digits. */
+        bool ok = false;
+        if (n == 1 && is_alpha((int32_t)run[0])) {
+            ok = true;
+        } else if (n >= 1) {
+            ok = true;
+            for (int i = 0; i < n; i++)
+                if (!is_digit((int32_t)run[i])) { ok = false; break; }
+        }
+        if (!ok || lexer->lookahead != ']') return -1;
         lexer->advance(lexer, false);
         finish_list_cookie(lexer);
         return EXT_LIST_COUNTER;

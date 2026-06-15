@@ -45,6 +45,36 @@ List item with counter and checkbox
         (paragraph)))))
 
 ==================
+List item with alphabetic counter
+==================
+1. [@b] alpha counter
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (counter)
+        (paragraph)))))
+
+==================
+List item with start: counter
+==================
+1. [@start:5] start form
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (counter)
+        (paragraph)))))
+
+==================
 Description list item with tag
 ==================
 - term :: definition
