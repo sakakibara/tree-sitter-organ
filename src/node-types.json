@@ -990,6 +990,11 @@
     }
   },
   {
+    "type": "item_tag",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "keyword",
     "named": true,
     "fields": {
@@ -1065,6 +1070,16 @@
         "types": [
           {
             "type": "counter",
+            "named": true
+          }
+        ]
+      },
+      "item_tag": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "item_tag",
             "named": true
           }
         ]

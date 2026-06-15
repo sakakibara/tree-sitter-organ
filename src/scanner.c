@@ -76,6 +76,8 @@ enum OrgExternal {
     EXT_COMMENT_BODY_TEXT,
     EXT_FIXED_WIDTH_BODY_TEXT,
     EXT_LIST_COUNTER,            /* `[@N]` force-renumber cookie after a bullet */
+    EXT_ITEM_TAG_TEXT,           /* description-list term before ` :: ` */
+    EXT_ITEM_TAG_SEP,            /* the ` :: ` separator after an item tag */
 };
 
 /* Map prepass LineTokenType → tree-sitter external symbol (non-heading types). */
@@ -539,6 +541,28 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
         if (sym >= 0) {
             lexer->result_symbol = (TSSymbol)sym;
             return true;
+        }
+    }
+
+    /* ── Priority 0a: description-list tag separator ` :: `.  Valid only
+     * right after a _item_tag_text token, where the separator is
+     * guaranteed present (the term emit confirmed it).  Consumes the
+     * whitespace + `::` + trailing whitespace so the definition content
+     * follows. */
+    if (valid_symbols[EXT_ITEM_TAG_SEP]
+        && (lexer->lookahead == ' ' || lexer->lookahead == '\t')) {
+        while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
+            lexer->advance(lexer, false);
+        if (lexer->lookahead == ':') {
+            lexer->advance(lexer, false);
+            if (lexer->lookahead == ':') {
+                lexer->advance(lexer, false);
+                while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
+                    lexer->advance(lexer, false);
+                lexer->mark_end(lexer);
+                lexer->result_symbol = EXT_ITEM_TAG_SEP;
+                return true;
+            }
         }
     }
 
@@ -1332,14 +1356,45 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
     int mark_kind = MARK_NONE;
     bool have_prefix_mark = false;
     static const uint32_t name_len_for_kind[] = {0, 3, 7, 6, 5, 7};
+    /* Description-list tag: when this line is a list-item's first content
+     * line (EXT_ITEM_TAG_TEXT valid), the TERM before ` :: ` is emitted
+     * as _item_tag_text.  `tag_term_marked` records that mark_end sits at
+     * a term-end candidate (just before the whitespace that may precede
+     * `::`).  When no separator is found the candidate is harmlessly
+     * overwritten by the end-of-line mark below, so non-tag lines are
+     * unaffected. */
+    bool item_tag_ok = valid_symbols[EXT_ITEM_TAG_TEXT];
+    bool tag_term_marked = false;
     /* Pre-mark at line start so a zero-width emit (planning / clock)
      * is possible. mid-loop mark_end calls move this forward; if
      * planning/clock is detected, we leave mark_end untouched. */
     lexer->mark_end(lexer);
     while (!lexer->eof(lexer) && lexer->lookahead != '\n'
            && line_len < ORG_LINE_BUF_MAX) {
+        /* Mark the term end just before the whitespace that may precede
+         * a ` :: ` separator. */
+        if (item_tag_ok && mark_kind == MARK_NONE && line_len > 0
+            && (lexer->lookahead == ' ' || lexer->lookahead == '\t')
+            && line_buf[line_len - 1] != ' ' && line_buf[line_len - 1] != '\t') {
+            lexer->mark_end(lexer);
+            tag_term_marked = true;
+        }
         line_buf[line_len++] = (uint8_t)lexer->lookahead;
         lexer->advance(lexer, false);
+
+        /* Separator confirmed: `<term> <ws+> :: <ws|eol>`.  mark_end is
+         * already at the term end; the ` :: ` is re-lexed as
+         * _item_tag_sep. */
+        if (item_tag_ok && mark_kind == MARK_NONE && tag_term_marked
+            && line_len >= 3
+            && line_buf[line_len - 1] == ':' && line_buf[line_len - 2] == ':'
+            && (line_buf[line_len - 3] == ' ' || line_buf[line_len - 3] == '\t')
+            && (lexer->lookahead == ' ' || lexer->lookahead == '\t'
+                || lexer->lookahead == '\n' || lexer->lookahead == '\r'
+                || lexer->eof(lexer))) {
+            lexer->result_symbol = EXT_ITEM_TAG_TEXT;
+            return true;
+        }
 
         /* `:`-leading line (after optional leading whitespace).  Mark
          * after the first `:` so the eventual `_drawer_open` /

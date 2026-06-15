@@ -59,6 +59,8 @@ module.exports = grammar({
     $._comment_body_text,
     $._fixed_width_body_text,
     $._list_counter,           // `[@N]` force-renumber cookie after a bullet
+    $._item_tag_text,          // description-list term before ` :: `
+    $._item_tag_sep,           // the ` :: ` separator after an item tag
   ],
 
   extras: _ => [],
@@ -341,6 +343,10 @@ module.exports = grammar({
       field('bullet', alias($._list_item_bullet, $.bullet)),
       optional(field('counter', $.counter)),
       optional(field('checkbox', $.checkbox)),
+      optional(seq(
+        field('item_tag', $.item_tag),
+        $._item_tag_sep,
+      )),
       optional($.paragraph),
       repeat($.list),
     )),
@@ -348,6 +354,11 @@ module.exports = grammar({
     /* Force-renumber counter `[@N]` after a bullet (e.g. `1. [@5] ...`).
      * Emacs `org-element` exposes this as the item's `:counter`. */
     counter: $ => $._list_counter,
+
+    /* Description-list term: the `TERM` in `- TERM :: definition`.  The
+     * ` :: ` separator (`_item_tag_sep`) follows but is not part of the
+     * node.  Emacs `org-element` exposes this as the item's `:tag`. */
+    item_tag: $ => $._item_tag_text,
 
     /* Checkbox glyph at start of a list item: `[ ]` / `[x]` / `[X]`
      * / `[-]`. The `[X]` form is uppercase done; `[-]` is "in

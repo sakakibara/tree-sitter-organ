@@ -45,6 +45,81 @@ List item with counter and checkbox
         (paragraph)))))
 
 ==================
+Description list item with tag
+==================
+- term :: definition
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (item_tag)
+        (paragraph)))))
+
+==================
+Description tag splits at first separator
+==================
+- a :: b :: c
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (item_tag)
+        (paragraph)))))
+
+==================
+Description tag with multi-word term
+==================
+- the long term :: its definition
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (item_tag)
+        (paragraph)))))
+
+==================
+Colon pair without surrounding space is not a tag
+==================
+- foo::bar is content
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (paragraph)))))
+
+==================
+Description tag after a checkbox
+==================
+- [ ] todo :: tagged
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (checkbox)
+        (item_tag)
+        (paragraph)))))
+
+==================
 List item with checkbox: DONE uppercase
 ==================
 - [X] done item
