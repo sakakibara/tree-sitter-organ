@@ -58,6 +58,7 @@ module.exports = grammar({
     $._empty_line,
     $._comment_body_text,
     $._fixed_width_body_text,
+    $._list_counter,           // `[@N]` force-renumber cookie after a bullet
   ],
 
   extras: _ => [],
@@ -338,10 +339,15 @@ module.exports = grammar({
     )),
     list_item: $ => prec.right(seq(
       field('bullet', alias($._list_item_bullet, $.bullet)),
+      optional(field('counter', $.counter)),
       optional(field('checkbox', $.checkbox)),
       optional($.paragraph),
       repeat($.list),
     )),
+
+    /* Force-renumber counter `[@N]` after a bullet (e.g. `1. [@5] ...`).
+     * Emacs `org-element` exposes this as the item's `:counter`. */
+    counter: $ => $._list_counter,
 
     /* Checkbox glyph at start of a list item: `[ ]` / `[x]` / `[X]`
      * / `[-]`. The `[X]` form is uppercase done; `[-]` is "in

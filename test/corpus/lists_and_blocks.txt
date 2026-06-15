@@ -14,6 +14,37 @@ List item with checkbox: TODO
         (paragraph)))))
 
 ==================
+List item with counter
+==================
+1. [@5] starts at five
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (counter)
+        (paragraph)))))
+
+==================
+List item with counter and checkbox
+==================
+1. [@5] [ ] both present
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (counter)
+        (checkbox)
+        (paragraph)))))
+
+==================
 List item with checkbox: DONE uppercase
 ==================
 - [X] done item

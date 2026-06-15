@@ -53,11 +53,10 @@ inlinetask-open
 inlinetask-close
 
 # List-item shape — `bullet` is an alias of `_list_item_bullet`; the
-# unordered/ordered/counter/item-tag/item-content rules describe shape
+# unordered/ordered/item-tag/item-content rules describe shape
 bullet
 unordered-bullet
 ordered-bullet
-counter
 item-tag
 item-content
 list-item-cont

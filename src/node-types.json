@@ -108,6 +108,11 @@
     "fields": {}
   },
   {
+    "type": "counter",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "diary_sexp",
     "named": true,
     "fields": {
@@ -1050,6 +1055,16 @@
         "types": [
           {
             "type": "checkbox",
+            "named": true
+          }
+        ]
+      },
+      "counter": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "counter",
             "named": true
           }
         ]

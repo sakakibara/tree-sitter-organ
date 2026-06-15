@@ -75,6 +75,7 @@ enum OrgExternal {
     EXT_EMPTY_LINE,
     EXT_COMMENT_BODY_TEXT,
     EXT_FIXED_WIDTH_BODY_TEXT,
+    EXT_LIST_COUNTER,            /* `[@N]` force-renumber cookie after a bullet */
 };
 
 /* Map prepass LineTokenType → tree-sitter external symbol (non-heading types). */
@@ -423,23 +424,47 @@ static bool scan_headline_title(TSLexer *lexer) {
     return any_title_chars;
 }
 
-/* List checkbox: `[ ]` / `[x]` / `[X]` / `[-]` at the start of a
- * list_item's content, immediately after the bullet's whitespace. */
-static bool scan_list_checkbox(TSLexer *lexer) {
-    if (lexer->lookahead != '[') return false;
-    lexer->advance(lexer, false);
-    int32_t c = lexer->lookahead;
-    bool ok = (c == ' ' || c == 'x' || c == 'X' || c == '-');
-    if (!ok) return false;
-    lexer->advance(lexer, false);
-    if (lexer->lookahead != ']') return false;
-    lexer->advance(lexer, false);
-    /* Eat trailing inline whitespace so the paragraph's first
-     * `_inline_content_line` token starts at the actual text. */
+/* Eat trailing inline whitespace after a bullet cookie so the
+ * paragraph's first `_inline_content_line` token starts at the real
+ * text, then mark the token end. */
+static void finish_list_cookie(TSLexer *lexer) {
+    lexer->mark_end(lexer);
     while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
         lexer->advance(lexer, false);
     lexer->mark_end(lexer);
-    return true;
+}
+
+/* Counter `[@N]` and checkbox `[ ]`/`[x]`/`[X]`/`[-]` both start with
+ * `[` at the same list-item position (counter precedes checkbox).  A
+ * single `scan()` call cannot roll back between two separate attempts,
+ * so consume the `[` once and branch on the next char.  Returns the
+ * matched external symbol, or -1.  Per spec/org.abnf:
+ * counter = "[@" 1*DIGIT "]". */
+static int scan_list_bracket_cookie(TSLexer *lexer, const bool *valid_symbols) {
+    if (lexer->lookahead != '[') return -1;
+    lexer->advance(lexer, false);
+    int32_t c = lexer->lookahead;
+    if (c == '@' && valid_symbols[EXT_LIST_COUNTER]) {
+        lexer->advance(lexer, false);
+        bool any_digit = false;
+        while (lexer->lookahead >= '0' && lexer->lookahead <= '9') {
+            any_digit = true;
+            lexer->advance(lexer, false);
+        }
+        if (!any_digit || lexer->lookahead != ']') return -1;
+        lexer->advance(lexer, false);
+        finish_list_cookie(lexer);
+        return EXT_LIST_COUNTER;
+    }
+    if ((c == ' ' || c == 'x' || c == 'X' || c == '-')
+        && valid_symbols[EXT_LIST_CHECKBOX]) {
+        lexer->advance(lexer, false);
+        if (lexer->lookahead != ']') return -1;
+        lexer->advance(lexer, false);
+        finish_list_cookie(lexer);
+        return EXT_LIST_CHECKBOX;
+    }
+    return -1;
 }
 
 /* Zero-width validator: returns true iff the current position starts
@@ -506,11 +531,13 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
         return true;
     }
 
-    /* ── Priority 0a: list checkbox. Fires only when valid (i.e.
-     * inside a list_item, immediately after the bullet's ws). */
-    if (valid_symbols[EXT_LIST_CHECKBOX] && lexer->lookahead == '[') {
-        if (scan_list_checkbox(lexer)) {
-            lexer->result_symbol = EXT_LIST_CHECKBOX;
+    /* ── Priority 0a: list counter `[@N]` / checkbox `[ ]`. Both fire
+     * only when valid (i.e. right after the bullet's ws). */
+    if ((valid_symbols[EXT_LIST_COUNTER] || valid_symbols[EXT_LIST_CHECKBOX])
+        && lexer->lookahead == '[') {
+        int sym = scan_list_bracket_cookie(lexer, valid_symbols);
+        if (sym >= 0) {
+            lexer->result_symbol = (TSSymbol)sym;
             return true;
         }
     }

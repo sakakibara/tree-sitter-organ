@@ -1081,6 +1081,22 @@
             "members": [
               {
                 "type": "FIELD",
+                "name": "counter",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "counter"
+                }
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "FIELD",
                 "name": "checkbox",
                 "content": {
                   "type": "SYMBOL",
@@ -1113,6 +1129,10 @@
           }
         ]
       }
+    },
+    "counter": {
+      "type": "SYMBOL",
+      "name": "_list_counter"
     },
     "checkbox": {
       "type": "SYMBOL",
@@ -2054,6 +2074,10 @@
     {
       "type": "SYMBOL",
       "name": "_fixed_width_body_text"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_list_counter"
     }
   ],
   "inline": [],
