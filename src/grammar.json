@@ -414,18 +414,6 @@
         {
           "type": "SYMBOL",
           "name": "_propdrawer_close"
-        },
-        {
-          "type": "PATTERN",
-          "value": "[Ee][Nn][Dd]"
-        },
-        {
-          "type": "STRING",
-          "value": ":"
-        },
-        {
-          "type": "PATTERN",
-          "value": "[ \\t]*\\r?\\n"
         }
       ]
     },
@@ -676,18 +664,6 @@
         {
           "type": "SYMBOL",
           "name": "_drawer_close"
-        },
-        {
-          "type": "PATTERN",
-          "value": "[Ee][Nn][Dd]"
-        },
-        {
-          "type": "STRING",
-          "value": ":"
-        },
-        {
-          "type": "PATTERN",
-          "value": "[ \\t]*\\r?\\n"
         }
       ]
     },

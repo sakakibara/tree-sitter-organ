@@ -20,8 +20,9 @@ print(1)
 #+end_src
 ~~~
 
-# Missing end.
--~~~
+# Missing end: a headline or EOF terminates an unclosed block, so
+# this is an example block truncated at EOF.
++~~~
 #+begin_example
 unterminated
 ~~~

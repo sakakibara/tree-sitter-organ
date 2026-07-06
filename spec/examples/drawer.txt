@@ -14,8 +14,9 @@ some text
 :END:
 ~~~
 
-# Single ":NAME:" without END.
--~~~
+# Single ":NAME:" without END: a headline or EOF terminates an
+# unclosed drawer, so this is a drawer truncated at EOF.
++~~~
 * Heading
 :NOTES:
 just text

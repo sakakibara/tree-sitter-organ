@@ -1,0 +1,230 @@
+==================
+Headline terminates drawer
+==================
+* Real
+:MYDRAWER:
+content
+* foo
+after
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (drawer
+        (drawer_name)
+        (paragraph))))
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (paragraph))))
+
+==================
+Headline terminates property drawer
+==================
+* Real
+:PROPERTIES:
+:ID: x
+* foo
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (property_drawer
+        (node_property
+          (property_name)
+          (property_value)))))
+  (headline
+    (headline_line
+      (stars)
+      (title))))
+
+==================
+Headline terminates inlinetask body
+==================
+* H
+*************** Task
+body
+* next
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (inlinetask
+        (inlinetask_line
+          (stars)
+          (title))
+        (paragraph))))
+  (headline
+    (headline_line
+      (stars)
+      (title))))
+
+==================
+Unclosed src block runs to EOF
+==================
+* Real
+#+begin_src sh
+foo
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (src_block
+        (src_block_language)))))
+
+==================
+Unclosed greater block runs to EOF
+==================
+* H
+#+begin_quote
+q
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (greater_block
+        (paragraph)))))
+
+==================
+Unclosed dynamic block runs to EOF
+==================
+* H
+#+begin: db
+x
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (dynamic_block
+        (paragraph)))))
+
+==================
+Unclosed latex environment runs to EOF
+==================
+* H
+\begin{align}
+x
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (latex_environment))))
+
+==================
+Unclosed drawer runs to EOF
+==================
+* Real
+:MYDRAWER:
+content
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (drawer
+        (drawer_name)
+        (paragraph)))))
+
+==================
+Unclosed property drawer runs to EOF
+==================
+* H
+:PROPERTIES:
+:ID: x
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (property_drawer
+        (node_property
+          (property_name)
+          (property_value))))))
+
+==================
+Unclosed inlinetask runs to EOF
+==================
+* H
+*************** Task
+body
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (inlinetask
+        (inlinetask_line
+          (stars)
+          (title))
+        (paragraph)))))
+
+==================
+Unclosed list inside unclosed greater block at EOF
+==================
+* H
+#+begin_quote
+- item
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (greater_block
+        (paragraph)
+        (list
+          (list_item
+            (bullet)
+            (paragraph)))))))

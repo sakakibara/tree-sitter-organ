@@ -190,6 +190,8 @@ module.exports = grammar({
     planning_keyword:   $ => /[Ss][Cc][Hh][Ee][Dd][Uu][Ll][Ee][Dd]|[Dd][Ee][Aa][Dd][Ll][Ii][Nn][Ee]|[Cc][Ll][Oo][Ss][Ee][Dd]/,
     planning_timestamp: $ => /[<\[][^\n>\]]+[>\]]/,
 
+    /* `_propdrawer_close` covers the whole `:END:` line — or is
+     * zero-width when a headline or EOF truncates the drawer. */
     property_drawer: $ => seq(
       $._propdrawer_open,
       /[Pp][Rr][Oo][Pp][Ee][Rr][Tt][Ii][Ee][Ss]/,
@@ -197,9 +199,6 @@ module.exports = grammar({
       /[ \t]*\r?\n/,
       repeat($.node_property),
       $._propdrawer_close,
-      /[Ee][Nn][Dd]/,
-      ':',
-      /[ \t]*\r?\n/,
     ),
     /* Property line inside a property_drawer: `:KEY: value`. Scanner
      * emits `_node_property_line` covering only the leading `:` so
@@ -265,9 +264,11 @@ module.exports = grammar({
       $._empty_line,
     ),
 
-    /* Custom-named drawer `:NAME: ... :END:`. Scanner emits both
-     * `_drawer_open` and `_drawer_close` covering only the leading
-     * `:` so JS rules expose the name as a child field. */
+    /* Custom-named drawer `:NAME: ... :END:`. Scanner emits
+     * `_drawer_open` covering only the leading `:` so JS rules expose
+     * the name as a child field.  `_drawer_close` covers the whole
+     * `:END:` line — or is zero-width when a headline or EOF
+     * truncates the drawer. */
     drawer: $ => seq(
       $._drawer_open,
       field('name', $.drawer_name),
@@ -275,9 +276,6 @@ module.exports = grammar({
       /[ \t]*\r?\n/,
       repeat($._content_line),
       $._drawer_close,
-      /[Ee][Nn][Dd]/,
-      ':',
-      /[ \t]*\r?\n/,
     ),
 
     drawer_name: $ => /[A-Za-z_][A-Za-z0-9_-]*/,

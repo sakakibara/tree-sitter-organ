@@ -16,8 +16,7 @@ Empty inlinetask
       (inlinetask
         (inlinetask_line
           (stars)
-          (title)))
-      (paragraph))))
+          (title))))))
 
 ==================
 Inlinetask with body paragraph
@@ -39,8 +38,7 @@ Body line.
         (inlinetask_line
           (stars)
           (title))
-        (paragraph))
-      (paragraph))))
+        (paragraph)))))
 
 ==================
 Inlinetask with planning
@@ -67,8 +65,7 @@ SCHEDULED: <2026-04-29>
           (planning_line
             (planning_entry
               (planning_keyword)
-              (planning_timestamp)))))
-      (paragraph))))
+              (planning_timestamp))))))))
 
 ==================
 Inlinetask with property drawer
@@ -95,8 +92,7 @@ Inlinetask with property drawer
         (property_drawer
           (node_property
             (property_name)
-            (property_value))))
-      (paragraph))))
+            (property_value)))))))
 
 ==================
 Inlinetask with planning, properties, and body
@@ -132,5 +128,4 @@ Body paragraph.
           (node_property
             (property_name)
             (property_value)))
-        (paragraph))
-      (paragraph))))
+        (paragraph)))))

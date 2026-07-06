@@ -329,6 +329,47 @@ static uint8_t closes_needed(const ScannerState *s, uint8_t level) {
     return n;
 }
 
+/* External close symbol that terminates the innermost open scope, or
+ * -1 when there is none.  Used to truncate an unclosed container
+ * (block / drawer / inlinetask) when a headline or EOF interrupts it:
+ * the close token is emitted zero-width and the scope popped, one
+ * scope per scan, so the parser and the prepass stack stay in
+ * lockstep across nesting. */
+static int scope_close_symbol(const ScannerState *s, ScopeKind top) {
+    switch (top) {
+        case SCOPE_LBLOCK:
+            switch (s->lblock_kind) {
+                case 1:  return EXT_SRC_BLOCK_CLOSE;
+                case 2:  return EXT_EXAMPLE_BLOCK_CLOSE;
+                case 3:  return EXT_EXPORT_BLOCK_CLOSE;
+                case 4:  return EXT_VERSE_BLOCK_CLOSE;
+                case 5:  return EXT_COMMENT_BLOCK_CLOSE;
+                default: return -1;
+            }
+        case SCOPE_GBLOCK:     return EXT_GBLOCK_CLOSE;
+        case SCOPE_DYNBLOCK:   return EXT_DYNBLOCK_CLOSE;
+        case SCOPE_LATEXENV:   return EXT_LATEXENV_CLOSE;
+        case SCOPE_DRAWER:     return EXT_DRAWER_CLOSE;
+        case SCOPE_PROPDRAWER: return EXT_PROPDRAWER_CLOSE;
+        case SCOPE_INLINETASK: return EXT_INLINETASK_CLOSE;
+        default:               return -1;
+    }
+}
+
+/* Emit the zero-width close for the innermost open scope if the
+ * parser can accept it.  Shared by the headline-interrupt and EOF
+ * paths; the caller must have mark_end at the truncation point. */
+static bool close_innermost_scope(ScannerState *s, TSLexer *lexer,
+                                  const bool *valid_symbols) {
+    ScopeKind top = prepass_scope_top(s->prepass);
+    int close_sym = scope_close_symbol(s, top);
+    if (close_sym < 0 || !valid_symbols[close_sym]) return false;
+    prepass_scope_pop(s->prepass);
+    if (top == SCOPE_LBLOCK) s->lblock_kind = 0;
+    lexer->result_symbol = (TSSymbol)close_sym;
+    return true;
+}
+
 /* ---------------------------------------------------------------------------
  * Headline-line sub-scanners.
  *
@@ -961,16 +1002,20 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
         return true;
     }
 
-    /* ── Priority 3: EOF — close all remaining open lists, then headings. ── */
+    /* ── Priority 3: EOF — close all remaining open lists, then any
+     * still-open containers (an unclosed block / drawer / inlinetask
+     * runs to EOF), then headings. ── */
     if (lexer->eof(lexer)) {
+        lexer->mark_end(lexer);
         if (s->list_depth > 0 && valid_symbols[EXT_PLAIN_LIST_CLOSE]) {
-            lexer->mark_end(lexer);
             s->list_depth--;
             lexer->result_symbol = EXT_PLAIN_LIST_CLOSE;
             return true;
         }
+        if (close_innermost_scope(s, lexer, valid_symbols)) {
+            return true;
+        }
         if (s->heading_depth > 0 && valid_symbols[EXT_HEADING_CLOSE]) {
-            lexer->mark_end(lexer);
             s->heading_depth--;
             lexer->result_symbol = EXT_HEADING_CLOSE;
             return true;
@@ -1029,40 +1074,18 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                            && lexer->lookahead == ' ');
 
         if (is_heading) {
-            /* A column-0 headline terminates any block it appears in
-             * (Emacs parity: `org-at-heading-p` is t inside
-             * #+begin_.../#+end_...; a literal star must be escaped
-             * `,*`).  The grammar requires the block's close token, so
-             * emit it zero-width here — mark_end is still at line
-             * start, so the heading line is re-presented on the next
-             * scan and the close/open dance below runs with the block
-             * reduced.  One scope per scan unwinds nested blocks while
-             * keeping the parser and the prepass stack in lockstep. */
-            if (at_line_start) {
-                ScopeKind top = prepass_scope_top(s->prepass);
-                int block_close = -1;
-                switch (top) {
-                    case SCOPE_LBLOCK:
-                        switch (s->lblock_kind) {
-                            case 1: block_close = EXT_SRC_BLOCK_CLOSE;     break;
-                            case 2: block_close = EXT_EXAMPLE_BLOCK_CLOSE; break;
-                            case 3: block_close = EXT_EXPORT_BLOCK_CLOSE;  break;
-                            case 4: block_close = EXT_VERSE_BLOCK_CLOSE;   break;
-                            case 5: block_close = EXT_COMMENT_BLOCK_CLOSE; break;
-                            default: break;
-                        }
-                        break;
-                    case SCOPE_GBLOCK:   block_close = EXT_GBLOCK_CLOSE;   break;
-                    case SCOPE_DYNBLOCK: block_close = EXT_DYNBLOCK_CLOSE; break;
-                    case SCOPE_LATEXENV: block_close = EXT_LATEXENV_CLOSE; break;
-                    default: break;
-                }
-                if (block_close >= 0 && valid_symbols[block_close]) {
-                    prepass_scope_pop(s->prepass);
-                    if (top == SCOPE_LBLOCK) s->lblock_kind = 0;
-                    lexer->result_symbol = (TSSymbol)block_close;
-                    return true;
-                }
+            /* A column-0 headline terminates any container it appears
+             * in — block, drawer, or inlinetask (Emacs parity:
+             * `org-at-heading-p` is t inside #+begin_.../#+end_...; a
+             * literal star must be escaped `,*`).  The grammar
+             * requires the container's close token, so emit it
+             * zero-width here — mark_end is still at line start, so
+             * the heading line is re-presented on the next scan and
+             * the close/open dance below runs with the container
+             * reduced. */
+            if (at_line_start
+                && close_innermost_scope(s, lexer, valid_symbols)) {
+                return true;
             }
 
             uint8_t cn = closes_needed(s, level);
@@ -1400,6 +1423,10 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
 
         LineClassification rr = prepass_classify_line(s->prepass, line_buf2, ll);
         if (rr.type == TT_HEADING) return false;
+        /* Indented `:END:` — same whole-line close-token coverage as
+         * the Priority-5 path (the colon mark pinned it at the `:`). */
+        if (rr.type == TT_DRAWER_CLOSE || rr.type == TT_PROPDRAWER_CLOSE)
+            lexer->mark_end(lexer);
         int sym = prepass_to_external(rr.type);
         if (sym < 0) return false;
         if (!valid_symbols[sym]) return false;
@@ -1714,6 +1741,14 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
          * happen) — return false to avoid confusing the grammar. */
         return false;
     }
+
+    /* Close-line tokens with no JS-side tail cover the whole line.
+     * The mid-loop marks pinned them at a prefix (`:` for drawer
+     * closes, stars + space for the inlinetask END line); extend to
+     * the consumed end of line. */
+    if (r.type == TT_DRAWER_CLOSE || r.type == TT_PROPDRAWER_CLOSE
+        || r.type == TT_INLINETASK_CLOSE)
+        lexer->mark_end(lexer);
 
     /* Lesser-block dispatch: emit one of 5 type-specific tokens based on
      * the block name.  TT_LBLOCK_OPEN sets `lblock_kind`; TT_LBLOCK_CLOSE
