@@ -6,17 +6,6 @@
 
 #define PREPASS_STACK_MAX 32
 
-typedef enum {
-    SCOPE_NONE = 0,
-    SCOPE_PROPDRAWER,
-    SCOPE_DRAWER,
-    SCOPE_GBLOCK,
-    SCOPE_LBLOCK,
-    SCOPE_DYNBLOCK,
-    SCOPE_LATEXENV,
-    SCOPE_INLINETASK,
-} ScopeKind;
-
 struct prepass_state {
     uint8_t           stack[PREPASS_STACK_MAX];
     uint8_t           depth;
@@ -33,6 +22,14 @@ static ScopeKind scope_top(const struct prepass_state *s) {
 
 static void scope_pop(struct prepass_state *s) {
     if (s->depth) s->depth--;
+}
+
+ScopeKind prepass_scope_top(const prepass_state_t *s) {
+    return scope_top((const struct prepass_state *)s);
+}
+
+void prepass_scope_pop(prepass_state_t *s) {
+    scope_pop((struct prepass_state *)s);
 }
 
 /* Forward declarations for classify_line and leading_indent. */
@@ -335,26 +332,35 @@ static LineTokenType classify_line(struct prepass_state *s,
     }
 
     if (indent == 0 && line[0] == '*') {
-        ScopeKind top = scope_top(s);
-        if (top != SCOPE_LBLOCK && top != SCOPE_LATEXENV) {
-            uint32_t i = 0;
-            while (i < line_len && line[i] == '*') i++;
-            if (i < line_len && line[i] == ' ') {
-                if (i >= ORG_INLINETASK_MIN_LEVEL) {
-                    uint32_t after_star = i + 1;
-                    if (line_len - after_star == 3
-                        && memcmp(line + after_star, "END", 3) == 0
-                        && scope_top(s) == SCOPE_INLINETASK) {
-                        scope_pop(s);
-                        return TT_INLINETASK_CLOSE;
-                    }
-                    if (scope_top(s) != SCOPE_INLINETASK) {
-                        scope_push(s, SCOPE_INLINETASK);
-                    }
-                    return TT_INLINETASK_OPEN;
-                }
+        uint32_t i = 0;
+        while (i < line_len && line[i] == '*') i++;
+        if (i < line_len && line[i] == ' ') {
+            if (i < ORG_INLINETASK_MIN_LEVEL) {
+                /* A headline is recognised in EVERY scope and terminates
+                 * all of them (Emacs: `org-at-heading-p` is t on `^\*+ `
+                 * even inside #+begin_.../#+end_...; a literal star in a
+                 * block must be escaped `,*`, which fails the line[0]
+                 * check above and stays block content). */
+                s->depth = 0;
                 *out_meta = (uint64_t)(i & 0xff);
                 return TT_HEADING;
+            }
+            /* 15+-star inlinetask lines are only structural outside
+             * verbatim scopes; inside a lesser block or latex
+             * environment they remain body content. */
+            ScopeKind top = scope_top(s);
+            if (top != SCOPE_LBLOCK && top != SCOPE_LATEXENV) {
+                uint32_t after_star = i + 1;
+                if (line_len - after_star == 3
+                    && memcmp(line + after_star, "END", 3) == 0
+                    && top == SCOPE_INLINETASK) {
+                    scope_pop(s);
+                    return TT_INLINETASK_CLOSE;
+                }
+                if (top != SCOPE_INLINETASK) {
+                    scope_push(s, SCOPE_INLINETASK);
+                }
+                return TT_INLINETASK_OPEN;
             }
         }
     }

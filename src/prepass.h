@@ -86,7 +86,29 @@ typedef struct {
     uint64_t      meta;
 } LineClassification;
 
+/* Container scopes tracked while classifying lines.  The innermost
+ * scope decides how ambiguous lines (block bodies, drawer contents)
+ * are classified. */
+typedef enum {
+    SCOPE_NONE = 0,
+    SCOPE_PROPDRAWER,
+    SCOPE_DRAWER,
+    SCOPE_GBLOCK,
+    SCOPE_LBLOCK,
+    SCOPE_DYNBLOCK,
+    SCOPE_LATEXENV,
+    SCOPE_INLINETASK,
+} ScopeKind;
+
 typedef struct prepass_state prepass_state_t;
+
+/* Innermost open scope, or SCOPE_NONE when the stack is empty. */
+ScopeKind prepass_scope_top(const prepass_state_t *s);
+
+/* Pop the innermost scope.  The scanner calls this when it terminates
+ * an unclosed container itself (a headline interrupting a block) so
+ * the scope stack tracks the parser's structure. */
+void prepass_scope_pop(prepass_state_t *s);
 
 prepass_state_t *prepass_state_new(void);
 void             prepass_state_free(prepass_state_t *s);

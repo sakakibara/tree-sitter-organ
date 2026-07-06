@@ -1010,6 +1010,8 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
     /* ── Priority 4: detect heading line; emit close(s) then open. ───── */
     uint8_t consumed_stars = 0;
     if (lexer->lookahead == '*') {
+        bool at_line_start = lexer->get_column(lexer) == 0;
+
         /* Call mark_end before advancing, so that if we emit a
          * _heading_close the token is zero-width and the next scan()
          * call will re-present the same line for the _heading_open. */
@@ -1027,6 +1029,42 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                            && lexer->lookahead == ' ');
 
         if (is_heading) {
+            /* A column-0 headline terminates any block it appears in
+             * (Emacs parity: `org-at-heading-p` is t inside
+             * #+begin_.../#+end_...; a literal star must be escaped
+             * `,*`).  The grammar requires the block's close token, so
+             * emit it zero-width here — mark_end is still at line
+             * start, so the heading line is re-presented on the next
+             * scan and the close/open dance below runs with the block
+             * reduced.  One scope per scan unwinds nested blocks while
+             * keeping the parser and the prepass stack in lockstep. */
+            if (at_line_start) {
+                ScopeKind top = prepass_scope_top(s->prepass);
+                int block_close = -1;
+                switch (top) {
+                    case SCOPE_LBLOCK:
+                        switch (s->lblock_kind) {
+                            case 1: block_close = EXT_SRC_BLOCK_CLOSE;     break;
+                            case 2: block_close = EXT_EXAMPLE_BLOCK_CLOSE; break;
+                            case 3: block_close = EXT_EXPORT_BLOCK_CLOSE;  break;
+                            case 4: block_close = EXT_VERSE_BLOCK_CLOSE;   break;
+                            case 5: block_close = EXT_COMMENT_BLOCK_CLOSE; break;
+                            default: break;
+                        }
+                        break;
+                    case SCOPE_GBLOCK:   block_close = EXT_GBLOCK_CLOSE;   break;
+                    case SCOPE_DYNBLOCK: block_close = EXT_DYNBLOCK_CLOSE; break;
+                    case SCOPE_LATEXENV: block_close = EXT_LATEXENV_CLOSE; break;
+                    default: break;
+                }
+                if (block_close >= 0 && valid_symbols[block_close]) {
+                    prepass_scope_pop(s->prepass);
+                    if (top == SCOPE_LBLOCK) s->lblock_kind = 0;
+                    lexer->result_symbol = (TSSymbol)block_close;
+                    return true;
+                }
+            }
+
             uint8_t cn = closes_needed(s, level);
 
             /* Closes must come first. */

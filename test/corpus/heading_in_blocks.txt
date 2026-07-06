@@ -1,0 +1,357 @@
+==================
+Headline terminates src block
+==================
+* Real
+#+begin_src org
+* foo
+more
+#+end_src
+body
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (src_block
+        (src_block_language))))
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (paragraph)
+      (paragraph))))
+
+==================
+Deeper headline inside src block becomes child headline
+==================
+* top
+#+begin_src sh
+** child
+body
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (src_block
+        (src_block_language)))
+    (headline
+      (headline_line
+        (stars)
+        (title))
+      (section
+        (paragraph)))))
+
+==================
+Escaped comma-star inside src block stays block content
+==================
+* Real
+#+begin_src org
+,* escaped
+#+end_src
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (src_block
+        (src_block_language)))))
+
+==================
+Column-0 stars without space inside greater block stay content
+==================
+* Real
+#+begin_quote
+*bold* stuff
+***
+#+end_quote
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (greater_block
+        (paragraph))
+      (paragraph))))
+
+==================
+Headline terminates greater block
+==================
+* Real
+#+begin_quote
+quoted
+* foo
+after
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (greater_block
+        (paragraph))))
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (paragraph))))
+
+==================
+Headline terminates nested greater blocks
+==================
+* a
+#+begin_center
+#+begin_quote
+q
+* c
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (greater_block
+        (paragraph)
+        (greater_block
+          (paragraph)))))
+  (headline
+    (headline_line
+      (stars)
+      (title))))
+
+==================
+Headline terminates dynamic block
+==================
+* Real
+#+begin: myblock :param 1
+content
+* foo
+after
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (dynamic_block
+        (paragraph))))
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (paragraph))))
+
+==================
+Headline terminates latex environment
+==================
+* Real
+\begin{equation}
+x = 1
+* foo
+after
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (latex_environment)))
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (paragraph))))
+
+==================
+Headline terminates example block
+==================
+* Real
+#+begin_example
+text
+* foo
+after
+#+end_example
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (example_block)))
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (paragraph))))
+
+==================
+Headline terminates verse block
+==================
+* Real
+#+begin_verse
+* foo
+#+end_verse
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (verse_block)))
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (paragraph))))
+
+==================
+Headline terminates comment block
+==================
+* Real
+#+begin_comment
+x
+* foo
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (comment_block)))
+  (headline
+    (headline_line
+      (stars)
+      (title))))
+
+==================
+Headline terminates export block
+==================
+* Real
+#+begin_export html
+<b>
+* foo
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (export_block
+        (src_block_language))))
+  (headline
+    (headline_line
+      (stars)
+      (title))))
+
+==================
+Shallower headline inside block closes deeper headlines
+==================
+* a
+** b
+#+begin_quote
+q
+* c
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (headline
+      (headline_line
+        (stars)
+        (title))
+      (section
+        (greater_block
+          (paragraph)))))
+  (headline
+    (headline_line
+      (stars)
+      (title))))
+
+==================
+Headline as first line of block body
+==================
+* Real
+#+begin_src sh
+* foo
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (src_block
+        (src_block_language))))
+  (headline
+    (headline_line
+      (stars)
+      (title))))
+
+==================
+Headline terminates block in zeroth section
+==================
+#+begin_src sh
+* foo
+
+---
+
+(document
+  (zeroth_section
+    (src_block
+      (src_block_language)))
+  (headline
+    (headline_line
+      (stars)
+      (title))))
