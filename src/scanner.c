@@ -473,7 +473,7 @@ static bool consume_stats_cookie(TSLexer *lexer) {
  * in the title (Emacs convention; consumers may trim). */
 static bool scan_headline_title(TSLexer *lexer) {
     bool any_title_chars = false;
-    char prev = '\n';
+    int32_t prev = '\n';
     while (true) {
         int32_t c = lexer->lookahead;
         if (c == '\n' || c == 0 || lexer->eof(lexer)) break;
@@ -481,20 +481,20 @@ static bool scan_headline_title(TSLexer *lexer) {
             if (consume_tag_region(lexer)) return any_title_chars;
             any_title_chars = true;
             lexer->mark_end(lexer);
-            prev = (char)lexer->lookahead;
+            prev = lexer->lookahead;
             continue;
         }
         if (c == '[' && (prev == ' ' || prev == '\t')) {
             if (consume_stats_cookie(lexer)) return any_title_chars;
             any_title_chars = true;
             lexer->mark_end(lexer);
-            prev = (char)lexer->lookahead;
+            prev = lexer->lookahead;
             continue;
         }
         lexer->advance(lexer, false);
         any_title_chars = true;
         lexer->mark_end(lexer);
-        prev = (char)c;
+        prev = c;
     }
     return any_title_chars;
 }
@@ -514,6 +514,12 @@ static void finish_list_cookie(TSLexer *lexer) {
 static inline void push_byte(uint8_t *buf, uint32_t cap, uint32_t *len,
                              uint8_t b) {
     if (*len < cap) buf[(*len)++] = b;
+}
+
+/* Classification buffers hold one byte per codepoint; any non-ASCII
+ * codepoint becomes 0x80, which matches no structural prefix test. */
+static inline uint8_t classify_byte(int32_t la) {
+    return (la >= 0 && la < 0x80) ? (uint8_t)la : 0x80;
 }
 
 /* Counter `[@N]` and checkbox `[ ]`/`[x]`/`[X]`/`[-]` both start with
@@ -829,7 +835,7 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
              * and include those bytes in the title token. */
             if (!valid_symbols[EXT_HEADLINE_TITLE]) return false;
             lexer->mark_end(lexer);
-            char prev = (char)lexer->lookahead;
+            int32_t prev = lexer->lookahead;
             while (true) {
                 int32_t c = lexer->lookahead;
                 if (c == '\n' || c == 0 || lexer->eof(lexer)) break;
@@ -839,7 +845,7 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                         return true;
                     }
                     lexer->mark_end(lexer);
-                    prev = (char)lexer->lookahead;
+                    prev = lexer->lookahead;
                     continue;
                 }
                 if (c == '[' && (prev == ' ' || prev == '\t')) {
@@ -848,12 +854,12 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                         return true;
                     }
                     lexer->mark_end(lexer);
-                    prev = (char)lexer->lookahead;
+                    prev = lexer->lookahead;
                     continue;
                 }
                 lexer->advance(lexer, false);
                 lexer->mark_end(lexer);
-                prev = (char)c;
+                prev = c;
             }
             lexer->result_symbol = EXT_HEADLINE_TITLE;
             return true;
@@ -939,7 +945,7 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
             /* Not TODO/COMMENT — fall through to title. */
             if (!valid_symbols[EXT_HEADLINE_TITLE]) return false;
             lexer->mark_end(lexer);
-            char prev = (char)lexer->lookahead;
+            int32_t prev = lexer->lookahead;
             while (true) {
                 int32_t c = lexer->lookahead;
                 if (c == '\n' || c == 0 || lexer->eof(lexer)) break;
@@ -949,7 +955,7 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                         return true;
                     }
                     lexer->mark_end(lexer);
-                    prev = (char)lexer->lookahead;
+                    prev = lexer->lookahead;
                     continue;
                 }
                 if (c == '[' && (prev == ' ' || prev == '\t')) {
@@ -958,12 +964,12 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                         return true;
                     }
                     lexer->mark_end(lexer);
-                    prev = (char)lexer->lookahead;
+                    prev = lexer->lookahead;
                     continue;
                 }
                 lexer->advance(lexer, false);
                 lexer->mark_end(lexer);
-                prev = (char)c;
+                prev = c;
             }
             lexer->result_symbol = EXT_HEADLINE_TITLE;
             return true;
@@ -1060,7 +1066,7 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
     if (s->list_depth > 0
         && valid_symbols[EXT_PLAIN_LIST_CLOSE]
         && lexer->get_column(lexer) == 0) {
-        uint8_t la = (uint8_t)lexer->lookahead;
+        int32_t la = lexer->lookahead;
         /* `*` at column 0 is never a list bullet (the prepass only treats
          * `*` as a bullet when indent > 0).  It's either a heading or
          * inline emphasis, and either way the list ends. */
@@ -1207,7 +1213,7 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
         while (!lexer->eof(lexer)
                && lexer->lookahead != '\n'
                && row_len < ORG_LINE_BUF_MAX) {
-            row_buf[row_len++] = (uint8_t)lexer->lookahead;
+            row_buf[row_len++] = classify_byte(lexer->lookahead);
             lexer->advance(lexer, false);
         }
 
@@ -1272,11 +1278,11 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
         }
 
         bool ok = false;
-        uint8_t la = (uint8_t)lexer->lookahead;
+        int32_t la = lexer->lookahead;
 
         if (la == '-' || la == '+' || (la == '*' && indent > 0)) {
             push_byte(bullet_consumed, sizeof(bullet_consumed),
-                      &bullet_consumed_len, la);
+                      &bullet_consumed_len, (uint8_t)la);
             lexer->advance(lexer, false);
             if (lexer->lookahead == ' ' || lexer->lookahead == '\t') {
                 push_byte(bullet_consumed, sizeof(bullet_consumed),
@@ -1378,7 +1384,7 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
         lexer->mark_end(lexer);
         while (!lexer->eof(lexer) && lexer->lookahead != '\n'
                && ll < ORG_LINE_BUF_MAX) {
-            line_buf2[ll++] = (uint8_t)lexer->lookahead;
+            line_buf2[ll++] = classify_byte(lexer->lookahead);
             lexer->advance(lexer, false);
             if (have_b2_mark) continue;
             if (line_buf2[ll - 1] == ':') {
@@ -1528,7 +1534,7 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
             fn_line_buf[fn_ll++] = fn_consumed[i];
         while (!lexer->eof(lexer) && lexer->lookahead != '\n'
                && fn_ll < ORG_LINE_BUF_MAX) {
-            fn_line_buf[fn_ll++] = (uint8_t)lexer->lookahead;
+            fn_line_buf[fn_ll++] = classify_byte(lexer->lookahead);
             lexer->advance(lexer, false);
         }
         if (!lexer->eof(lexer) && lexer->lookahead == '\n')
@@ -1583,7 +1589,7 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
     lexer->mark_end(lexer);
     while (!lexer->eof(lexer) && lexer->lookahead != '\n'
            && line_len < ORG_LINE_BUF_MAX) {
-        line_buf[line_len++] = (uint8_t)lexer->lookahead;
+        line_buf[line_len++] = classify_byte(lexer->lookahead);
         lexer->advance(lexer, false);
 
         /* `:`-leading line (after optional leading whitespace).  Mark

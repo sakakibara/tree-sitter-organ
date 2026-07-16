@@ -1,0 +1,56 @@
+==================
+Cyrillic line starting with U+043A is a paragraph
+==================
+к тут пример
+
+---
+
+(document
+  (zeroth_section
+    (paragraph)))
+
+==================
+Cyrillic line starting with U+0423 is a paragraph
+==================
+У нас
+
+---
+
+(document
+  (zeroth_section
+    (paragraph)))
+
+==================
+Cyrillic line starting with U+042A is a paragraph
+==================
+Ъ было
+
+---
+
+(document
+  (zeroth_section
+    (paragraph)))
+
+==================
+Cyrillic letters with low byte 0x20 do not blank a line
+==================
+абв
+РР
+где
+
+---
+
+(document
+  (zeroth_section
+    (paragraph)))
+
+==================
+Latin letter with low byte of pipe is a paragraph
+==================
+żółw na stole
+
+---
+
+(document
+  (zeroth_section
+    (paragraph)))
