@@ -385,3 +385,57 @@ Deeply indented bullet stays a list item
       (list_item
         (bullet)
         (paragraph)))))
+
+==================
+Single blank line keeps following indented text in the item
+==================
+- foo
+
+  bar
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (paragraph)
+        (paragraph)))))
+
+==================
+Two consecutive blank lines terminate the list
+==================
+- foo
+
+
+bar
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (paragraph)))
+      (paragraph)))
+
+==================
+Single blank line between items keeps one list
+==================
+- a
+
+- b
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (paragraph))
+      (list_item
+        (bullet)
+        (paragraph)))))

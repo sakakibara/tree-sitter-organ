@@ -61,6 +61,7 @@ module.exports = grammar({
     $._list_counter,           // `[@N]` force-renumber cookie after a bullet
     $._item_tag_text,          // description-list term before ` :: `
     $._item_tag_sep,           // the ` :: ` separator after an item tag
+    $._fn_empty_line,          // empty line inside a footnote definition body
   ],
 
   extras: _ => [],
@@ -261,7 +262,7 @@ module.exports = grammar({
 
     _footnote_body_content_line: $ => choice(
       $._non_fn_meaningful_content_line,
-      $._empty_line,
+      $._fn_empty_line,
     ),
 
     /* Custom-named drawer `:NAME: ... :END:`. Scanner emits
@@ -345,8 +346,10 @@ module.exports = grammar({
         field('item_tag', $.item_tag),
         $._item_tag_sep,
       )),
-      optional($.paragraph),
-      repeat($.list),
+      /* A single blank line stays inside the item (Emacs ends a
+       * list only at two consecutive blanks - the scanner refuses
+       * to continue past the second one). */
+      repeat(choice($.paragraph, $.list, $._empty_line)),
     )),
 
     /* Force-renumber counter `[@N]` after a bullet (e.g. `1. [@5] ...`).

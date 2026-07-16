@@ -78,6 +78,7 @@ enum OrgExternal {
     EXT_LIST_COUNTER,            /* `[@N]` force-renumber cookie after a bullet */
     EXT_ITEM_TAG_TEXT,           /* description-list term before ` :: ` */
     EXT_ITEM_TAG_SEP,            /* the ` :: ` separator after an item tag */
+    EXT_FN_EMPTY_LINE,           /* empty line inside a footnote definition body */
 };
 
 /* Map prepass LineTokenType → tree-sitter external symbol (non-heading types). */
@@ -160,6 +161,10 @@ typedef struct {
      * mis-handle a definition that starts with `*` / `+` / `|` / `#`).
      * Consumed (and cleared) by the very next scan. */
     uint8_t          at_item_def;
+
+    /* Consecutive empty lines emitted so far.  Two consecutive
+     * blanks terminate plain lists and footnote definitions. */
+    uint8_t          blank_run;
 } ScannerState;
 
 /* Match an ASCII-CI block name in `buf` of length `n` starting at
@@ -242,9 +247,10 @@ unsigned tree_sitter_org_external_scanner_serialize(void *payload, char *buffer)
      *   [.. 2 bytes LE]           pending_list_open_indent
      *   [..]                      lblock_kind
      *   [..]                      at_item_def
+     *   [..]                      blank_run
      *   [..]                      prepass serialized state
      */
-    size_t hdr = 9u + (size_t)s->heading_depth + (size_t)s->list_depth;
+    size_t hdr = 10u + (size_t)s->heading_depth + (size_t)s->list_depth;
     if (hdr > cap) return 0;
 
     size_t pos = 0;
@@ -266,6 +272,7 @@ unsigned tree_sitter_org_external_scanner_serialize(void *payload, char *buffer)
     buf[pos++] = (uint8_t)((s->pending_list_open_indent >> 8) & 0xff);
     buf[pos++] = s->lblock_kind;
     buf[pos++] = s->at_item_def;
+    buf[pos++] = s->blank_run;
 
     size_t pp_n = prepass_serialize(s->prepass, buf + pos, cap - pos);
     if (pp_n > cap - pos) return 0;
@@ -317,9 +324,10 @@ void tree_sitter_org_external_scanner_deserialize(void *payload,
     s->pending_list_open_indent =
         (int16_t)((uint16_t)buf[pos] | ((uint16_t)buf[pos + 1] << 8));
     pos += 2;
-    if (length < pos + 2) goto corrupt;
+    if (length < pos + 3) goto corrupt;
     s->lblock_kind = buf[pos++];
     s->at_item_def = buf[pos++];
+    s->blank_run   = buf[pos++];
 
     if (length <= pos) goto corrupt;
     if (!prepass_deserialize(s->prepass, buf + pos, (size_t)length - pos))
@@ -610,9 +618,26 @@ static bool scan_headline_priority(TSLexer *lexer) {
  * Main scanner
  * --------------------------------------------------------------------- */
 
+static bool scan_impl(ScannerState *s, TSLexer *lexer,
+                      const bool *valid_symbols);
+
 bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                                              const bool *valid_symbols) {
     ScannerState *s = (ScannerState *)payload;
+    bool ok = scan_impl(s, lexer, valid_symbols);
+    if (ok) {
+        if (lexer->result_symbol == EXT_EMPTY_LINE
+            || lexer->result_symbol == EXT_FN_EMPTY_LINE) {
+            if (s->blank_run < 255) s->blank_run++;
+        } else {
+            s->blank_run = 0;
+        }
+    }
+    return ok;
+}
+
+static bool scan_impl(ScannerState *s, TSLexer *lexer,
+                      const bool *valid_symbols) {
 
     /* ── Priority 0z: body-text token for comment_line / fixed_width_line.
      * Fires when the parser, having just consumed a prefix-only
@@ -1054,28 +1079,19 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
         return false;
     }
 
-    /* ── Priority 3a: passive list close.  We're inside a list and the
-     * parser will accept a close.  Fire when:
-     *
-     *   - lookahead is at column 0 (start of a fresh line), AND
-     *   - lookahead is NOT a bullet candidate, AND
-     *   - lookahead is NOT whitespace (which would make the indent > 0).
-     *
-     * Per Emacs, paragraph continuation inside a list item requires the
-     * line to be indented strictly more than the item's bullet column.
-     * If column 0 indent is ≤ any open list's indent (always, since
-     * indents are ≥ 0), the list must end before this line is parsed. */
     if (s->list_depth > 0
         && valid_symbols[EXT_PLAIN_LIST_CLOSE]
         && lexer->get_column(lexer) == 0) {
         int32_t la = lexer->lookahead;
-        /* `*` at column 0 is never a list bullet (the prepass only treats
-         * `*` as a bullet when indent > 0).  It's either a heading or
-         * inline emphasis, and either way the list ends. */
         bool maybe_bullet = (la == ' ' || la == '\t'
                               || la == '-' || la == '+'
                               || (la >= '0' && la <= '9'));
-        if (!maybe_bullet) {
+        bool blank = (la == '\n' || la == '\r');
+        /* A single blank line stays inside the list; the SECOND
+         * consecutive blank terminates it (Emacs org-list-end-re).
+         * `*` at column 0 is never a list bullet, so any other
+         * non-bullet line still ends the list immediately. */
+        if ((blank && s->blank_run >= 1) || (!maybe_bullet && !blank)) {
             lexer->mark_end(lexer);
             s->list_depth--;
             lexer->result_symbol = EXT_PLAIN_LIST_CLOSE;
@@ -1835,6 +1851,14 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
 
     int sym = prepass_to_external(r.type);
     if (sym < 0) return false;
+
+    /* Inside a footnote definition body an empty line is the gated
+     * _fn_empty_line token; refusing it on the second consecutive
+     * blank forces the footnote_definition to end. */
+    if (r.type == TT_EMPTY && valid_symbols[EXT_FN_EMPTY_LINE]
+        && s->blank_run == 0) {
+        sym = EXT_FN_EMPTY_LINE;
+    }
 
     /* Override the prepass classification when our in-line detection
      * recognised a CLOCK / planning entry. Inside SCOPE_DRAWER the

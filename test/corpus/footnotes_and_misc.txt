@@ -204,3 +204,36 @@ Formula vs keyword: TBLFM is formula, others are keyword
     (formula
       (directive_name)
       (directive_value))))
+
+==================
+Footnote definition continues across a single blank line
+==================
+[fn:1] body
+
+still inside
+
+---
+
+(document
+  (zeroth_section
+    (footnote_definition
+      (footnote_label)
+      (paragraph)
+      (paragraph))))
+
+==================
+Two consecutive blank lines terminate a footnote definition
+==================
+[fn:1] body
+
+
+outside
+
+---
+
+(document
+  (zeroth_section
+    (footnote_definition
+      (footnote_label)
+      (paragraph))
+    (paragraph)))

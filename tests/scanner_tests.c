@@ -10,7 +10,7 @@
 extern uint16_t organ_leading_indent_scalar(const uint8_t *p, uint32_t len);
 extern uint16_t organ_leading_indent_swar(const uint8_t *p, uint32_t len);
 
-#define N_EXTERNALS (EXT_ITEM_TAG_SEP + 1)
+#define N_EXTERNALS (EXT_FN_EMPTY_LINE + 1)
 
 typedef struct {
     TSLexer lexer;
@@ -176,6 +176,12 @@ static void test_deserialize_corrupt_buffer_resets_state(void) {
     /* Roundtrip sanity. */
     tree_sitter_org_external_scanner_deserialize(s, blob, n);
     CHECK(s->heading_depth == 2 && s->heading_levels[1] == 2);
+
+    s->blank_run = 1;
+    n = tree_sitter_org_external_scanner_serialize(s, blob);
+    s->blank_run = 0;
+    tree_sitter_org_external_scanner_deserialize(s, blob, n);
+    CHECK(s->blank_run == 1);
 
     /* Corrupt heading depth: state must come out CLEAN, not partial. */
     blob[0] = (char)200;
