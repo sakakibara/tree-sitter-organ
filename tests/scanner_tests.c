@@ -7,6 +7,9 @@
 #include <stdio.h>
 #include <string.h>
 
+extern uint16_t organ_leading_indent_scalar(const uint8_t *p, uint32_t len);
+extern uint16_t organ_leading_indent_swar(const uint8_t *p, uint32_t len);
+
 #define N_EXTERNALS (EXT_ITEM_TAG_SEP + 1)
 
 typedef struct {
@@ -190,10 +193,44 @@ static void test_deserialize_corrupt_buffer_resets_state(void) {
     tree_sitter_org_external_scanner_destroy(s);
 }
 
+static void check_indent_case(const uint8_t *p, uint32_t len) {
+    uint16_t a = organ_leading_indent_scalar(p, len);
+    uint16_t b = organ_leading_indent_swar(p, len);
+    if (a != b) {
+        fprintf(stderr, "FAIL indent mismatch scalar=%u swar=%u len=%u: ",
+                a, b, len);
+        for (uint32_t i = 0; i < len && i < 16; i++)
+            fprintf(stderr, "%02x ", p[i]);
+        fprintf(stderr, "\n");
+        failures++;
+    }
+}
+
+static void test_swar_indent_matches_scalar(void) {
+    check_indent_case((const uint8_t *)" ! - foo", 8);
+    check_indent_case((const uint8_t *)" !! hello", 9);
+    check_indent_case((const uint8_t *)"\t\x08 x pad!", 9);
+    check_indent_case((const uint8_t *)"        ", 8);
+    check_indent_case((const uint8_t *)"\t\t\t\t\t\t\t\t", 8);
+
+    /* Full byte sweep at every lane offset: prefix of 0..7 spaces,
+     * then byte b, then a tail long enough to fill the SWAR word. */
+    uint8_t buf[24];
+    for (uint32_t off = 0; off < 8; off++) {
+        for (int b = 0; b < 256; b++) {
+            memset(buf, ' ', off);
+            buf[off] = (uint8_t)b;
+            memset(buf + off + 1, 'x', sizeof(buf) - off - 1);
+            check_indent_case(buf, (uint32_t)sizeof(buf));
+        }
+    }
+}
+
 int main(void) {
     test_deserialize_zero_resets_state();
     test_deserialize_corrupt_buffer_resets_state();
     test_deep_indent_bullet_no_overflow();
+    test_swar_indent_matches_scalar();
     if (failures > 0) {
         fprintf(stderr, "scanner_tests: %d failure(s)\n", failures);
         return 1;
