@@ -371,3 +371,17 @@ export_block with format
   (zeroth_section
     (export_block
       (src_block_language))))
+
+==================
+Deeply indented bullet stays a list item
+==================
+                                                               - deep
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (paragraph)))))

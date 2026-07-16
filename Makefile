@@ -15,7 +15,7 @@
 #
 # Requires: Node + pnpm (or npm) so we can install tree-sitter-cli.
 
-.PHONY: build install clean test prepass spec-check test-spec
+.PHONY: build install clean test check-c prepass spec-check test-spec
 
 # ---------------------------------------------------------------------------
 # Platform detection. uname -s lower-cased + uname -m gives darwin-arm64,
@@ -101,6 +101,17 @@ test: build
 	@cp $(ORG_SO) $(TS_LIBDIR)/org.so
 	@touch $(TS_LIBDIR)/org.so
 	TREE_SITTER_LIBDIR=$(TS_LIBDIR) ./node_modules/.bin/tree-sitter test
+
+# C-level scanner tests under ASan/UBSan.  The harness includes
+# scanner.c directly, so only the prepass sources are linked.
+CHECK_C_BIN := $(BUILD_DIR)/scanner_tests
+CHECK_C_SRCS = tests/scanner_tests.c src/prepass.c \
+               src/prepass_scalar.c src/prepass_simd.c src/interval_tree.c
+
+check-c: | $(BUILD_DIR)
+	$(CC) -std=c99 -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer \
+		-Wall -Wextra -I src -o $(CHECK_C_BIN) $(CHECK_C_SRCS)
+	./$(CHECK_C_BIN)
 
 # Verify spec/org.abnf and grammar.js list the same set of named rules.
 # The script reads spec/.spec-check-ignores for shape-only ABNF rules

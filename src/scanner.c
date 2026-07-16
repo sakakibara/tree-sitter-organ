@@ -493,6 +493,13 @@ static void finish_list_cookie(TSLexer *lexer) {
     lexer->mark_end(lexer);
 }
 
+/* Bounded append; bytes beyond cap are consumed by the lexer but
+ * dropped from the classification buffer. */
+static inline void push_byte(uint8_t *buf, uint32_t cap, uint32_t *len,
+                             uint8_t b) {
+    if (*len < cap) buf[(*len)++] = b;
+}
+
 /* Counter `[@N]` and checkbox `[ ]`/`[x]`/`[X]`/`[-]` both start with
  * `[` at the same list-item position (counter precedes checkbox).  A
  * single `scan()` call cannot roll back between two separate attempts,
@@ -1241,9 +1248,9 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
 
         /* Skip indent. */
         uint32_t indent = 0;
-        while ((lexer->lookahead == ' ' || lexer->lookahead == '\t')
-               && bullet_consumed_len < 64) {
-            bullet_consumed[bullet_consumed_len++] = (uint8_t)lexer->lookahead;
+        while (lexer->lookahead == ' ' || lexer->lookahead == '\t') {
+            push_byte(bullet_consumed, sizeof(bullet_consumed),
+                      &bullet_consumed_len, (uint8_t)lexer->lookahead);
             lexer->advance(lexer, false);
             indent++;
         }
@@ -1252,24 +1259,28 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
         uint8_t la = (uint8_t)lexer->lookahead;
 
         if (la == '-' || la == '+' || (la == '*' && indent > 0)) {
-            bullet_consumed[bullet_consumed_len++] = la;
+            push_byte(bullet_consumed, sizeof(bullet_consumed),
+                      &bullet_consumed_len, la);
             lexer->advance(lexer, false);
             if (lexer->lookahead == ' ' || lexer->lookahead == '\t') {
-                bullet_consumed[bullet_consumed_len++] = (uint8_t)lexer->lookahead;
+                push_byte(bullet_consumed, sizeof(bullet_consumed),
+                          &bullet_consumed_len, (uint8_t)lexer->lookahead);
                 lexer->advance(lexer, false);
                 ok = true;
             }
         } else if (la >= '0' && la <= '9') {
-            while (lexer->lookahead >= '0' && lexer->lookahead <= '9'
-                   && bullet_consumed_len < 64) {
-                bullet_consumed[bullet_consumed_len++] = (uint8_t)lexer->lookahead;
+            while (lexer->lookahead >= '0' && lexer->lookahead <= '9') {
+                push_byte(bullet_consumed, sizeof(bullet_consumed),
+                          &bullet_consumed_len, (uint8_t)lexer->lookahead);
                 lexer->advance(lexer, false);
             }
             if (lexer->lookahead == '.' || lexer->lookahead == ')') {
-                bullet_consumed[bullet_consumed_len++] = (uint8_t)lexer->lookahead;
+                push_byte(bullet_consumed, sizeof(bullet_consumed),
+                          &bullet_consumed_len, (uint8_t)lexer->lookahead);
                 lexer->advance(lexer, false);
                 if (lexer->lookahead == ' ' || lexer->lookahead == '\t') {
-                    bullet_consumed[bullet_consumed_len++] = (uint8_t)lexer->lookahead;
+                    push_byte(bullet_consumed, sizeof(bullet_consumed),
+                              &bullet_consumed_len, (uint8_t)lexer->lookahead);
                     lexer->advance(lexer, false);
                     ok = true;
                 }
