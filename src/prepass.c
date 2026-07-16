@@ -32,6 +32,20 @@ void prepass_scope_pop(prepass_state_t *s) {
     scope_pop((struct prepass_state *)s);
 }
 
+PrepassScopeSnapshot prepass_scope_snapshot(const prepass_state_t *s) {
+    const struct prepass_state *st = (const struct prepass_state *)s;
+    PrepassScopeSnapshot snap;
+    snap.depth = st->depth;
+    snap.top = st->depth ? st->stack[st->depth - 1] : 0;
+    return snap;
+}
+
+void prepass_scope_restore(prepass_state_t *s, PrepassScopeSnapshot snap) {
+    struct prepass_state *st = (struct prepass_state *)s;
+    st->depth = snap.depth;
+    if (snap.depth) st->stack[snap.depth - 1] = snap.top;
+}
+
 /* Forward declarations for classify_line and leading_indent. */
 static LineTokenType classify_line(struct prepass_state *s,
                                    const uint8_t *line, uint32_t line_len,

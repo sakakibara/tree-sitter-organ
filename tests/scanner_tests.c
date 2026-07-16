@@ -232,11 +232,38 @@ static void test_swar_indent_matches_scalar(void) {
     }
 }
 
+static void test_classify_rollback_on_failed_scan(void) {
+    ScannerState *s =
+        (ScannerState *)tree_sitter_org_external_scanner_create();
+    /* A line that pushes SCOPE_GBLOCK during classification, scanned
+     * while its token is NOT valid: the scan fails and the scope
+     * stack must be unchanged. */
+    MockLexer m;
+    mock_init(&m, "#+begin_quote\nbody\n");
+    bool valid[N_EXTERNALS];
+    memset(valid, false, sizeof(valid));
+    valid[EXT_EMPTY_LINE] = true;   /* anything except gblock open */
+    bool ok = tree_sitter_org_external_scanner_scan(s, &m.lexer, valid);
+    CHECK(ok == false);
+    CHECK(prepass_scope_top(s->prepass) == SCOPE_NONE);
+    CHECK(s->lblock_kind == 0);
+
+    /* Same for a lesser block: lblock_kind must not stick either. */
+    mock_init(&m, "#+begin_src lua\nx\n");
+    ok = tree_sitter_org_external_scanner_scan(s, &m.lexer, valid);
+    CHECK(ok == false);
+    CHECK(prepass_scope_top(s->prepass) == SCOPE_NONE);
+    CHECK(s->lblock_kind == 0);
+
+    tree_sitter_org_external_scanner_destroy(s);
+}
+
 int main(void) {
     test_deserialize_zero_resets_state();
     test_deserialize_corrupt_buffer_resets_state();
     test_deep_indent_bullet_no_overflow();
     test_swar_indent_matches_scalar();
+    test_classify_rollback_on_failed_scan();
     if (failures > 0) {
         fprintf(stderr, "scanner_tests: %d failure(s)\n", failures);
         return 1;

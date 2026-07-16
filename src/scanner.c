@@ -1240,6 +1240,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         }
         if (row_len > 0 && row_buf[row_len - 1] == '\r') row_len--;
 
+        PrepassScopeSnapshot snap = prepass_scope_snapshot(s->prepass);
         LineClassification r =
             prepass_classify_line(s->prepass, row_buf, row_len);
 
@@ -1258,6 +1259,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         /* Classification didn't match what valid_symbols allowed.  Returning
          * false aborts; tree-sitter restores the lexer to the original
          * position (before the leading `|` advance). */
+        prepass_scope_restore(s->prepass, snap);
         return false;
     }
 
@@ -1478,15 +1480,25 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             return true;
         }
 
+        PrepassScopeSnapshot snap = prepass_scope_snapshot(s->prepass);
         LineClassification rr = prepass_classify_line(s->prepass, line_buf2, ll);
-        if (rr.type == TT_HEADING) return false;
+        if (rr.type == TT_HEADING) {
+            prepass_scope_restore(s->prepass, snap);
+            return false;
+        }
         /* Indented `:END:` — same whole-line close-token coverage as
          * the Priority-5 path (the colon mark pinned it at the `:`). */
         if (rr.type == TT_DRAWER_CLOSE || rr.type == TT_PROPDRAWER_CLOSE)
             lexer->mark_end(lexer);
         int sym = prepass_to_external(rr.type);
-        if (sym < 0) return false;
-        if (!valid_symbols[sym]) return false;
+        if (sym < 0) {
+            prepass_scope_restore(s->prepass, snap);
+            return false;
+        }
+        if (!valid_symbols[sym]) {
+            prepass_scope_restore(s->prepass, snap);
+            return false;
+        }
         lexer->result_symbol = (TSSymbol)sym;
         return true;
     }
@@ -1566,11 +1578,21 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             lexer->advance(lexer, false);
         lexer->mark_end(lexer);
 
+        PrepassScopeSnapshot snap = prepass_scope_snapshot(s->prepass);
         LineClassification fr = prepass_classify_line(s->prepass, fn_line_buf, fn_ll);
-        if (fr.type == TT_HEADING) return false;
+        if (fr.type == TT_HEADING) {
+            prepass_scope_restore(s->prepass, snap);
+            return false;
+        }
         int fsym = prepass_to_external(fr.type);
-        if (fsym < 0) return false;
-        if (!valid_symbols[fsym]) return false;
+        if (fsym < 0) {
+            prepass_scope_restore(s->prepass, snap);
+            return false;
+        }
+        if (!valid_symbols[fsym]) {
+            prepass_scope_restore(s->prepass, snap);
+            return false;
+        }
         lexer->result_symbol = (TSSymbol)fsym;
         return true;
     }
@@ -1792,12 +1814,14 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
      * lblock-open emit. */
     if (!have_prefix_mark) lexer->mark_end(lexer);
 
+    PrepassScopeSnapshot snap = prepass_scope_snapshot(s->prepass);
     LineClassification r = prepass_classify_line(s->prepass, line_buf, line_len);
 
     if (r.type == TT_HEADING) {
         /* Should be unreachable: heading detection above handles col-0 '*'
          * lines. This branch fires only if the prepass disagrees (shouldn't
          * happen) — return false to avoid confusing the grammar. */
+        prepass_scope_restore(s->prepass, snap);
         return false;
     }
 
@@ -1815,7 +1839,6 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
     if (r.type == TT_LBLOCK_OPEN) {
         uint32_t off = lblock_name_offset(line_buf, line_len);
         uint8_t kind = off ? lblock_kind_from(line_buf, off, line_len) : 0;
-        s->lblock_kind = kind;
         int open_sym = -1;
         switch (kind) {
             case 1: open_sym = EXT_SRC_BLOCK_OPEN;     break;
@@ -1823,34 +1846,44 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             case 3: open_sym = EXT_EXPORT_BLOCK_OPEN;  break;
             case 4: open_sym = EXT_VERSE_BLOCK_OPEN;   break;
             case 5: open_sym = EXT_COMMENT_BLOCK_OPEN; break;
-            default: return false;
+            default:
+                prepass_scope_restore(s->prepass, snap);
+                return false;
         }
-        if (!valid_symbols[open_sym]) return false;
-        /* If the prefix-mark wasn't set during the read (e.g.
-         * line_len overflowed buf), fall back to the whole-line
-         * mark_end (which `lexer->mark_end(lexer)` above set). */
+        if (!valid_symbols[open_sym]) {
+            prepass_scope_restore(s->prepass, snap);
+            return false;
+        }
+        s->lblock_kind = kind;
         lexer->result_symbol = (TSSymbol)open_sym;
         return true;
     }
     if (r.type == TT_LBLOCK_CLOSE) {
-        uint8_t kind = s->lblock_kind;
-        s->lblock_kind = 0;
         int close_sym = -1;
-        switch (kind) {
+        switch (s->lblock_kind) {
             case 1: close_sym = EXT_SRC_BLOCK_CLOSE;     break;
             case 2: close_sym = EXT_EXAMPLE_BLOCK_CLOSE; break;
             case 3: close_sym = EXT_EXPORT_BLOCK_CLOSE;  break;
             case 4: close_sym = EXT_VERSE_BLOCK_CLOSE;   break;
             case 5: close_sym = EXT_COMMENT_BLOCK_CLOSE; break;
-            default: return false;
+            default:
+                prepass_scope_restore(s->prepass, snap);
+                return false;
         }
-        if (!valid_symbols[close_sym]) return false;
+        if (!valid_symbols[close_sym]) {
+            prepass_scope_restore(s->prepass, snap);
+            return false;
+        }
+        s->lblock_kind = 0;
         lexer->result_symbol = (TSSymbol)close_sym;
         return true;
     }
 
     int sym = prepass_to_external(r.type);
-    if (sym < 0) return false;
+    if (sym < 0) {
+        prepass_scope_restore(s->prepass, snap);
+        return false;
+    }
 
     /* Inside a footnote definition body an empty line is the gated
      * _fn_empty_line token; refusing it on the second consecutive
@@ -1870,7 +1903,10 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
     } else if (mark_kind == MARK_PLANNING && valid_symbols[EXT_PLANNING_LINE]) {
         sym = EXT_PLANNING_LINE;
     }
-    if (!valid_symbols[sym]) return false;
+    if (!valid_symbols[sym]) {
+        prepass_scope_restore(s->prepass, snap);
+        return false;
+    }
 
     lexer->result_symbol = (TSSymbol)sym;
     return true;

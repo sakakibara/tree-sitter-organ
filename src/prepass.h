@@ -110,6 +110,18 @@ ScopeKind prepass_scope_top(const prepass_state_t *s);
  * the scope stack tracks the parser's structure. */
 void prepass_scope_pop(prepass_state_t *s);
 
+/* Snapshot/restore for the scope stack.  A single classify call
+ * mutates at most one stack slot plus the depth, so {depth, top}
+ * restores it exactly.  The scanner snapshots before classifying a
+ * line and restores on every path that does not emit a token. */
+typedef struct {
+    uint8_t depth;
+    uint8_t top;
+} PrepassScopeSnapshot;
+
+PrepassScopeSnapshot prepass_scope_snapshot(const prepass_state_t *s);
+void prepass_scope_restore(prepass_state_t *s, PrepassScopeSnapshot snap);
+
 /* Clear all classification state (scope stack + line index) without
  * freeing the allocation.  The scanner calls this when tree-sitter
  * hands it a fresh (length == 0) or corrupt serialization buffer. */
