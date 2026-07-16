@@ -91,8 +91,16 @@ prepass: $(PREPASS_SO)
 install: build
 	@echo "tree-sitter-organ built at: $(CURDIR)/$(ORG_SO)"
 
+# tree-sitter-cli auto-compiles only parser.c + scanner.c, producing an
+# org.so that fails at dlopen (missing prepass symbols).  Point the CLI
+# at a repo-local lib dir seeded with the Makefile-built org.so instead.
+TS_LIBDIR := $(BUILD_DIR)/ts-lib
+
 test: build
-	./node_modules/.bin/tree-sitter test
+	@mkdir -p $(TS_LIBDIR)
+	@cp $(ORG_SO) $(TS_LIBDIR)/org.so
+	@touch $(TS_LIBDIR)/org.so
+	TREE_SITTER_LIBDIR=$(TS_LIBDIR) ./node_modules/.bin/tree-sitter test
 
 # Verify spec/org.abnf and grammar.js list the same set of named rules.
 # The script reads spec/.spec-check-ignores for shape-only ABNF rules
@@ -104,17 +112,11 @@ spec-check:
 # Behavior matching: feeds each `+ input` line through the parser and
 # asserts the named node appears; feeds each `- input` and asserts it
 # does not.  Stronger than rule-name sync alone.
-#
-# tree-sitter-cli's auto-compile only knows about parser.c + scanner.c,
-# so it links a broken org.so missing prepass_state_new.  Inject the
-# proper Makefile-built org.so into the tree-sitter cache before
-# running the runner.
-TS_CACHE_DIR := $(HOME)/.cache/tree-sitter/lib
 test-spec: build
-	@mkdir -p $(TS_CACHE_DIR)
-	@cp $(ORG_SO) $(TS_CACHE_DIR)/org.so
-	@touch $(TS_CACHE_DIR)/org.so
-	@node scripts/test-rule-examples.js
+	@mkdir -p $(TS_LIBDIR)
+	@cp $(ORG_SO) $(TS_LIBDIR)/org.so
+	@touch $(TS_LIBDIR)/org.so
+	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/test-rule-examples.js
 
 clean:
 	rm -rf build/
