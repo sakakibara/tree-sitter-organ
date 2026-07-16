@@ -435,8 +435,8 @@ static bool consume_tag_region(TSLexer *lexer) {
          * verify we reached end-of-line. */
         while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
             lexer->advance(lexer, false);
-        return lexer->lookahead == '\n' || lexer->lookahead == 0
-            || lexer->eof(lexer);
+        return lexer->lookahead == '\n' || lexer->lookahead == '\r'
+            || lexer->lookahead == 0 || lexer->eof(lexer);
     }
 }
 
@@ -476,7 +476,7 @@ static bool scan_headline_title(TSLexer *lexer) {
     int32_t prev = '\n';
     while (true) {
         int32_t c = lexer->lookahead;
-        if (c == '\n' || c == 0 || lexer->eof(lexer)) break;
+        if (c == '\n' || c == '\r' || c == 0 || lexer->eof(lexer)) break;
         if (c == ':' && (prev == ' ' || prev == '\t')) {
             if (consume_tag_region(lexer)) return any_title_chars;
             any_title_chars = true;
@@ -752,6 +752,8 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
             any = true;
         }
         /* No separator — the whole line is the first paragraph line. */
+        if (!lexer->eof(lexer) && lexer->lookahead == '\r')
+            lexer->advance(lexer, false);
         if (!lexer->eof(lexer) && lexer->lookahead == '\n')
             lexer->advance(lexer, false);
         lexer->mark_end(lexer);
@@ -838,7 +840,7 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
             int32_t prev = lexer->lookahead;
             while (true) {
                 int32_t c = lexer->lookahead;
-                if (c == '\n' || c == 0 || lexer->eof(lexer)) break;
+                if (c == '\n' || c == '\r' || c == 0 || lexer->eof(lexer)) break;
                 if (c == ':' && (prev == ' ' || prev == '\t')) {
                     if (consume_tag_region(lexer)) {
                         lexer->result_symbol = EXT_HEADLINE_TITLE;
@@ -948,7 +950,7 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
             int32_t prev = lexer->lookahead;
             while (true) {
                 int32_t c = lexer->lookahead;
-                if (c == '\n' || c == 0 || lexer->eof(lexer)) break;
+                if (c == '\n' || c == '\r' || c == 0 || lexer->eof(lexer)) break;
                 if (c == ':' && (prev == ' ' || prev == '\t')) {
                     if (consume_tag_region(lexer)) {
                         lexer->result_symbol = EXT_HEADLINE_TITLE;
@@ -1168,8 +1170,10 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
             || valid_symbols[EXT_TABLE_CELL_CONTENT]
             || valid_symbols[EXT_TABLE_ROW_END])) {
 
-        if (lexer->lookahead == '\n' && valid_symbols[EXT_TABLE_ROW_END]) {
-            lexer->advance(lexer, false);
+        if ((lexer->lookahead == '\n' || lexer->lookahead == '\r')
+            && valid_symbols[EXT_TABLE_ROW_END]) {
+            if (lexer->lookahead == '\r') lexer->advance(lexer, false);
+            if (lexer->lookahead == '\n') lexer->advance(lexer, false);
             lexer->mark_end(lexer);
             lexer->result_symbol = EXT_TABLE_ROW_END;
             return true;
@@ -1183,10 +1187,12 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
         if (valid_symbols[EXT_TABLE_CELL_CONTENT]
             && lexer->lookahead != '|'
             && lexer->lookahead != '\n'
+            && lexer->lookahead != '\r'
             && !lexer->eof(lexer)) {
             while (!lexer->eof(lexer)
                    && lexer->lookahead != '|'
-                   && lexer->lookahead != '\n') {
+                   && lexer->lookahead != '\n'
+                   && lexer->lookahead != '\r') {
                 lexer->advance(lexer, false);
             }
             lexer->mark_end(lexer);
@@ -1216,6 +1222,7 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
             row_buf[row_len++] = classify_byte(lexer->lookahead);
             lexer->advance(lexer, false);
         }
+        if (row_len > 0 && row_buf[row_len - 1] == '\r') row_len--;
 
         LineClassification r =
             prepass_classify_line(s->prepass, row_buf, row_len);
@@ -1441,6 +1448,7 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                 }
             }
         }
+        if (ll > 0 && line_buf2[ll - 1] == '\r') ll--;
         if (!lexer->eof(lexer) && lexer->lookahead == '\n')
             lexer->advance(lexer, false);
         if (!have_b2_mark) lexer->mark_end(lexer);
@@ -1537,6 +1545,7 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
             fn_line_buf[fn_ll++] = classify_byte(lexer->lookahead);
             lexer->advance(lexer, false);
         }
+        if (fn_ll > 0 && fn_line_buf[fn_ll - 1] == '\r') fn_ll--;
         if (!lexer->eof(lexer) && lexer->lookahead == '\n')
             lexer->advance(lexer, false);
         lexer->mark_end(lexer);
@@ -1627,7 +1636,7 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
                     if (line_len == prefix_end) {
                         int32_t la2 = lexer->lookahead;
                         if (la2 == ' ' || la2 == '\t' || la2 == '\n'
-                            || la2 == 0 || lexer->eof(lexer)) {
+                            || la2 == '\r' || la2 == 0 || lexer->eof(lexer)) {
                             lexer->mark_end(lexer);
                             mark_kind = MARK_LBLOCK;
                             have_prefix_mark = true;
@@ -1757,6 +1766,7 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
         }
 
     }
+    if (line_len > 0 && line_buf[line_len - 1] == '\r') line_len--;
     /* Consume the trailing newline (if any). */
     if (!lexer->eof(lexer) && lexer->lookahead == '\n')
         lexer->advance(lexer, false);

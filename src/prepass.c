@@ -317,7 +317,9 @@ static LineTokenType classify_line(struct prepass_state *s,
                                    uint16_t indent, uint64_t *out_meta) {
     *out_meta = 0;
 
-    if (indent == line_len) return TT_EMPTY;
+    if (line_len > 0 && line[line_len - 1] == '\r') line_len--;
+
+    if (indent >= line_len) return TT_EMPTY;
 
     if (indent == 0 && line_len >= 5 && line[0] == '['
         && line[1] == 'f' && line[2] == 'n' && line[3] == ':') {
