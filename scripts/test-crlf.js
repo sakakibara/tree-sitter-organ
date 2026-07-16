@@ -42,6 +42,39 @@ const CASES = [
     input: '- one\r\n- two\r\n',
     expect: ['list', 'list_item', 'bullet'],
   },
+  {
+    // Exercises the fn_line_buf trim (footnote-def fallback path,
+    // src/scanner.c, Priority 4d). `[fn:1:body]` fails the fast
+    // footnote-def check (a `:` follows the label instead of `]`), so
+    // control falls through to the fn_line_buf read loop and its
+    // trailing-`\r` trim before prepass_classify_line.
+    name: 'crlf footnote-def fallback (fn_line_buf trim)',
+    input: '[fn:1:body]\r\nBody\r\n',
+    expect: ['paragraph'],
+  },
+  {
+    // Exercises the la2 == '\r' boundary check in the MARK_LBLOCK
+    // detection (src/scanner.c, Priority 5, inside the block-name read
+    // loop). Only fires for a block-open line with nothing after the
+    // block name, so unlike the src-block case above (which has a
+    // language argument) this reaches the la2 branch. The exact end
+    // column on example_block pins the block-open token to the line
+    // prefix rather than swallowing the trailing \r\n.
+    name: 'crlf bare block, no header args (lblock la2 boundary)',
+    input: '#+begin_example\r\nplain text\r\n#+end_example\r\n',
+    expect: ['example_block [0, 0] - [2, 13]'],
+  },
+  {
+    // Exercises the EXT_TABLE_CELL_CONTENT entry guard and its read
+    // loop (src/scanner.c, Priority 4a, mid-row table dispatch). A
+    // final cell with no closing pipe puts '\r' directly in the
+    // lookahead at the position where only EXT_TABLE_CELL_CONTENT is
+    // valid; the exact end column on the first table_cell confirms the
+    // '\r' was excluded from the cell content rather than folded in.
+    name: 'crlf table, final cell has no closing pipe (cell-content guard)',
+    input: '| a\r\n| b |\r\n',
+    expect: ['table', 'table_row', 'table_cell [0, 1] - [0, 3]'],
+  },
 ];
 
 let failed = 0;
