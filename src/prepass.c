@@ -77,7 +77,8 @@ LineClassification prepass_classify_line(prepass_state_t *s,
     return r;
 }
 
-static void prepass_state_reset(struct prepass_state *st) {
+void prepass_reset(prepass_state_t *s) {
+    struct prepass_state *st = (struct prepass_state *)s;
     st->depth = 0;
     interval_tree_splice(st->tree, 0, interval_tree_size(st->tree), NULL, 0);
 }
@@ -540,7 +541,7 @@ size_t prepass_scan(prepass_state_t *s,
                     const uint8_t *src, size_t len,
                     LineToken *out, size_t out_capacity) {
     struct prepass_state *st = (struct prepass_state *)s;
-    prepass_state_reset(st);
+    prepass_reset(s);
     size_t pos = 0;
 
     while (pos < len) {

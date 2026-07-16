@@ -115,7 +115,84 @@ static void test_deep_indent_bullet_no_overflow(void) {
     }
 }
 
+static void test_deserialize_zero_resets_state(void) {
+    ScannerState *s =
+        (ScannerState *)tree_sitter_org_external_scanner_create();
+    /* Dirty every field a prior parse could leave behind. */
+    s->heading_depth = 3;
+    s->heading_levels[0] = 1; s->heading_levels[1] = 2; s->heading_levels[2] = 3;
+    s->pending_closes = 2;
+    s->pending_open_level = 4;
+    s->list_depth = 2;
+    s->list_indents[0] = 0; s->list_indents[1] = 2;
+    s->pending_list_closes = 1;
+    s->pending_list_open_indent = 6;
+    s->lblock_kind = 1;
+    s->at_item_def = 1;
+    {   /* push a prepass scope */
+        const char *line = "#+begin_src lua";
+        prepass_classify_line(s->prepass, (const uint8_t *)line,
+                              (uint32_t)strlen(line));
+        CHECK(prepass_scope_top(s->prepass) == SCOPE_LBLOCK);
+    }
+
+    tree_sitter_org_external_scanner_deserialize(s, NULL, 0);
+
+    CHECK(s->heading_depth == 0);
+    CHECK(s->pending_closes == 0);
+    CHECK(s->pending_open_level == 0);
+    CHECK(s->list_depth == 0);
+    CHECK(s->pending_list_closes == 0);
+    CHECK(s->pending_list_open_indent == -1);
+    CHECK(s->lblock_kind == 0);
+    CHECK(s->at_item_def == 0);
+    CHECK(prepass_scope_top(s->prepass) == SCOPE_NONE);
+
+    /* EOF scan on empty input must emit nothing (no phantom closes).
+     * Pre-fix, the surviving heading_depth makes this emit a
+     * zero-width _heading_close. */
+    MockLexer m;
+    mock_init(&m, "");
+    static const int close_syms[] = {
+        EXT_HEADING_CLOSE, EXT_PLAIN_LIST_CLOSE,
+    };
+    CHECK(scan_with(s, &m, close_syms, 2) == false);
+
+    tree_sitter_org_external_scanner_destroy(s);
+}
+
+static void test_deserialize_corrupt_buffer_resets_state(void) {
+    ScannerState *s =
+        (ScannerState *)tree_sitter_org_external_scanner_create();
+    s->heading_depth = 2;
+    s->heading_levels[0] = 1; s->heading_levels[1] = 2;
+    char blob[TREE_SITTER_SERIALIZATION_BUFFER_SIZE];
+    unsigned n = tree_sitter_org_external_scanner_serialize(s, blob);
+    CHECK(n > 0);
+
+    /* Roundtrip sanity. */
+    tree_sitter_org_external_scanner_deserialize(s, blob, n);
+    CHECK(s->heading_depth == 2 && s->heading_levels[1] == 2);
+
+    /* Corrupt heading depth: state must come out CLEAN, not partial. */
+    blob[0] = (char)200;
+    tree_sitter_org_external_scanner_deserialize(s, blob, n);
+    CHECK(s->heading_depth == 0);
+    CHECK(s->pending_list_open_indent == -1);
+    CHECK(prepass_scope_top(s->prepass) == SCOPE_NONE);
+
+    /* Truncated buffer: same guarantee. */
+    blob[0] = 2;
+    tree_sitter_org_external_scanner_deserialize(s, blob, 3);
+    CHECK(s->heading_depth == 0);
+    CHECK(s->pending_list_open_indent == -1);
+
+    tree_sitter_org_external_scanner_destroy(s);
+}
+
 int main(void) {
+    test_deserialize_zero_resets_state();
+    test_deserialize_corrupt_buffer_resets_state();
     test_deep_indent_bullet_no_overflow();
     if (failures > 0) {
         fprintf(stderr, "scanner_tests: %d failure(s)\n", failures);

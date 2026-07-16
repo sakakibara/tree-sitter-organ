@@ -110,6 +110,11 @@ ScopeKind prepass_scope_top(const prepass_state_t *s);
  * the scope stack tracks the parser's structure. */
 void prepass_scope_pop(prepass_state_t *s);
 
+/* Clear all classification state (scope stack + line index) without
+ * freeing the allocation.  The scanner calls this when tree-sitter
+ * hands it a fresh (length == 0) or corrupt serialization buffer. */
+void prepass_reset(prepass_state_t *s);
+
 prepass_state_t *prepass_state_new(void);
 void             prepass_state_free(prepass_state_t *s);
 

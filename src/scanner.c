@@ -231,16 +231,18 @@ unsigned tree_sitter_org_external_scanner_serialize(void *payload, char *buffer)
     uint8_t      *buf = (uint8_t *)buffer;
     size_t        cap = TREE_SITTER_SERIALIZATION_BUFFER_SIZE;
 
-    /* Binary layout (all fields present):
-     *   [0]                                       : heading_depth
-     *   [1 .. heading_depth]                      : heading_levels[]
-     *   [1 + heading_depth]                       : pending_closes
-     *   [2 + heading_depth]                       : pending_open_level
-     *   [3 + heading_depth]                       : list_depth
-     *   [4 + heading_depth .. list_depth bytes]   : list_indents[]
-     *   [4 + heading_depth + list_depth]          : pending_list_closes
-     *   [5 + heading_depth + list_depth ..]       : pending_list_open_indent (2 bytes, signed)
-     *   [7 + heading_depth + list_depth ..]       : prepass serialized state
+    /* Binary layout:
+     *   [0]                       heading_depth
+     *   [..]                      heading_levels[heading_depth]
+     *   [..]                      pending_closes
+     *   [..]                      pending_open_level
+     *   [..]                      list_depth
+     *   [..]                      list_indents[list_depth]
+     *   [..]                      pending_list_closes
+     *   [.. 2 bytes LE]           pending_list_open_indent
+     *   [..]                      lblock_kind
+     *   [..]                      at_item_def
+     *   [..]                      prepass serialized state
      */
     size_t hdr = 9u + (size_t)s->heading_depth + (size_t)s->list_depth;
     if (hdr > cap) return 0;
@@ -270,21 +272,27 @@ unsigned tree_sitter_org_external_scanner_serialize(void *payload, char *buffer)
     return (unsigned)(pos + pp_n);
 }
 
+static void scanner_state_clear(ScannerState *s) {
+    prepass_state_t *pp = s->prepass;
+    memset(s, 0, sizeof(*s));
+    s->prepass = pp;
+    s->pending_list_open_indent = -1;
+    prepass_reset(s->prepass);
+}
+
 void tree_sitter_org_external_scanner_deserialize(void *payload,
                                                    const char *buffer,
                                                    unsigned length) {
     ScannerState    *s   = (ScannerState *)payload;
     const uint8_t   *buf = (const uint8_t *)buffer;
-    if (length == 0) {
-        s->pending_list_open_indent = -1;
-        s->at_item_def = 0;
-        return;
-    }
+
+    scanner_state_clear(s);
+    if (length == 0) return;
 
     size_t pos = 0;
     uint8_t hdepth = buf[pos++];
-    if (hdepth > ORG_HEADING_STACK) return;
-    if (length < (size_t)hdepth + 8) return;
+    if (hdepth > ORG_HEADING_STACK) goto corrupt;
+    if (length < (size_t)hdepth + 8) goto corrupt;
 
     s->heading_depth = hdepth;
     if (hdepth > 0) {
@@ -294,24 +302,32 @@ void tree_sitter_org_external_scanner_deserialize(void *payload,
     s->pending_closes     = buf[pos++];
     s->pending_open_level = buf[pos++];
 
-    uint8_t ldepth = buf[pos++];
-    if (ldepth > ORG_LIST_STACK) return;
-    if (length < pos + ldepth + 3) return;
+    {
+        uint8_t ldepth = buf[pos++];
+        if (ldepth > ORG_LIST_STACK) goto corrupt;
+        if (length < pos + ldepth + 3) goto corrupt;
 
-    s->list_depth = ldepth;
-    if (ldepth > 0) {
-        memcpy(s->list_indents, buf + pos, ldepth);
-        pos += ldepth;
+        s->list_depth = ldepth;
+        if (ldepth > 0) {
+            memcpy(s->list_indents, buf + pos, ldepth);
+            pos += ldepth;
+        }
     }
     s->pending_list_closes = buf[pos++];
     s->pending_list_open_indent =
         (int16_t)((uint16_t)buf[pos] | ((uint16_t)buf[pos + 1] << 8));
     pos += 2;
-    s->lblock_kind = (length > pos) ? buf[pos++] : 0;
-    s->at_item_def = (length > pos) ? buf[pos++] : 0;
+    if (length < pos + 2) goto corrupt;
+    s->lblock_kind = buf[pos++];
+    s->at_item_def = buf[pos++];
 
-    if (length > pos)
-        prepass_deserialize(s->prepass, buf + pos, (size_t)length - pos);
+    if (length <= pos) goto corrupt;
+    if (!prepass_deserialize(s->prepass, buf + pos, (size_t)length - pos))
+        goto corrupt;
+    return;
+
+corrupt:
+    scanner_state_clear(s);
 }
 
 /* -----------------------------------------------------------------------
