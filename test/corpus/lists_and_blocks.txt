@@ -446,7 +446,7 @@ export_block with format
 (document
   (zeroth_section
     (export_block
-      (src_block_language))))
+      (export_format))))
 
 ==================
 Deeply indented bullet stays a list item

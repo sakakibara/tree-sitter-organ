@@ -8,7 +8,7 @@
 #define STATE_COUNT 3259
 #define LARGE_STATE_COUNT 33
 #define SYMBOL_COUNT 162
-#define ALIAS_COUNT 1
+#define ALIAS_COUNT 2
 #define TOKEN_COUNT 87
 #define EXTERNAL_TOKEN_COUNT 60
 #define FIELD_COUNT 27
@@ -177,7 +177,8 @@ enum ts_symbol_identifiers {
   aux_sym_comment_repeat1 = 159,
   aux_sym_fixed_width_repeat1 = 160,
   aux_sym_paragraph_repeat1 = 161,
-  alias_sym_table_header_row = 162,
+  alias_sym_export_format = 162,
+  alias_sym_table_header_row = 163,
 };
 
 static const char * const ts_symbol_names[] = {
@@ -343,6 +344,7 @@ static const char * const ts_symbol_names[] = {
   [aux_sym_comment_repeat1] = "comment_repeat1",
   [aux_sym_fixed_width_repeat1] = "fixed_width_repeat1",
   [aux_sym_paragraph_repeat1] = "paragraph_repeat1",
+  [alias_sym_export_format] = "export_format",
   [alias_sym_table_header_row] = "table_header_row",
 };
 
@@ -509,6 +511,7 @@ static const TSSymbol ts_symbol_map[] = {
   [aux_sym_comment_repeat1] = aux_sym_comment_repeat1,
   [aux_sym_fixed_width_repeat1] = aux_sym_fixed_width_repeat1,
   [aux_sym_paragraph_repeat1] = aux_sym_paragraph_repeat1,
+  [alias_sym_export_format] = alias_sym_export_format,
   [alias_sym_table_header_row] = alias_sym_table_header_row,
 };
 
@@ -1160,6 +1163,10 @@ static const TSSymbolMetadata ts_symbol_metadata[] = {
   [aux_sym_paragraph_repeat1] = {
     .visible = false,
     .named = false,
+  },
+  [alias_sym_export_format] = {
+    .visible = true,
+    .named = true,
   },
   [alias_sym_table_header_row] = {
     .visible = true,
@@ -2533,6 +2540,12 @@ static const TSSymbol ts_alias_sequences[PRODUCTION_ID_COUNT][MAX_ALIAS_SEQUENCE
   },
   [34] = {
     [2] = sym_table_cell,
+  },
+  [71] = {
+    [2] = alias_sym_export_format,
+  },
+  [161] = {
+    [2] = alias_sym_export_format,
   },
 };
 

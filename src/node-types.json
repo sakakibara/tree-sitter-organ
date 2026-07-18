@@ -441,7 +441,7 @@
         "required": false,
         "types": [
           {
-            "type": "src_block_language",
+            "type": "export_format",
             "named": true
           }
         ]
@@ -1692,6 +1692,10 @@
   },
   {
     "type": "drawer_name",
+    "named": true
+  },
+  {
+    "type": "export_format",
     "named": true
   },
   {

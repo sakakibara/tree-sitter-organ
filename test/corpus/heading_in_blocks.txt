@@ -288,7 +288,7 @@ Headline terminates export block
       (title))
     (section
       (export_block
-        (src_block_language))))
+        (export_format))))
   (headline
     (headline_line
       (stars)

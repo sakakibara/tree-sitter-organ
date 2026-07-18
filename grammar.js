@@ -338,7 +338,8 @@ module.exports = grammar({
     ),
     export_block: $ => seq(
       $._export_block_open,
-      optional(seq(/[ \t]+/, field('format',      $.src_block_language))),
+      optional(seq(/[ \t]+/, field('format',
+        alias($.src_block_language, $.export_format)))),
       optional(seq(/[ \t]+/, field('header_args', $.block_header_args))),
       /[ \t]*\r?\n/,
       repeat($._lblock_body),

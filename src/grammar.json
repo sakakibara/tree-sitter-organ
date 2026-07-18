@@ -1040,8 +1040,13 @@
                   "type": "FIELD",
                   "name": "format",
                   "content": {
-                    "type": "SYMBOL",
-                    "name": "src_block_language"
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "src_block_language"
+                    },
+                    "named": true,
+                    "value": "export_format"
                   }
                 }
               ]
