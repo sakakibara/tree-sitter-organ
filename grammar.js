@@ -76,10 +76,15 @@ module.exports = grammar({
      * header) that match overlapping byte sequences; GLR explores
      * both and prec.dynamic(2) on the header path wins ties. */
     [$.table],
+    /* A leading run of empty lines can belong to the document prefix
+     * repeat or (when no zeroth_section follows) to the trailing
+     * repeat; GLR explores both, the resulting trees are identical. */
+    [$.document],
   ],
 
   rules: {
     document: $ => seq(
+      repeat($._empty_line),
       optional($.zeroth_section),
       repeat(choice($._empty_line, $.headline)),
     ),

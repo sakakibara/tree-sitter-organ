@@ -6,6 +6,13 @@
       "type": "SEQ",
       "members": [
         {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_empty_line"
+          }
+        },
+        {
           "type": "CHOICE",
           "members": [
             {
@@ -1863,6 +1870,9 @@
     ],
     [
       "table"
+    ],
+    [
+      "document"
     ]
   ],
   "precedences": [],

@@ -208,3 +208,29 @@ Two children under one parent
       (headline_line
         (stars)
         (title)))))
+
+==================
+Document starting with a blank line then text
+==================
+
+some text
+
+---
+
+(document
+  (zeroth_section
+    (paragraph)))
+
+==================
+Document starting with a blank line then a headline
+==================
+
+* After blank
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))))
