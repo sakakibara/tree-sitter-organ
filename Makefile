@@ -38,9 +38,8 @@ build: $(ORG_SO)
 # scanner.c). `tree-sitter generate` still produces parser.c from
 # grammar.js.
 ORG_SO_SOURCES = src/parser.c src/scanner.c \
-                 src/prepass.c src/prepass_scalar.c src/prepass_simd.c \
-                 src/interval_tree.c
-ORG_SO_HEADERS = src/prepass.h src/interval_tree.h
+                 src/prepass.c src/prepass_scalar.c src/prepass_simd.c
+ORG_SO_HEADERS = src/prepass.h
 ORG_SO_CFLAGS  = -std=c99 -O2 -Wall -Wextra -Wpedantic -fPIC -I src \
                  -DORGAN_PREPASS_USE_SIMD=1 $(CFLAGS)
 
@@ -67,9 +66,9 @@ node_modules/.bin/tree-sitter:
 		npm install --silent; \
 	fi
 
-PREPASS_SOURCES = src/prepass.c src/interval_tree.c \
+PREPASS_SOURCES = src/prepass.c src/prepass_index.c src/interval_tree.c \
                   src/prepass_scalar.c src/prepass_simd.c
-PREPASS_HEADERS = src/prepass.h src/interval_tree.h
+PREPASS_HEADERS = src/prepass.h src/prepass_index.h src/interval_tree.h
 PREPASS_CFLAGS  = -std=c99 -O2 -Wall -Wextra -Wpedantic -fPIC
 
 ifeq ($(ORGAN_PREPASS_USE_SIMD),0)
@@ -113,7 +112,7 @@ test-crlf: build
 # C-level scanner tests under ASan/UBSan.  The harness includes
 # scanner.c directly, so only the prepass sources are linked.
 CHECK_C_BIN := $(BUILD_DIR)/scanner_tests
-CHECK_C_SRCS = tests/scanner_tests.c src/prepass.c \
+CHECK_C_SRCS = tests/scanner_tests.c src/prepass.c src/prepass_index.c \
                src/prepass_scalar.c src/prepass_simd.c src/interval_tree.c
 
 check-c: | $(BUILD_DIR)

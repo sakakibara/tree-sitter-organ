@@ -49,7 +49,7 @@ title           =  1*non-line                 ; injected for inline parsing — 
 statistics-cookie =  "[" (1*DIGIT "%" / 1*DIGIT "/" 1*DIGIT) "]"
                                               ; per-headline progress: [N%] or [N/M]
 tag-list        =  ":" 1*(tag ":")
-tag             =  1*(ALPHA / DIGIT / "_" / "@" / "#" / "%%")
+tag             =  1*(ALPHA / DIGIT / "_" / "@" / "#" / "%")
 
 section         =  1*content-line
 content-line    =  drawer / greater-block / dynamic-block / lesser-block /
@@ -74,8 +74,6 @@ propdrawer-close=  indent ":END:"        indent line-end
 node-property   =  indent ":" property-name ":" [SP property-value] line-end
 property-name   =  (ALPHA / "_") *(ALPHA / DIGIT / "_" / "+" / "-")
                                               ; KEY (and optional + suffix) as one token
-property-key    =  1*(ALPHA / DIGIT / "_" / "-")
-property-suffix =  "+"                         ; e.g. :TAGS+: appends to inherited
 property-value  =  1*non-line                  ; may contain inline objects
 
 ; --- Named drawers (Worg §2.3 Drawers) ------------------------------------
@@ -177,7 +175,6 @@ footnote-label      =  1*(ALPHA / DIGIT / "_" / "-")
 inlinetask          =  inlinetask-line *content-line inlinetask-close
 inlinetask-line     =  15*"*" SP [todo SP] [priority [SP]] [comment-marker SP]
                        title [SP statistics-cookie] [SP tag-list] line-end
-inlinetask-open     =  15*"*" SP [todo SP] [priority [SP]] title [SP tag-list] line-end
 inlinetask-close    =  15*"*" SP "END" line-end
 
 ; --- Clock entries (Worg §4 Clock) ----------------------------------------

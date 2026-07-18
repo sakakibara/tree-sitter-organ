@@ -2,6 +2,7 @@
  * scanner.c directly for access to ScannerState and the externals
  * enum; run under ASan/UBSan via `make check-c`. */
 #include "../src/scanner.c"
+#include "../src/prepass_index.h"
 
 #include <assert.h>
 #include <signal.h>
@@ -358,6 +359,26 @@ static void test_heading_stack_push_is_bounded(void) {
     tree_sitter_org_external_scanner_destroy(s);
 }
 
+static void test_prepass_index_scan_and_edit(void) {
+    prepass_index_t *ix = prepass_index_new();
+    const char *doc = "* H\n#+begin_src lua\nx\n#+end_src\n";
+    LineToken toks[8];
+    size_t n = prepass_index_scan(ix, (const uint8_t *)doc,
+                                  strlen(doc), toks, 8);
+    CHECK(n == 4);
+    CHECK(toks[0].type == TT_HEADING);
+    CHECK(toks[1].type == TT_LBLOCK_OPEN);
+    CHECK(toks[2].type == TT_LBLOCK_BODY);
+    CHECK(toks[3].type == TT_LBLOCK_CLOSE);
+
+    const char *doc2 = "* H\n#+begin_src lua\nxy\n#+end_src\n";
+    n = prepass_index_apply_edit(ix, (const uint8_t *)doc2, strlen(doc2),
+                                 21, 21, 22, toks, 8);
+    CHECK(n == 4);
+    CHECK(toks[2].type == TT_LBLOCK_BODY);
+    prepass_index_free(ix);
+}
+
 int main(void) {
     test_deserialize_zero_resets_state();
     test_deserialize_corrupt_buffer_resets_state();
@@ -368,6 +389,7 @@ int main(void) {
     test_indented_table_row_terminates_when_no_table_slot();
     test_star_counter_does_not_wrap();
     test_heading_stack_push_is_bounded();
+    test_prepass_index_scan_and_edit();
     if (failures > 0) {
         fprintf(stderr, "scanner_tests: %d failure(s)\n", failures);
         return 1;

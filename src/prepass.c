@@ -1,5 +1,4 @@
 #include "prepass.h"
-#include "interval_tree.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -9,7 +8,6 @@
 struct prepass_state {
     uint8_t           stack[PREPASS_STACK_MAX];
     uint8_t           depth;
-    interval_tree_t  *tree;
 };
 
 static void scope_push(struct prepass_state *s, ScopeKind kind) {
@@ -62,16 +60,12 @@ prepass_state_t *prepass_state_new(void) {
     struct prepass_state *s = (struct prepass_state *)calloc(1, sizeof(struct prepass_state));
     if (!s) return NULL;
     s->depth = 0;
-    s->tree = interval_tree_new();
-    if (!s->tree) { free(s); return NULL; }
     return (prepass_state_t *)s;
 }
 
 void prepass_state_free(prepass_state_t *s) {
     if (!s) return;
-    struct prepass_state *st = (struct prepass_state *)s;
-    interval_tree_free(st->tree);
-    free(st);
+    free(s);
 }
 
 LineClassification prepass_classify_line(prepass_state_t *s,
@@ -94,7 +88,6 @@ LineClassification prepass_classify_line(prepass_state_t *s,
 void prepass_reset(prepass_state_t *s) {
     struct prepass_state *st = (struct prepass_state *)s;
     st->depth = 0;
-    interval_tree_splice(st->tree, 0, interval_tree_size(st->tree), NULL, 0);
 }
 
 /* --- hot helpers (whitespace skip, drawer-name scan, block-name scan) --- */
@@ -545,226 +538,24 @@ static LineTokenType classify_line(struct prepass_state *s,
     return TT_BODY;
 }
 
-size_t prepass_scan(prepass_state_t *s,
-                    const uint8_t *src, size_t len,
-                    LineToken *out, size_t out_capacity) {
-    struct prepass_state *st = (struct prepass_state *)s;
-    prepass_reset(s);
-    size_t pos = 0;
-
-    while (pos < len) {
-        size_t line_start = pos;
-        const uint8_t *nl = memchr(src + pos, '\n', len - pos);
-        size_t line_end = nl ? (size_t)(nl - src) : len;
-        pos = line_end;
-        uint32_t line_len = (uint32_t)(line_end - line_start);
-
-        const uint8_t *line = src + line_start;
-        uint16_t indent = leading_indent(line, line_len);
-        uint64_t meta = 0;
-        uint8_t depth_before = st->depth;
-        LineTokenType type = classify_line(st, line, line_len, indent, &meta);
-
-        LineToken tok = {
-            .type = type,
-            .start_byte = (uint32_t)line_start,
-            .end_byte = (uint32_t)line_end,
-            .indent_col = indent,
-            .stack_depth_before = depth_before,
-            ._pad = 0,
-            .meta = meta,
-        };
-        interval_tree_push(st->tree, &tok);
-
-        if (pos < len) pos++;
-    }
-
-    size_t total = interval_tree_size(st->tree);
-    if (out && out_capacity > 0) {
-        size_t n = total < out_capacity ? total : out_capacity;
-        for (size_t i = 0; i < n; i++) {
-            out[i] = *interval_tree_at(st->tree, i);
-        }
-    }
-    return total;
-}
-
-EditRange prepass_locate_edit(prepass_state_t *s,
-                              uint32_t start_byte,
-                              uint32_t old_end_byte) {
-    struct prepass_state *st = (struct prepass_state *)s;
-    size_t total = interval_tree_size(st->tree);
-    EditRange r;
-    r.start_token = interval_tree_index_for_byte(st->tree, start_byte);
-    r.end_token   = interval_tree_index_for_byte(st->tree, old_end_byte);
-    if (r.end_token < total) {
-        const LineToken *tok = interval_tree_at(st->tree, r.end_token);
-        if (tok && tok->start_byte < old_end_byte) {
-            r.end_token++;
-        }
-    }
-    if (r.end_token > total) r.end_token = total;
-    const LineToken *first = interval_tree_at(st->tree, r.start_token);
-    r.restart_byte = first ? first->start_byte : 0;
-    return r;
-}
-
-size_t prepass_apply_edit(prepass_state_t *s,
-                          const uint8_t *new_src, size_t new_len,
-                          uint32_t start_byte,
-                          uint32_t old_end_byte,
-                          uint32_t new_end_byte,
-                          LineToken *out, size_t out_capacity) {
-    struct prepass_state *st = (struct prepass_state *)s;
-    size_t total_old = interval_tree_size(st->tree);
-
-    if (total_old == 0) {
-        return prepass_scan(s, new_src, new_len, out, out_capacity);
-    }
-
-    EditRange r = prepass_locate_edit(s, start_byte, old_end_byte);
-    if (r.start_token >= total_old) {
-        return prepass_scan(s, new_src, new_len, out, out_capacity);
-    }
-
-    const LineToken *start_tok = interval_tree_at(st->tree, r.start_token);
-    if (start_tok->stack_depth_before > 0) {
-        return prepass_scan(s, new_src, new_len, out, out_capacity);
-    }
-
-    int32_t delta = (int32_t)new_end_byte - (int32_t)old_end_byte;
-    size_t pos = start_tok->start_byte;
-    st->depth = 0;
-
-    LineToken *new_buf = (LineToken *)malloc(16 * sizeof(LineToken));
-    if (!new_buf) abort();
-    size_t new_count = 0;
-    size_t new_cap = 16;
-
-    size_t old_idx = r.start_token;
-    int converged = 0;
-
-    while (pos < new_len && !converged) {
-        size_t line_start = pos;
-        const uint8_t *nl = memchr(new_src + pos, '\n', new_len - pos);
-        size_t line_end = nl ? (size_t)(nl - new_src) : new_len;
-        pos = line_end;
-        uint32_t line_len = (uint32_t)(line_end - line_start);
-
-        const uint8_t *line = new_src + line_start;
-        uint16_t indent = leading_indent(line, line_len);
-        uint64_t meta = 0;
-        uint8_t depth_before = st->depth;
-        LineTokenType type = classify_line(st, line, line_len, indent, &meta);
-
-        if (new_count >= new_cap) {
-            new_cap *= 2;
-            new_buf = (LineToken *)realloc(new_buf, new_cap * sizeof(LineToken));
-            if (!new_buf) abort();
-        }
-        new_buf[new_count++] = (LineToken){
-            .type = type,
-            .start_byte = (uint32_t)line_start,
-            .end_byte = (uint32_t)line_end,
-            .indent_col = indent,
-            .stack_depth_before = depth_before,
-            ._pad = 0,
-            .meta = meta,
-        };
-
-        if (pos < new_len) pos++;
-
-        if (line_start >= (size_t)new_end_byte && old_idx < total_old) {
-            const LineToken *old_tok = interval_tree_at(st->tree, old_idx);
-            int32_t expected_old_start = (int32_t)line_start - delta;
-            if (expected_old_start == (int32_t)old_tok->start_byte
-                    && type == old_tok->type
-                    && depth_before == old_tok->stack_depth_before) {
-                new_count--;
-                converged = 1;
-            } else {
-                old_idx++;
-            }
-        }
-    }
-
-    if (!converged) {
-        old_idx = total_old;
-    }
-
-    interval_tree_splice(st->tree, r.start_token,
-                         old_idx - r.start_token, new_buf, new_count);
-    free(new_buf);
-
-    if (converged && delta != 0) {
-        size_t after = r.start_token + new_count;
-        size_t tail_total = interval_tree_size(st->tree);
-        for (size_t i = after; i < tail_total; i++) {
-            LineToken *tok = (LineToken *)interval_tree_at(st->tree, i);
-            tok->start_byte = (uint32_t)((int32_t)tok->start_byte + delta);
-            tok->end_byte   = (uint32_t)((int32_t)tok->end_byte   + delta);
-        }
-    }
-
-    size_t total = interval_tree_size(st->tree);
-    if (out && out_capacity > 0) {
-        size_t n = total < out_capacity ? total : out_capacity;
-        for (size_t i = 0; i < n; i++) {
-            out[i] = *interval_tree_at(st->tree, i);
-        }
-    }
-    return total;
-}
-
 size_t prepass_serialize(const prepass_state_t *s,
                          uint8_t *buffer, size_t buffer_capacity) {
     const struct prepass_state *st = (const struct prepass_state *)s;
-    size_t token_count = interval_tree_size(st->tree);
-    size_t needed = sizeof(uint32_t)
-                  + sizeof(uint8_t)
-                  + (size_t)st->depth * sizeof(uint8_t)
-                  + token_count * sizeof(LineToken);
+    size_t needed = 1u + (size_t)st->depth;
     if (buffer == NULL || buffer_capacity < needed) return needed;
-
-    uint8_t *p = buffer;
-    uint32_t tc = (uint32_t)token_count;
-    memcpy(p, &tc, sizeof(uint32_t)); p += sizeof(uint32_t);
-    *p++ = st->depth;
-    if (st->depth > 0) {
-        memcpy(p, st->stack, st->depth);
-        p += st->depth;
-    }
-    for (size_t i = 0; i < token_count; i++) {
-        memcpy(p, interval_tree_at(st->tree, i), sizeof(LineToken));
-        p += sizeof(LineToken);
-    }
+    buffer[0] = st->depth;
+    if (st->depth > 0) memcpy(buffer + 1, st->stack, st->depth);
     return needed;
 }
 
 int prepass_deserialize(prepass_state_t *s,
                         const uint8_t *buffer, size_t buffer_size) {
     struct prepass_state *st = (struct prepass_state *)s;
-    if (buffer_size < sizeof(uint32_t) + 1) return 0;
-
-    const uint8_t *p = buffer;
-    uint32_t tc;
-    memcpy(&tc, p, sizeof(uint32_t)); p += sizeof(uint32_t);
-    uint8_t depth = *p++;
+    if (buffer_size < 1) return 0;
+    uint8_t depth = buffer[0];
     if (depth > PREPASS_STACK_MAX) return 0;
-    size_t needed = sizeof(uint32_t) + 1 + (size_t)depth + (size_t)tc * sizeof(LineToken);
-    if (buffer_size < needed) return 0;
-
+    if (buffer_size < 1u + (size_t)depth) return 0;
     st->depth = depth;
-    if (depth > 0) {
-        memcpy(st->stack, p, depth);
-        p += depth;
-    }
-    interval_tree_splice(st->tree, 0, interval_tree_size(st->tree), NULL, 0);
-    for (size_t i = 0; i < tc; i++) {
-        LineToken tok;
-        memcpy(&tok, p, sizeof(LineToken));
-        p += sizeof(LineToken);
-        interval_tree_push(st->tree, &tok);
-    }
+    if (depth > 0) memcpy(st->stack, buffer + 1, depth);
     return 1;
 }

@@ -413,13 +413,6 @@ module.exports = grammar({
      * compute statistics cookies on the parent headline. */
     checkbox: $ => $._list_checkbox,
 
-    /* Table. Header rows (rows immediately followed by a `|---|`
-     * rule) are not exposed as a distinct node here — tree-sitter's
-     * GLR + dynamic precedence couldn't pick the header-path
-     * unambiguously without extensive grammar restructuring. Per
-     * Emacs convention this distinction is recoverable by walking
-     * siblings: a `table_row` whose next sibling is `table_rule`
-     * is the header. */
     /* A table EITHER opens with a header (a row immediately followed
      * by a `|---|` rule) OR has no header.  The two shapes are
      * structurally distinct — `seq(header, rule, ...)` vs `repeat1(...)` —

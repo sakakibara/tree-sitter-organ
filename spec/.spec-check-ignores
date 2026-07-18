@@ -46,8 +46,7 @@ latexenv-close
 latexenv-body
 latexenv-line
 
-# Inlinetask open/close — collapsed into externals
-inlinetask-open
+# Inlinetask close — collapsed into externals
 inlinetask-close
 
 # List-item shape — `bullet` is an alias of `_list_item_bullet`; the
@@ -70,11 +69,6 @@ paragraph-line
 
 # Affiliated keyword name — folded into the `directive-name` regex
 affiliated-keyword-key
-
-# Property name — folded into a single regex in grammar.js, no separate
-# key/suffix nodes
-property-key
-property-suffix
 
 # Single switch inside block-switches - one grammar node covers the run
 block-switch

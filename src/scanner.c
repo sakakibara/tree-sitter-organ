@@ -261,7 +261,7 @@ unsigned tree_sitter_org_external_scanner_serialize(void *payload, char *buffer)
      *   [..]                      lblock_kind
      *   [..]                      at_item_def
      *   [..]                      blank_run
-     *   [..]                      prepass serialized state
+     *   [..]                      prepass scope stack (depth byte + entries)
      */
     size_t hdr = 10u + (size_t)s->heading_depth + (size_t)s->list_depth;
     if (hdr > cap) return 0;
