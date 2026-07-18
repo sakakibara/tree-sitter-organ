@@ -204,7 +204,7 @@ module.exports = grammar({
       field('timestamp', $.planning_timestamp),
     ),
 
-    planning_timestamp: $ => /[<\[][^\n>\]]+[>\]]/,
+    planning_timestamp: $ => /<[^<>\n]+>|\[[^\]\n]+\]/,
 
     /* `_propdrawer_close` covers the whole `:END:` line — or is
      * zero-width when a headline or EOF truncates the drawer. */

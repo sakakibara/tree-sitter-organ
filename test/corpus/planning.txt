@@ -155,3 +155,19 @@ SCHEDULED: <2026-01-01 Thu>
 (document
   (zeroth_section
     (paragraph)))
+
+==================
+Mismatched timestamp delimiters make the line a paragraph
+==================
+* H
+SCHEDULED: <2026-01-01]
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (paragraph))))

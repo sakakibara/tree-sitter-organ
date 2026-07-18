@@ -428,7 +428,7 @@
     },
     "planning_timestamp": {
       "type": "PATTERN",
-      "value": "[<\\[][^\\n>\\]]+[>\\]]"
+      "value": "<[^<>\\n]+>|\\[[^\\]\\n]+\\]"
     },
     "property_drawer": {
       "type": "SEQ",

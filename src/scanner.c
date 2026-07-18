@@ -563,6 +563,29 @@ static int planning_clock_kw(const uint8_t *p, uint32_t klen) {
     return 0;
 }
 
+/* True when buf[after_colon..len) starts (after inline whitespace)
+ * with a well-formed <...> or [...] timestamp.  Mirrors the grammar
+ * regex: angle form may not contain '<' or '>', bracket form may
+ * not contain ']'.  Emacs treats a planning keyword without a valid
+ * timestamp as plain paragraph text. */
+static bool planning_timestamp_follows(const uint8_t *buf, uint32_t len,
+                                       uint32_t after_colon) {
+    uint32_t i = after_colon;
+    while (i < len && (buf[i] == ' ' || buf[i] == '\t')) i++;
+    if (i >= len) return false;
+    if (buf[i] == '<') {
+        uint32_t j = i + 1;
+        while (j < len && buf[j] != '<' && buf[j] != '>') j++;
+        return j > i + 1 && j < len && buf[j] == '>';
+    }
+    if (buf[i] == '[') {
+        uint32_t j = i + 1;
+        while (j < len && buf[j] != ']') j++;
+        return j > i + 1 && j < len;
+    }
+    return false;
+}
+
 /* Counter `[@N]` and checkbox `[ ]`/`[x]`/`[X]`/`[-]` both start with
  * `[` at the same list-item position (counter precedes checkbox).  A
  * single `scan()` call cannot roll back between two separate attempts,
@@ -1527,6 +1550,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         int  b2_mark = MARK_NONE;
         bool have_b2_mark = false;
         int  b2_forced_sym = -1;
+        uint32_t b2_kw_colon = 0;
         lexer->mark_end(lexer);
         while (!lexer->eof(lexer) && lexer->lookahead != '\n'
                && ll < ORG_LINE_BUF_MAX) {
@@ -1597,6 +1621,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                     lexer->mark_end(lexer);
                     b2_forced_sym = (kw == 2) ? EXT_CLOCK_LINE
                                               : EXT_PLANNING_LINE;
+                    b2_kw_colon = ll;
                     have_b2_mark = true;
                     continue;
                 }
@@ -1608,6 +1633,13 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         if (!have_b2_mark) lexer->mark_end(lexer);
 
         if (b2_forced_sym >= 0) {
+            if (b2_forced_sym == EXT_PLANNING_LINE
+                && !planning_timestamp_follows(line_buf2, ll, b2_kw_colon)) {
+                if (!valid_symbols[EXT_INLINE_CONTENT_LINE]) return false;
+                lexer->mark_end(lexer);
+                lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
+                return true;
+            }
             if (valid_symbols[b2_forced_sym]) {
                 lexer->result_symbol = (TSSymbol)b2_forced_sym;
                 return true;
@@ -1833,6 +1865,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
      * end-of-line.
      */
     int mark_kind = MARK_NONE;
+    uint32_t p5_kw_colon = 0;
     bool have_prefix_mark = false;
     /* Pre-mark at line start; mid-loop mark_end calls move this
      * forward as a prefix kind is detected. */
@@ -1978,6 +2011,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                  * progress. */
                 lexer->mark_end(lexer);
                 mark_kind = (kw == 2) ? MARK_CLOCK : MARK_PLANNING;
+                p5_kw_colon = line_len;
                 have_prefix_mark = true;
                 continue;
             }
@@ -1993,6 +2027,14 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
      * If we DID set a prefix mark, that one stays in effect for an
      * lblock-open emit. */
     if (!have_prefix_mark) lexer->mark_end(lexer);
+
+    if (mark_kind == MARK_PLANNING
+        && !planning_timestamp_follows(line_buf, line_len, p5_kw_colon)) {
+        if (!valid_symbols[EXT_INLINE_CONTENT_LINE]) return false;
+        lexer->mark_end(lexer);
+        lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
+        return true;
+    }
 
     PrepassScopeSnapshot snap = prepass_scope_snapshot(s->prepass);
     LineClassification r = prepass_classify_line(s->prepass, line_buf, line_len);
