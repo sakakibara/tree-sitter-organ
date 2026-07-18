@@ -118,7 +118,7 @@
     "fields": {
       "body": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "diary_sexp_body",
@@ -127,6 +127,11 @@
         ]
       }
     }
+  },
+  {
+    "type": "diary_sexp_body",
+    "named": true,
+    "fields": {}
   },
   {
     "type": "directive_value",
@@ -1627,10 +1632,6 @@
   },
   {
     "type": "comment_body",
-    "named": true
-  },
-  {
-    "type": "diary_sexp_body",
     "named": true
   },
   {

@@ -116,6 +116,18 @@ Diary sexp: active timestamp form
       (diary_sexp_body))))
 
 ==================
+Diary sexp with nested parens
+==================
+%%(and (diary-float t 4 2))
+
+---
+
+(document
+  (zeroth_section
+    (diary_sexp
+      (diary_sexp_body))))
+
+==================
 Table with header row
 ==================
 | col1 | col2 |

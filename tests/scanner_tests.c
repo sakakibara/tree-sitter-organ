@@ -10,7 +10,7 @@
 extern uint16_t organ_leading_indent_scalar(const uint8_t *p, uint32_t len);
 extern uint16_t organ_leading_indent_swar(const uint8_t *p, uint32_t len);
 
-#define N_EXTERNALS (EXT_FN_EMPTY_LINE + 1)
+#define N_EXTERNALS (EXT_DIARY_SEXP_BODY + 1)
 
 typedef struct {
     TSLexer lexer;

@@ -1891,12 +1891,20 @@
           "name": "_diary_sexp_line"
         },
         {
-          "type": "FIELD",
-          "name": "body",
-          "content": {
-            "type": "SYMBOL",
-            "name": "diary_sexp_body"
-          }
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "body",
+              "content": {
+                "type": "SYMBOL",
+                "name": "diary_sexp_body"
+              }
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
         },
         {
           "type": "CHOICE",
@@ -1918,8 +1926,8 @@
       ]
     },
     "diary_sexp_body": {
-      "type": "PATTERN",
-      "value": "[^\\n)]*"
+      "type": "SYMBOL",
+      "name": "_diary_sexp_body"
     },
     "paragraph": {
       "type": "PREC_RIGHT",
@@ -2182,6 +2190,10 @@
     {
       "type": "SYMBOL",
       "name": "_fn_empty_line"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_diary_sexp_body"
     }
   ],
   "inline": [],

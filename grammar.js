@@ -62,6 +62,7 @@ module.exports = grammar({
     $._item_tag_text,          // description-list term before ` :: `
     $._item_tag_sep,           // the ` :: ` separator after an item tag
     $._fn_empty_line,          // empty line inside a footnote definition body
+    $._diary_sexp_body,        // diary sexp body up to the line's last `)`
   ],
 
   extras: _ => [],
@@ -529,12 +530,12 @@ module.exports = grammar({
      * `body` field plus a closing-punctuation choice. */
     diary_sexp: $ => seq(
       $._diary_sexp_line,
-      field('body', $.diary_sexp_body),
+      optional(field('body', $.diary_sexp_body)),
       choice(')', ')>'),
       /[ \t]*\r?\n/,
     ),
 
-    diary_sexp_body: $ => /[^\n)]*/,
+    diary_sexp_body: $ => $._diary_sexp_body,
     paragraph: $ => prec.right(repeat1($._inline_content_line)),
   },
 });

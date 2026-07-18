@@ -79,6 +79,7 @@ enum OrgExternal {
     EXT_ITEM_TAG_TEXT,           /* description-list term before ` :: ` */
     EXT_ITEM_TAG_SEP,            /* the ` :: ` separator after an item tag */
     EXT_FN_EMPTY_LINE,           /* empty line inside a footnote definition body */
+    EXT_DIARY_SEXP_BODY,         /* diary sexp body up to the line's last `)` */
 };
 
 /* Map prepass LineTokenType → tree-sitter external symbol (non-heading types). */
@@ -661,6 +662,28 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
 
 static bool scan_impl(ScannerState *s, TSLexer *lexer,
                       const bool *valid_symbols) {
+
+    /* Diary-sexp body: everything up to (not including) the line's
+     * LAST `)` - Emacs reads to the outermost closing paren, so
+     * nested parens stay in the body.  Empty bodies are refused
+     * (grammar marks the field optional), which also keeps this
+     * token from ever being zero-width. */
+    if (valid_symbols[EXT_DIARY_SEXP_BODY]) {
+        if (lexer->lookahead == ')') return false;
+        bool marked = false;
+        lexer->mark_end(lexer);
+        while (!lexer->eof(lexer) && lexer->lookahead != '\n'
+               && lexer->lookahead != '\r') {
+            if (lexer->lookahead == ')') {
+                lexer->mark_end(lexer);
+                marked = true;
+            }
+            lexer->advance(lexer, false);
+        }
+        if (!marked) return false;
+        lexer->result_symbol = EXT_DIARY_SEXP_BODY;
+        return true;
+    }
 
     /* ── Priority 0z: body-text token for comment_line / fixed_width_line.
      * Fires when the parser, having just consumed a prefix-only
