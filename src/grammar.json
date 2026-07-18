@@ -193,7 +193,7 @@
                 },
                 {
                   "type": "PATTERN",
-                  "value": "[ \\t]*"
+                  "value": "[\\t ]*"
                 }
               ]
             },
@@ -328,10 +328,6 @@
       "type": "SEQ",
       "members": [
         {
-          "type": "SYMBOL",
-          "name": "_planning_line"
-        },
-        {
           "type": "REPEAT1",
           "content": {
             "type": "SYMBOL",
@@ -348,20 +344,17 @@
       "type": "SEQ",
       "members": [
         {
-          "type": "PATTERN",
-          "value": "[ \\t]*"
-        },
-        {
           "type": "FIELD",
           "name": "keyword",
           "content": {
-            "type": "SYMBOL",
-            "name": "planning_keyword"
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_planning_line"
+            },
+            "named": true,
+            "value": "planning_keyword"
           }
-        },
-        {
-          "type": "STRING",
-          "value": ":"
         },
         {
           "type": "PATTERN",
@@ -376,10 +369,6 @@
           }
         }
       ]
-    },
-    "planning_keyword": {
-      "type": "PATTERN",
-      "value": "[Ss][Cc][Hh][Ee][Dd][Uu][Ll][Ee][Dd]|[Dd][Ee][Aa][Dd][Ll][Ii][Nn][Ee]|[Cc][Ll][Oo][Ss][Ee][Dd]"
     },
     "planning_timestamp": {
       "type": "PATTERN",

@@ -119,8 +119,13 @@ module.exports = grammar({
       optional(seq(field('comment',  $.comment_marker), /[ \t]+/)),
       /* The trailing separator after `[#X]` is optional — mirrors Emacs
        * `org-priority-regexp` ("\\] ?"), so `[#A]Foo` (no space) parses
-       * as priority + title=Foo.  `[ \t]*` (not `[ \t]+`) handles both. */
-      optional(seq(field('priority', $.priority), /[ \t]*/)),
+       * as priority + title=Foo.  Zero-or-more (not one-or-more) handles
+       * both. `[\t ]*` (byte-order swapped vs the identical pattern used
+       * elsewhere) keeps this an unshared token — tree-sitter interns
+       * anonymous regexes by source text, and sharing one here with an
+       * unrelated external-token-headed rule corrupts this state's
+       * external-token candidate list. */
+      optional(seq(field('priority', $.priority), /[\t ]*/)),
       optional(field('title',    $.title)),
       optional(field('cookie',   $.statistics_cookie)),
       optional(field('tag_list', $.tag_list)),
@@ -166,29 +171,27 @@ module.exports = grammar({
 
     /* Planning section beneath a heading. Each line carries 1+
      * SCHEDULED / DEADLINE / CLOSED entries (Emacs allows multiple
-     * keywords on one line). The scanner emits a zero-width
-     * `_planning_line` at the start of each such line so JS rules
-     * can consume every keyword + timestamp pair on it. */
+     * keywords on one line). The scanner emits one `_planning_line`
+     * token per entry, covering `[ws]*KEYWORD:`, so JS rules can
+     * consume every keyword + timestamp pair on the line. */
     planning: $ => prec.right(repeat1($.planning_line)),
 
     planning_line: $ => seq(
-      $._planning_line,
       repeat1($.planning_entry),
       /[ \t]*\r?\n/,
     ),
 
+    /* The external `_planning_line` token covers `[ws]*KEYWORD:`
+     * (keyword and colon included) and fires once per entry - the
+     * scanner re-detects mid-line for a second keyword on the same
+     * line.  Case-insensitive like Emacs `org-keyword-time-regexp`
+     * under case-fold-search. */
     planning_entry: $ => seq(
-      /[ \t]*/,
-      field('keyword',   $.planning_keyword),
-      ':',
+      field('keyword',   alias($._planning_line, $.planning_keyword)),
       /[ \t]+/,
       field('timestamp', $.planning_timestamp),
     ),
 
-    /* Case-insensitive: Emacs's `org-keyword-time-regexp` is matched
-     * with `case-fold-search = t`, so `scheduled:` / `Closed:` etc.
-     * are recognised the same as the canonical uppercase form. */
-    planning_keyword:   $ => /[Ss][Cc][Hh][Ee][Dd][Uu][Ll][Ee][Dd]|[Dd][Ee][Aa][Dd][Ll][Ii][Nn][Ee]|[Cc][Ll][Oo][Ss][Ee][Dd]/,
     planning_timestamp: $ => /[<\[][^\n>\]]+[>\]]/,
 
     /* `_propdrawer_close` covers the whole `:END:` line — or is

@@ -530,6 +530,17 @@ static inline uint8_t classify_byte(int32_t la) {
     return (la >= 0 && la < 0x80) ? (uint8_t)la : 0x80;
 }
 
+/* Planning / clock keyword match on klen bytes.
+ * Returns 0 = none, 1 = planning (SCHEDULED / DEADLINE / CLOSED),
+ * 2 = clock (CLOCK). */
+static int planning_clock_kw(const uint8_t *p, uint32_t klen) {
+    if (klen == 9 && memcmp(p, "SCHEDULED", 9) == 0) return 1;
+    if (klen == 8 && memcmp(p, "DEADLINE", 8) == 0)  return 1;
+    if (klen == 6 && memcmp(p, "CLOSED", 6) == 0)    return 1;
+    if (klen == 5 && memcmp(p, "CLOCK", 5) == 0)     return 2;
+    return 0;
+}
+
 /* Counter `[@N]` and checkbox `[ ]`/`[x]`/`[X]`/`[-]` both start with
  * `[` at the same list-item position (counter precedes checkbox).  A
  * single `scan()` call cannot roll back between two separate attempts,
@@ -1401,9 +1412,8 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         uint32_t ll = 0;
         for (uint32_t i = 0; i < bullet_consumed_len && ll < ORG_LINE_BUF_MAX; i++)
             line_buf2[ll++] = bullet_consumed[i];
-        /* Pre-mark at start so a zero-width emit (planning / clock) is
-         * possible.  Mid-loop colon-mark moves it forward; if planning/
-         * clock is detected, we leave mark_end at start. */
+        /* Pre-mark at start; mid-loop marks (colon, planning/clock,
+         * ...) move this forward as they're detected. */
         bool have_b2_mark = false;
         int  b2_forced_sym = -1;  /* >=0 = override prepass with this symbol */
         lexer->mark_end(lexer);
@@ -1430,36 +1440,18 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                 }
                 /* Planning / clock keyword (`SCHEDULED:` / `DEADLINE:`
                  * / `CLOSED:` / `CLOCK:`) at the start of the trimmed
-                 * content. Emit zero-width so JS rules consume the
-                 * keyword + timestamp(s). */
+                 * content. */
                 if (ll >= 6) {
                     uint32_t i = 0;
                     while (i < ll && (line_buf2[i] == ' ' || line_buf2[i] == '\t')) i++;
-                    uint32_t klen = (ll - 1) - i;
-                    const uint8_t *p = line_buf2 + i;
-                    bool match = false;
-                    if (klen == 9 && p[0]=='S' && p[1]=='C' && p[2]=='H' && p[3]=='E'
-                        && p[4]=='D' && p[5]=='U' && p[6]=='L' && p[7]=='E' && p[8]=='D') match = true;
-                    else if (klen == 8 && p[0]=='D' && p[1]=='E' && p[2]=='A' && p[3]=='D'
-                        && p[4]=='L' && p[5]=='I' && p[6]=='N' && p[7]=='E') match = true;
-                    else if (klen == 6 && p[0]=='C' && p[1]=='L' && p[2]=='O' && p[3]=='S'
-                        && p[4]=='E' && p[5]=='D') match = true;
-                    else if (klen == 5 && p[0]=='C' && p[1]=='L' && p[2]=='O' && p[3]=='C'
-                        && p[4]=='K') match = true;
-                    if (match) {
-                        if (klen == 5) {
-                            /* CLOCK: emit prefix-covering token (up to
-                             * and including the `:`). Avoids zero-
-                             * width which causes error-recovery loops
-                             * inside unclosed drawers. */
-                            lexer->mark_end(lexer);
-                            b2_forced_sym = EXT_CLOCK_LINE;
-                        } else {
-                            /* Planning: zero-width (mark stays at
-                             * line start) — JS rule consumes keyword
-                             * + timestamp pairs. */
-                            b2_forced_sym = EXT_PLANNING_LINE;
-                        }
+                    int kw = planning_clock_kw(line_buf2 + i, (ll - 1) - i);
+                    if (kw != 0) {
+                        /* Token covers the prefix up to and including
+                         * the ':' - non-zero-width, so error recovery
+                         * always makes progress. */
+                        lexer->mark_end(lexer);
+                        b2_forced_sym = (kw == 2) ? EXT_CLOCK_LINE
+                                                  : EXT_PLANNING_LINE;
                         have_b2_mark = true;
                         continue;
                     }
@@ -1630,9 +1622,8 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
     int mark_kind = MARK_NONE;
     bool have_prefix_mark = false;
     static const uint32_t name_len_for_kind[] = {0, 3, 7, 6, 5, 7};
-    /* Pre-mark at line start so a zero-width emit (planning / clock)
-     * is possible. mid-loop mark_end calls move this forward; if
-     * planning/clock is detected, we leave mark_end untouched. */
+    /* Pre-mark at line start; mid-loop mark_end calls move this
+     * forward as a prefix kind is detected. */
     lexer->mark_end(lexer);
     while (!lexer->eof(lexer) && lexer->lookahead != '\n'
            && line_len < ORG_LINE_BUF_MAX) {
@@ -1763,41 +1754,18 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         }
 
         /* Planning line keyword (`SCHEDULED:` / `DEADLINE:` / `CLOSED:`)
-         * or clock line (`CLOCK:`). Emit a ZERO-WIDTH token at line
-         * start so JS rules consume keyword + `:` + ws + timestamp. */
+         * or clock line (`CLOCK:`). */
         if (mark_kind == MARK_NONE
             && line_buf[line_len - 1] == ':' && line_len >= 6) {
             uint32_t i = 0;
             while (i < line_len && (line_buf[i] == ' ' || line_buf[i] == '\t')) i++;
-            uint32_t klen = (line_len - 1) - i;
-            const uint8_t *p = line_buf + i;
-            bool match = false;
-            int new_kind = MARK_NONE;
-            if (klen == 9 && p[0]=='S' && p[1]=='C' && p[2]=='H' && p[3]=='E'
-                && p[4]=='D' && p[5]=='U' && p[6]=='L' && p[7]=='E' && p[8]=='D') {
-                match = true; new_kind = MARK_PLANNING;
-            } else if (klen == 8 && p[0]=='D' && p[1]=='E' && p[2]=='A' && p[3]=='D'
-                && p[4]=='L' && p[5]=='I' && p[6]=='N' && p[7]=='E') {
-                match = true; new_kind = MARK_PLANNING;
-            } else if (klen == 6 && p[0]=='C' && p[1]=='L' && p[2]=='O' && p[3]=='S'
-                && p[4]=='E' && p[5]=='D') {
-                match = true; new_kind = MARK_PLANNING;
-            }
-            else if (klen == 5 && p[0]=='C' && p[1]=='L' && p[2]=='O' && p[3]=='C'
-                && p[4]=='K') {
-                match = true; new_kind = MARK_CLOCK;
-            }
-            if (match) {
-                if (new_kind == MARK_CLOCK) {
-                    /* Mark covers up to and including the `:`. Non-
-                     * zero-width to avoid tree-sitter error-recovery
-                     * loops inside unclosed drawers. */
-                    lexer->mark_end(lexer);
-                }
-                /* MARK_PLANNING stays zero-width (mark from line-
-                 * start pre-mark). JS rule consumes keyword +
-                 * timestamp pairs. */
-                mark_kind = new_kind;
+            int kw = planning_clock_kw(line_buf + i, (line_len - 1) - i);
+            if (kw != 0) {
+                /* Token covers the prefix up to and including the ':'
+                 * - non-zero-width, so error recovery always makes
+                 * progress. */
+                lexer->mark_end(lexer);
+                mark_kind = (kw == 2) ? MARK_CLOCK : MARK_PLANNING;
                 have_prefix_mark = true;
                 continue;
             }

@@ -258,12 +258,28 @@ static void test_classify_rollback_on_failed_scan(void) {
     tree_sitter_org_external_scanner_destroy(s);
 }
 
+static void test_planning_token_is_not_zero_width(void) {
+    ScannerState *s =
+        (ScannerState *)tree_sitter_org_external_scanner_create();
+    MockLexer m;
+    mock_init(&m, "SCHEDULED: <2026-05-01 Fri>\n");
+    bool valid[N_EXTERNALS];
+    memset(valid, false, sizeof(valid));
+    valid[EXT_PLANNING_LINE] = true;
+    bool ok = tree_sitter_org_external_scanner_scan(s, &m.lexer, valid);
+    CHECK(ok == true);
+    CHECK(m.lexer.result_symbol == EXT_PLANNING_LINE);
+    CHECK(m.mark == 10);   /* token covers "SCHEDULED:" */
+    tree_sitter_org_external_scanner_destroy(s);
+}
+
 int main(void) {
     test_deserialize_zero_resets_state();
     test_deserialize_corrupt_buffer_resets_state();
     test_deep_indent_bullet_no_overflow();
     test_swar_indent_matches_scalar();
     test_classify_rollback_on_failed_scan();
+    test_planning_token_is_not_zero_width();
     if (failures > 0) {
         fprintf(stderr, "scanner_tests: %d failure(s)\n", failures);
         return 1;

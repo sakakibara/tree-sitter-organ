@@ -20,6 +20,9 @@ propdrawer-close
 drawer-open
 drawer-close
 
+# Planning keyword - collapsed into the `_planning_line` external token
+planning-keyword
+
 # Greater-block open/close + body args — collapsed into externals
 gblock-open
 gblock-close
