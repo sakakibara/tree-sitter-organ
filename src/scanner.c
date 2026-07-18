@@ -651,6 +651,23 @@ static bool scan_headline_priority(TSLexer *lexer) {
  * Main scanner
  * --------------------------------------------------------------------- */
 
+/* Prefix-mark kinds shared by the line-read loops: which structural
+ * prefix (if any) the emitted token should cover. */
+enum LineMark { MARK_NONE, MARK_HASH, MARK_LBLOCK, MARK_COLON,
+                MARK_DRAWER, MARK_PROPERTY, MARK_PLANNING, MARK_CLOCK,
+                MARK_INLINETASK, MARK_DIARY_SEXP, MARK_COMMENT_LINE };
+
+/* Prefix length of `src` / `example` / `export` / `verse` / `comment`
+ * indexed by lesser-block kind. */
+static const uint32_t name_len_for_kind[] = {0, 3, 7, 6, 5, 7};
+
+static bool ws_only_before(const uint8_t *buf, uint32_t end) {
+    for (uint32_t i = 0; i < end; i++) {
+        if (buf[i] != ' ' && buf[i] != '\t') return false;
+    }
+    return true;
+}
+
 static bool scan_impl(ScannerState *s, TSLexer *lexer,
                       const bool *valid_symbols);
 
@@ -1454,12 +1471,9 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             /* Fall through if none valid (shouldn't happen in well-formed input). */
         }
 
-        /* Not a real bullet.  Decide whether the line is a paragraph
-         * continuation of the current list item or a list-terminating
-         * line.  The Emacs rule: a continuation line must be indented
-         * strictly more than the item's bullet column (== the entry on
-         * top of the list stack).  If the indent is equal or less, the
-         * list ends here. */
+        /* Not a real bullet.  A continuation line must be indented
+         * strictly more than the item's bullet column; otherwise the
+         * list ends here (Emacs). */
         if (s->list_depth > 0 && valid_symbols[EXT_PLAIN_LIST_CLOSE]) {
             uint8_t top = s->list_indents[s->list_depth - 1];
             if ((uint32_t)indent <= (uint32_t)top) {
@@ -1467,62 +1481,124 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                 lexer->result_symbol = EXT_PLAIN_LIST_CLOSE;
                 return true;
             }
-            /* indent > top → paragraph continuation; fall through to line
-             * classify (the consumed indent bytes are prepended below). */
         }
 
-        /* No list open and not a bullet — fall through to Priority 5 with
-         * the consumed bytes prepended so prepass sees the full line.
-         * Apply the same MARK_COLON shortcut here so an indented
-         * `  :PROPERTIES:` / `  :KEY: value` exposes the leading `:`
-         * as a separate token. */
+        /* Fall through to line classification with the consumed bytes
+         * prepended so the prepass sees the full line. */
         static uint8_t line_buf2[ORG_LINE_BUF_MAX];
         uint32_t ll = 0;
         for (uint32_t i = 0; i < bullet_consumed_len && ll < ORG_LINE_BUF_MAX; i++)
             line_buf2[ll++] = bullet_consumed[i];
-        /* Pre-mark at start; mid-loop marks (colon, planning/clock,
-         * ...) move this forward as they're detected. */
+
+        /* Indented table row or rule (Priority 4b only fires at
+         * column 0).  Diverts only when the parser can take a table
+         * token; inside a list item the classification fallback
+         * below keeps the line paragraph text. */
+        if (lexer->lookahead == '|'
+            && (valid_symbols[EXT_TABLE_ROW_START]
+                || valid_symbols[EXT_TABLE_RULE_LINE])) {
+            if (ll < ORG_LINE_BUF_MAX) line_buf2[ll++] = '|';
+            lexer->advance(lexer, false);
+            lexer->mark_end(lexer);   /* row token = indent + leading pipe */
+            while (!lexer->eof(lexer) && lexer->lookahead != '\n'
+                   && ll < ORG_LINE_BUF_MAX) {
+                line_buf2[ll++] = classify_byte(lexer->lookahead);
+                lexer->advance(lexer, false);
+            }
+            if (ll > 0 && line_buf2[ll - 1] == '\r') ll--;
+            PrepassScopeSnapshot tsnap = prepass_scope_snapshot(s->prepass);
+            LineClassification tr =
+                prepass_classify_line(s->prepass, line_buf2, ll);
+            if (tr.type == TT_TABLE_ROW && valid_symbols[EXT_TABLE_ROW_START]) {
+                lexer->result_symbol = EXT_TABLE_ROW_START;
+                return true;
+            }
+            if (tr.type == TT_TABLE_RULE && valid_symbols[EXT_TABLE_RULE_LINE]) {
+                if (!lexer->eof(lexer) && lexer->lookahead == '\n')
+                    lexer->advance(lexer, false);
+                lexer->mark_end(lexer);
+                lexer->result_symbol = EXT_TABLE_RULE_LINE;
+                return true;
+            }
+            prepass_scope_restore(s->prepass, tsnap);
+            return false;
+        }
+
+        int  b2_mark = MARK_NONE;
         bool have_b2_mark = false;
-        int  b2_forced_sym = -1;  /* >=0 = override prepass with this symbol */
+        int  b2_forced_sym = -1;
         lexer->mark_end(lexer);
         while (!lexer->eof(lexer) && lexer->lookahead != '\n'
                && ll < ORG_LINE_BUF_MAX) {
             line_buf2[ll++] = classify_byte(lexer->lookahead);
             lexer->advance(lexer, false);
-            if (have_b2_mark) continue;
-            if (line_buf2[ll - 1] == ':') {
-                bool ws_only = true;
-                for (uint32_t i = 0; i + 1 < ll; i++) {
-                    if (line_buf2[i] != ' ' && line_buf2[i] != '\t') {
-                        ws_only = false; break;
+
+            /* `:` after only whitespace: drawer / property /
+             * fixed-width prefix - token covers just the colon. */
+            if (b2_mark == MARK_NONE && b2_forced_sym < 0
+                && line_buf2[ll - 1] == ':'
+                && ws_only_before(line_buf2, ll - 1)) {
+                lexer->mark_end(lexer);
+                b2_mark = MARK_COLON;
+                have_b2_mark = true;
+                continue;
+            }
+
+            /* Lesser-block prefix (`#+begin_src` etc.); upgrades a
+             * MARK_HASH set for the bare `#+`. */
+            if (b2_mark != MARK_LBLOCK && b2_mark != MARK_COLON
+                && b2_mark != MARK_COMMENT_LINE && b2_forced_sym < 0) {
+                uint32_t off = lblock_name_offset(line_buf2, ll);
+                if (off > 0) {
+                    uint8_t kind = lblock_kind_from(line_buf2, off, ll);
+                    if (kind > 0 && kind <= 5
+                        && ll == off + name_len_for_kind[kind]) {
+                        int32_t la2 = lexer->lookahead;
+                        if (la2 == ' ' || la2 == '\t' || la2 == '\n'
+                            || la2 == '\r' || la2 == 0 || lexer->eof(lexer)) {
+                            lexer->mark_end(lexer);
+                            b2_mark = MARK_LBLOCK;
+                            have_b2_mark = true;
+                            continue;
+                        }
                     }
                 }
-                /* `:` after only whitespace → drawer/property OR
-                 * fixed-width prefix.  Mark at `:` so the emitted
-                 * token covers only the colon; JS rules consume the
-                 * rest (name + closing `:`, or body text). */
-                if (ws_only) {
+            }
+
+            if (b2_mark != MARK_NONE || b2_forced_sym >= 0) continue;
+
+            /* Comment line: ws + `#` + non-`+`; token covers the `#`. */
+            if (line_buf2[ll - 1] == '#'
+                && ws_only_before(line_buf2, ll - 1)
+                && lexer->lookahead != '+') {
+                lexer->mark_end(lexer);
+                b2_mark = MARK_COMMENT_LINE;
+                have_b2_mark = true;
+                continue;
+            }
+
+            /* Keyword / affiliated keyword `#+` prefix. */
+            if (ll >= 2 && line_buf2[ll - 1] == '+'
+                && line_buf2[ll - 2] == '#'
+                && ws_only_before(line_buf2, ll - 2)) {
+                lexer->mark_end(lexer);
+                b2_mark = MARK_HASH;
+                have_b2_mark = true;
+                continue;
+            }
+
+            /* Planning / clock keyword ending at this `:`.  Token
+             * covers the prefix through the colon (non-zero-width). */
+            if (line_buf2[ll - 1] == ':' && ll >= 6) {
+                uint32_t i = 0;
+                while (i < ll && (line_buf2[i] == ' ' || line_buf2[i] == '\t')) i++;
+                int kw = planning_clock_kw(line_buf2 + i, (ll - 1) - i);
+                if (kw != 0) {
                     lexer->mark_end(lexer);
+                    b2_forced_sym = (kw == 2) ? EXT_CLOCK_LINE
+                                              : EXT_PLANNING_LINE;
                     have_b2_mark = true;
                     continue;
-                }
-                /* Planning / clock keyword (`SCHEDULED:` / `DEADLINE:`
-                 * / `CLOSED:` / `CLOCK:`) at the start of the trimmed
-                 * content. */
-                if (ll >= 6) {
-                    uint32_t i = 0;
-                    while (i < ll && (line_buf2[i] == ' ' || line_buf2[i] == '\t')) i++;
-                    int kw = planning_clock_kw(line_buf2 + i, (ll - 1) - i);
-                    if (kw != 0) {
-                        /* Token covers the prefix up to and including
-                         * the ':' - non-zero-width, so error recovery
-                         * always makes progress. */
-                        lexer->mark_end(lexer);
-                        b2_forced_sym = (kw == 2) ? EXT_CLOCK_LINE
-                                                  : EXT_PLANNING_LINE;
-                        have_b2_mark = true;
-                        continue;
-                    }
                 }
             }
         }
@@ -1531,9 +1607,6 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             lexer->advance(lexer, false);
         if (!have_b2_mark) lexer->mark_end(lexer);
 
-        /* Forced-symbol path takes precedence over the prepass
-         * classification (which may not recognise indented CLOCK /
-         * SCHEDULED lines as TT_CLOCK / TT_PLANNING). */
         if (b2_forced_sym >= 0) {
             if (valid_symbols[b2_forced_sym]) {
                 lexer->result_symbol = (TSSymbol)b2_forced_sym;
@@ -1556,14 +1629,67 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             prepass_scope_restore(s->prepass, snap);
             return false;
         }
-        /* Indented `:END:` — same whole-line close-token coverage as
-         * the Priority-5 path (the colon mark pinned it at the `:`). */
+        /* Close-line tokens with no JS-side tail cover the whole line. */
         if (rr.type == TT_DRAWER_CLOSE || rr.type == TT_PROPDRAWER_CLOSE)
             lexer->mark_end(lexer);
+        if (rr.type == TT_LBLOCK_OPEN) {
+            uint32_t off = lblock_name_offset(line_buf2, ll);
+            uint8_t kind = off ? lblock_kind_from(line_buf2, off, ll) : 0;
+            int open_sym = -1;
+            switch (kind) {
+                case 1: open_sym = EXT_SRC_BLOCK_OPEN;     break;
+                case 2: open_sym = EXT_EXAMPLE_BLOCK_OPEN; break;
+                case 3: open_sym = EXT_EXPORT_BLOCK_OPEN;  break;
+                case 4: open_sym = EXT_VERSE_BLOCK_OPEN;   break;
+                case 5: open_sym = EXT_COMMENT_BLOCK_OPEN; break;
+                default:
+                    prepass_scope_restore(s->prepass, snap);
+                    return false;
+            }
+            if (!valid_symbols[open_sym]) {
+                prepass_scope_restore(s->prepass, snap);
+                return false;
+            }
+            s->lblock_kind = kind;
+            lexer->result_symbol = (TSSymbol)open_sym;
+            return true;
+        }
+        if (rr.type == TT_LBLOCK_CLOSE) {
+            int close_sym = -1;
+            switch (s->lblock_kind) {
+                case 1: close_sym = EXT_SRC_BLOCK_CLOSE;     break;
+                case 2: close_sym = EXT_EXAMPLE_BLOCK_CLOSE; break;
+                case 3: close_sym = EXT_EXPORT_BLOCK_CLOSE;  break;
+                case 4: close_sym = EXT_VERSE_BLOCK_CLOSE;   break;
+                case 5: close_sym = EXT_COMMENT_BLOCK_CLOSE; break;
+                default:
+                    prepass_scope_restore(s->prepass, snap);
+                    return false;
+            }
+            if (!valid_symbols[close_sym]) {
+                prepass_scope_restore(s->prepass, snap);
+                return false;
+            }
+            s->lblock_kind = 0;
+            lexer->result_symbol = (TSSymbol)close_sym;
+            return true;
+        }
+        /* Table lines with no table slot here (e.g. inside a list
+         * item) stay paragraph text. */
+        if ((rr.type == TT_TABLE_ROW || rr.type == TT_TABLE_RULE)
+            && valid_symbols[EXT_INLINE_CONTENT_LINE]) {
+            lexer->mark_end(lexer);
+            lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
+            return true;
+        }
         int sym = prepass_to_external(rr.type);
         if (sym < 0) {
             prepass_scope_restore(s->prepass, snap);
             return false;
+        }
+        if (rr.type == TT_EMPTY && valid_symbols[EXT_FN_EMPTY_LINE]
+            && s->blank_run == 0) {
+            sym = EXT_FN_EMPTY_LINE;
         }
         if (!valid_symbols[sym]) {
             prepass_scope_restore(s->prepass, snap);
@@ -1694,12 +1820,8 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
      * `if (!have_prefix_mark) lexer->mark_end(lexer);` extends to
      * end-of-line.
      */
-    enum { MARK_NONE, MARK_HASH, MARK_LBLOCK, MARK_COLON,
-           MARK_DRAWER, MARK_PROPERTY, MARK_PLANNING, MARK_CLOCK,
-           MARK_INLINETASK, MARK_DIARY_SEXP, MARK_COMMENT_LINE };
     int mark_kind = MARK_NONE;
     bool have_prefix_mark = false;
-    static const uint32_t name_len_for_kind[] = {0, 3, 7, 6, 5, 7};
     /* Pre-mark at line start; mid-loop mark_end calls move this
      * forward as a prefix kind is detected. */
     lexer->mark_end(lexer);

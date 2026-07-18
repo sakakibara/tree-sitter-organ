@@ -103,3 +103,16 @@ Property drawer with multiple properties (indented)
       (node_property
         (property_name)
         (property_value)))))
+
+==================
+Indented keyword
+==================
+  #+TITLE: indented
+
+---
+
+(document
+  (zeroth_section
+    (keyword
+      (directive_name)
+      (directive_value))))

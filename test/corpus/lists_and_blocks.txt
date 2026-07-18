@@ -515,3 +515,44 @@ Single blank line between items keeps one list
       (list_item
         (bullet)
         (paragraph)))))
+
+==================
+Indented src block
+==================
+  #+begin_src lua
+  print(1)
+  #+end_src
+
+---
+
+(document
+  (zeroth_section
+    (src_block
+      (src_block_language))))
+
+==================
+Indented table
+==================
+  | a | b |
+
+---
+
+(document
+  (zeroth_section
+    (table
+      (table_row
+        (table_cell)
+        (table_cell)))))
+
+==================
+Indented comment line
+==================
+  # note
+
+---
+
+(document
+  (zeroth_section
+    (comment
+      (comment_line
+        (comment_body)))))
