@@ -23,17 +23,13 @@ drawer-close
 # Planning keyword - collapsed into the `_planning_line` external token
 planning-keyword
 
-# Greater-block open/close + body args — collapsed into externals
+# Greater-block open/close — collapsed into externals
 gblock-open
 gblock-close
-gblock-name
-gblock-args
 
-# Dynamic-block open/close + body args — collapsed into externals
+# Dynamic-block open/close — collapsed into externals
 dynblock-open
 dynblock-close
-dynblock-name
-dynblock-args
 
 # Lesser-block body shape — handled by `_lblock_body` external
 lblock-args
@@ -49,7 +45,6 @@ latexenv-open
 latexenv-close
 latexenv-body
 latexenv-line
-latexenv-name
 
 # Inlinetask open/close — collapsed into externals
 inlinetask-open

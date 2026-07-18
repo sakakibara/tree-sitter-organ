@@ -88,8 +88,8 @@ Column-0 stars without space inside greater block stay content
       (title))
     (section
       (greater_block
-        (paragraph))
-      (paragraph))))
+        (block_name)
+        (paragraph)))))
 
 ==================
 Headline terminates greater block
@@ -109,6 +109,7 @@ after
       (title))
     (section
       (greater_block
+        (block_name)
         (paragraph))))
   (headline
     (headline_line
@@ -135,8 +136,9 @@ q
       (title))
     (section
       (greater_block
-        (paragraph)
+        (block_name)
         (greater_block
+          (block_name)
           (paragraph)))))
   (headline
     (headline_line
@@ -161,6 +163,8 @@ after
       (title))
     (section
       (dynamic_block
+        (block_name)
+        (block_args)
         (paragraph))))
   (headline
     (headline_line
@@ -186,7 +190,8 @@ after
       (stars)
       (title))
     (section
-      (latex_environment)))
+      (latex_environment
+        (latexenv_name))))
   (headline
     (headline_line
       (stars)
@@ -311,6 +316,7 @@ q
         (title))
       (section
         (greater_block
+          (block_name)
           (paragraph)))))
   (headline
     (headline_line

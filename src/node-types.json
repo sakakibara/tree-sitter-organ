@@ -26,6 +26,16 @@
     }
   },
   {
+    "type": "block_args",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "block_name",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "checkbox",
     "named": true,
     "fields": {}
@@ -275,7 +285,28 @@
   {
     "type": "dynamic_block",
     "named": true,
-    "fields": {},
+    "fields": {
+      "args": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "block_args",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "block_name",
+            "named": true
+          }
+        ]
+      }
+    },
     "children": {
       "multiple": true,
       "required": false,
@@ -569,6 +600,11 @@
     }
   },
   {
+    "type": "footnote_label",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "formula",
     "named": true,
     "fields": {
@@ -597,7 +633,28 @@
   {
     "type": "greater_block",
     "named": true,
-    "fields": {},
+    "fields": {
+      "args": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "block_args",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "block_name",
+            "named": true
+          }
+        ]
+      }
+    },
     "children": {
       "multiple": true,
       "required": false,
@@ -1030,7 +1087,18 @@
   {
     "type": "latex_environment",
     "named": true,
-    "fields": {}
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "latexenv_name",
+            "named": true
+          }
+        ]
+      }
+    }
   },
   {
     "type": "list",
@@ -1631,7 +1699,7 @@
     "named": true
   },
   {
-    "type": "footnote_label",
+    "type": "latexenv_name",
     "named": true
   },
   {
@@ -1657,5 +1725,9 @@
   {
     "type": "tag",
     "named": true
+  },
+  {
+    "type": "}",
+    "named": false
   }
 ]

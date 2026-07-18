@@ -573,3 +573,80 @@ Deeper-indented src block inside a list item stays paragraph text
       (list_item
         (bullet)
         (paragraph)))))
+
+==================
+Greater block with name and args
+==================
+#+begin_quote foo bar
+body
+#+end_quote
+
+---
+
+(document
+  (zeroth_section
+    (greater_block
+      (block_name)
+      (block_args)
+      (paragraph))))
+
+==================
+Special block
+==================
+#+begin_foo bar
+x
+#+end_foo
+
+---
+
+(document
+  (zeroth_section
+    (greater_block
+      (block_name)
+      (block_args)
+      (paragraph))))
+
+==================
+Dynamic block with name and params
+==================
+#+begin: dyn :params x
+body
+#+end:
+
+---
+
+(document
+  (zeroth_section
+    (dynamic_block
+      (block_name)
+      (block_args)
+      (paragraph))))
+
+==================
+Latex environment exposes its name
+==================
+\begin{align}
+x = 1
+\end{align}
+
+---
+
+(document
+  (zeroth_section
+    (latex_environment
+      (latexenv_name))))
+
+==================
+Indented greater block
+==================
+  #+begin_quote
+  body
+  #+end_quote
+
+---
+
+(document
+  (zeroth_section
+    (greater_block
+      (block_name)
+      (paragraph))))

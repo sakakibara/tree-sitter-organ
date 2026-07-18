@@ -728,6 +728,43 @@
           "name": "_gblock_open"
         },
         {
+          "type": "FIELD",
+          "name": "name",
+          "content": {
+            "type": "SYMBOL",
+            "name": "block_name"
+          }
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "PATTERN",
+                  "value": "[ \\t]+"
+                },
+                {
+                  "type": "FIELD",
+                  "name": "args",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "block_args"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "PATTERN",
+          "value": "[ \\t]*\\r?\\n"
+        },
+        {
           "type": "REPEAT",
           "content": {
             "type": "SYMBOL",
@@ -748,6 +785,47 @@
           "name": "_dynblock_open"
         },
         {
+          "type": "PATTERN",
+          "value": "[ \\t]+"
+        },
+        {
+          "type": "FIELD",
+          "name": "name",
+          "content": {
+            "type": "SYMBOL",
+            "name": "block_name"
+          }
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "PATTERN",
+                  "value": "[ \\t]+"
+                },
+                {
+                  "type": "FIELD",
+                  "name": "args",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "block_args"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "PATTERN",
+          "value": "[ \\t]*\\r?\\n"
+        },
+        {
           "type": "REPEAT",
           "content": {
             "type": "SYMBOL",
@@ -759,6 +837,14 @@
           "name": "_dynblock_close"
         }
       ]
+    },
+    "block_name": {
+      "type": "PATTERN",
+      "value": "[A-Za-z0-9_-]+"
+    },
+    "block_args": {
+      "type": "PATTERN",
+      "value": "[^ \\t\\n][^\\n]*"
     },
     "src_block": {
       "type": "SEQ",
@@ -1100,6 +1186,22 @@
           "name": "_latexenv_open"
         },
         {
+          "type": "FIELD",
+          "name": "name",
+          "content": {
+            "type": "SYMBOL",
+            "name": "latexenv_name"
+          }
+        },
+        {
+          "type": "STRING",
+          "value": "}"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[ \\t]*\\r?\\n"
+        },
+        {
           "type": "REPEAT",
           "content": {
             "type": "SYMBOL",
@@ -1111,6 +1213,10 @@
           "name": "_latexenv_close"
         }
       ]
+    },
+    "latexenv_name": {
+      "type": "PATTERN",
+      "value": "[A-Za-z0-9*]+"
     },
     "list": {
       "type": "PREC_RIGHT",

@@ -563,6 +563,18 @@ static int planning_clock_kw(const uint8_t *p, uint32_t klen) {
     return 0;
 }
 
+/* ASCII case-insensitive prefix match: does p[0..len) start with kw? */
+static bool prefix_ci(const uint8_t *p, uint32_t len, const char *kw) {
+    size_t klen = strlen(kw);
+    if (len < klen) return false;
+    for (size_t i = 0; i < klen; i++) {
+        uint8_t a = p[i];
+        if (a >= 'A' && a <= 'Z') a = (uint8_t)(a + 32);
+        if (a != (uint8_t)kw[i]) return false;
+    }
+    return true;
+}
+
 /* True when buf[after_colon..len) starts (after inline whitespace)
  * with a well-formed <...> or [...] timestamp.  Mirrors the grammar
  * regex: angle form may not contain '<' or '>', bracket form may
@@ -678,7 +690,8 @@ static bool scan_headline_priority(TSLexer *lexer) {
  * prefix (if any) the emitted token should cover. */
 enum LineMark { MARK_NONE, MARK_HASH, MARK_LBLOCK, MARK_COLON,
                 MARK_DRAWER, MARK_PROPERTY, MARK_PLANNING, MARK_CLOCK,
-                MARK_INLINETASK, MARK_DIARY_SEXP, MARK_COMMENT_LINE };
+                MARK_INLINETASK, MARK_DIARY_SEXP, MARK_COMMENT_LINE,
+                MARK_GBLOCK, MARK_DYNBLOCK, MARK_LATEXENV };
 
 /* Prefix length of `src` / `example` / `export` / `verse` / `comment`
  * indexed by lesser-block kind. */
@@ -1586,10 +1599,50 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                             continue;
                         }
                     }
+                    /* Greater block: mark right after `#+begin_`
+                     * (or `#+end_`); a lesser-block name later
+                     * upgrades the mark. */
+                    if (b2_mark != MARK_GBLOCK && ll == off) {
+                        lexer->mark_end(lexer);
+                        b2_mark = MARK_GBLOCK;
+                        have_b2_mark = true;
+                        continue;
+                    }
                 }
             }
 
-            if (b2_mark != MARK_NONE || b2_forced_sym >= 0) continue;
+            /* Dynamic block open: mark right after `#+begin:`. */
+            if (b2_mark == MARK_HASH && b2_forced_sym < 0 && ll >= 3
+                && line_buf2[ll - 1] == ':') {
+                uint32_t ws = 0;
+                while (ws < ll
+                       && (line_buf2[ws] == ' ' || line_buf2[ws] == '\t')) ws++;
+                if (ll - ws == 8
+                    && prefix_ci(line_buf2 + ws, ll - ws, "#+begin:")) {
+                    lexer->mark_end(lexer);
+                    b2_mark = MARK_DYNBLOCK;
+                    have_b2_mark = true;
+                    continue;
+                }
+            }
+
+            /* Latex environment open: mark right after `\begin{`. */
+            if (b2_mark == MARK_NONE && b2_forced_sym < 0 && ll >= 7
+                && line_buf2[ll - 1] == '{') {
+                uint32_t ws = 0;
+                while (ws < ll
+                       && (line_buf2[ws] == ' ' || line_buf2[ws] == '\t')) ws++;
+                if (ll - ws == 7
+                    && memcmp(line_buf2 + ws, "\\begin{", 7) == 0) {
+                    lexer->mark_end(lexer);
+                    b2_mark = MARK_LATEXENV;
+                    have_b2_mark = true;
+                    continue;
+                }
+            }
+
+            if ((b2_mark != MARK_NONE && b2_mark != MARK_HASH
+                 && b2_mark != MARK_GBLOCK) || b2_forced_sym >= 0) continue;
 
             /* Comment line: ws + `#` + non-`+`; token covers the `#`. */
             if (line_buf2[ll - 1] == '#'
@@ -1662,7 +1715,8 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             return false;
         }
         /* Close-line tokens with no JS-side tail cover the whole line. */
-        if (rr.type == TT_DRAWER_CLOSE || rr.type == TT_PROPDRAWER_CLOSE)
+        if (rr.type == TT_DRAWER_CLOSE || rr.type == TT_PROPDRAWER_CLOSE
+            || rr.type == TT_GBLOCK_CLOSE || rr.type == TT_DYNBLOCK_CLOSE)
             lexer->mark_end(lexer);
         if (rr.type == TT_LBLOCK_OPEN) {
             uint32_t off = lblock_name_offset(line_buf2, ll);
@@ -1918,6 +1972,45 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                         }
                     }
                 }
+                /* Greater block: mark right after `#+begin_` (or
+                 * `#+end_`) so name and args become JS children;
+                 * a lesser-block name later upgrades the mark. */
+                if (mark_kind != MARK_GBLOCK && line_len == off) {
+                    lexer->mark_end(lexer);
+                    mark_kind = MARK_GBLOCK;
+                    have_prefix_mark = true;
+                    continue;
+                }
+            }
+        }
+
+        /* Dynamic block open: mark right after `#+begin:`. */
+        if (mark_kind == MARK_HASH && line_len >= 3
+            && line_buf[line_len - 1] == ':') {
+            uint32_t ws = 0;
+            while (ws < line_len
+                   && (line_buf[ws] == ' ' || line_buf[ws] == '\t')) ws++;
+            if (line_len - ws == 8
+                && prefix_ci(line_buf + ws, line_len - ws, "#+begin:")) {
+                lexer->mark_end(lexer);
+                mark_kind = MARK_DYNBLOCK;
+                have_prefix_mark = true;
+                continue;
+            }
+        }
+
+        /* Latex environment open: mark right after `\begin{`. */
+        if (mark_kind == MARK_NONE && line_len >= 7
+            && line_buf[line_len - 1] == '{') {
+            uint32_t ws = 0;
+            while (ws < line_len
+                   && (line_buf[ws] == ' ' || line_buf[ws] == '\t')) ws++;
+            if (line_len - ws == 7
+                && memcmp(line_buf + ws, "\\begin{", 7) == 0) {
+                lexer->mark_end(lexer);
+                mark_kind = MARK_LATEXENV;
+                have_prefix_mark = true;
+                continue;
             }
         }
 
@@ -1928,7 +2021,9 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             || mark_kind == MARK_CLOCK
             || mark_kind == MARK_INLINETASK
             || mark_kind == MARK_DIARY_SEXP
-            || mark_kind == MARK_COMMENT_LINE) continue;
+            || mark_kind == MARK_COMMENT_LINE
+            || mark_kind == MARK_DYNBLOCK
+            || mark_kind == MARK_LATEXENV) continue;
 
         /* Comment line: `#` followed by non-`+` (i.e. NOT a `#+keyword`
          * directive — that's caught by the MARK_HASH branch below).
@@ -2052,7 +2147,8 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
      * closes, stars + space for the inlinetask END line); extend to
      * the consumed end of line. */
     if (r.type == TT_DRAWER_CLOSE || r.type == TT_PROPDRAWER_CLOSE
-        || r.type == TT_INLINETASK_CLOSE)
+        || r.type == TT_INLINETASK_CLOSE || r.type == TT_GBLOCK_CLOSE
+        || r.type == TT_DYNBLOCK_CLOSE)
         lexer->mark_end(lexer);
 
     /* Lesser-block dispatch: emit one of 5 type-specific tokens based on

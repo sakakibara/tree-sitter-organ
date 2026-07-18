@@ -294,8 +294,25 @@ module.exports = grammar({
     ),
 
     drawer_name: $ => /[A-Za-z_][A-Za-z0-9_-]*/,
-    greater_block: $ => seq($._gblock_open, repeat($._content_line), $._gblock_close),
-    dynamic_block: $ => seq($._dynblock_open, repeat($._content_line), $._dynblock_close),
+    greater_block: $ => seq(
+      $._gblock_open,
+      field('name', $.block_name),
+      optional(seq(/[ \t]+/, field('args', $.block_args))),
+      /[ \t]*\r?\n/,
+      repeat($._content_line),
+      $._gblock_close,
+    ),
+    dynamic_block: $ => seq(
+      $._dynblock_open,
+      /[ \t]+/,
+      field('name', $.block_name),
+      optional(seq(/[ \t]+/, field('args', $.block_args))),
+      /[ \t]*\r?\n/,
+      repeat($._content_line),
+      $._dynblock_close,
+    ),
+    block_name: $ => /[A-Za-z0-9_-]+/,
+    block_args: $ => /[^ \t\n][^\n]*/,
 
     /* Lesser blocks. The C scanner emits `_*_block_open` covering only
      * the directive prefix (`#+begin_src` / `#+begin_example` / …),
@@ -351,7 +368,15 @@ module.exports = grammar({
     /* Block switches: `-n 20 -r -l "fmt"` etc.  One node covering the
      * whole run; values are numbers or double-quoted strings. */
     block_switches: $ => /[-+][A-Za-z]([ \t]+("[^"\n]*"|[0-9]+))?([ \t]+[-+][A-Za-z]([ \t]+("[^"\n]*"|[0-9]+))?)*/,
-    latex_environment: $ => seq($._latexenv_open, repeat($._latexenv_body), $._latexenv_close),
+    latex_environment: $ => seq(
+      $._latexenv_open,
+      field('name', $.latexenv_name),
+      '}',
+      /[ \t]*\r?\n/,
+      repeat($._latexenv_body),
+      $._latexenv_close,
+    ),
+    latexenv_name: $ => /[A-Za-z0-9*]+/,
 
     list: $ => prec.right(seq(
       $._plain_list_open,

@@ -90,10 +90,8 @@ drawer-name     =  1*(ALPHA / DIGIT / "_" / "-")
 ; --- Greater blocks (Worg §3 Greater Elements) ----------------------------
 ; #+begin_NAME ... #+end_NAME where NAME is not a "lesser-block" name.
 greater-block   =  gblock-open *content-line gblock-close
-gblock-open     =  indent "#+begin_" gblock-name [SP gblock-args] indent line-end
-gblock-close    =  indent "#+end_"   gblock-name                  indent line-end
-gblock-name     =  "center" / "quote" / 1*ALPHA   ; "special" blocks: any other ALPHA name
-gblock-args     =  1*non-line                     ; trailing parameters (raw)
+gblock-open     =  indent "#+begin_" block-name [SP block-args] indent line-end
+gblock-close    =  indent "#+end_"   block-name                  indent line-end
 
 ; --- Lesser blocks (Worg §4 Elements) -------------------------------------
 ; Bodies are NOT parsed as content-line; they preserve raw lines verbatim.
@@ -130,10 +128,13 @@ lblock-line     =  *non-line line-end          ; any line other than the matchin
 
 ; --- Dynamic blocks (Worg §3 Greater Elements) ----------------------------
 dynamic-block   =  dynblock-open *content-line dynblock-close
-dynblock-open   =  indent "#+begin:" SP dynblock-name [SP dynblock-args] indent line-end
+dynblock-open   =  indent "#+begin:" SP block-name [SP block-args] indent line-end
 dynblock-close  =  indent "#+end:"                                       indent line-end
-dynblock-name   =  1*(ALPHA / DIGIT / "_" / "-")
-dynblock-args   =  1*non-line
+
+; Block name shared by greater and dynamic blocks ("special" blocks are
+; any name other than a lesser-block name).
+block-name      =  1*(ALPHA / DIGIT / "_" / "-")
+block-args      =  1*non-line                     ; trailing parameters (raw)
 
 ; --- LaTeX environments (Worg §4 LaTeX Environment) -----------------------
 latex-environment =  latexenv-open latexenv-body latexenv-close

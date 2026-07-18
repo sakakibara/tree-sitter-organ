@@ -109,6 +109,7 @@ q
       (title))
     (section
       (greater_block
+        (block_name)
         (paragraph)))))
 
 ==================
@@ -127,6 +128,7 @@ x
       (title))
     (section
       (dynamic_block
+        (block_name)
         (paragraph)))))
 
 ==================
@@ -144,7 +146,8 @@ x
       (stars)
       (title))
     (section
-      (latex_environment))))
+      (latex_environment
+        (latexenv_name)))))
 
 ==================
 Unclosed drawer runs to EOF
@@ -221,7 +224,7 @@ Unclosed list inside unclosed greater block at EOF
       (title))
     (section
       (greater_block
-        (paragraph)
+        (block_name)
         (list
           (list_item
             (bullet)
