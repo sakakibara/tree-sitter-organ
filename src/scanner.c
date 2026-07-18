@@ -450,26 +450,35 @@ static bool consume_tag_region(TSLexer *lexer) {
 }
 
 /* Peek-test a statistics cookie at current position: `[N%]` or
- * `[N/M]`. Advances past the candidate; on return true the caller
- * should NOT mark_end past — keep the cookie outside the current
- * token's range. */
+ * `[N/M]`, valid ONLY when followed (after inline whitespace) by
+ * end-of-line or a tag region - Emacs treats a mid-title cookie as
+ * plain text.  Advances past the candidate; on true the caller must
+ * not mark_end past it. */
 static bool consume_stats_cookie(TSLexer *lexer) {
     if (lexer->lookahead != '[') return false;
     lexer->advance(lexer, false);
-    /* Optional digits before %/`/`. Empty `[/N]` and `[%]` are valid. */
     while (lexer->lookahead >= '0' && lexer->lookahead <= '9')
         lexer->advance(lexer, false);
     int32_t c = lexer->lookahead;
     if (c == '%') {
         lexer->advance(lexer, false);
-        return lexer->lookahead == ']' && (lexer->advance(lexer, false), true);
-    }
-    if (c == '/') {
+        if (lexer->lookahead != ']') return false;
+        lexer->advance(lexer, false);
+    } else if (c == '/') {
         lexer->advance(lexer, false);
         while (lexer->lookahead >= '0' && lexer->lookahead <= '9')
             lexer->advance(lexer, false);
-        return lexer->lookahead == ']' && (lexer->advance(lexer, false), true);
+        if (lexer->lookahead != ']') return false;
+        lexer->advance(lexer, false);
+    } else {
+        return false;
     }
+    while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
+        lexer->advance(lexer, false);
+    if (lexer->lookahead == '\n' || lexer->lookahead == '\r'
+        || lexer->lookahead == 0 || lexer->eof(lexer))
+        return true;
+    if (lexer->lookahead == ':') return consume_tag_region(lexer);
     return false;
 }
 
@@ -904,14 +913,26 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                     }
                 }
                 if (ok) {
-                    /* Consume trailing inline whitespace too, so the
-                     * subsequent `tag_list` external scanner sees `:`
-                     * directly (it requires `:` at lookahead). */
                     while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
                         lexer->advance(lexer, false);
-                    lexer->mark_end(lexer);
-                    lexer->result_symbol = EXT_HEADLINE_STATS_COOKIE;
-                    return true;
+                    if (lexer->lookahead == '\n' || lexer->lookahead == '\r'
+                        || lexer->lookahead == 0 || lexer->eof(lexer)) {
+                        lexer->mark_end(lexer);
+                        lexer->result_symbol = EXT_HEADLINE_STATS_COOKIE;
+                        return true;
+                    }
+                    if (lexer->lookahead == ':') {
+                        /* Mark before probing so the tag validator's
+                         * advances are outside the token; the next
+                         * scan re-lexes the tags. */
+                        lexer->mark_end(lexer);
+                        if (consume_tag_region(lexer)) {
+                            lexer->result_symbol = EXT_HEADLINE_STATS_COOKIE;
+                            return true;
+                        }
+                    }
+                    /* Mid-title cookie: fall through to the title
+                     * fallback below with the bytes already consumed. */
                 }
                 /* malformed — fall through to title fallback below */
             }

@@ -43,6 +43,33 @@ Headline with cookie + tags
         (tag)))))
 
 ==================
+Mid-title bracket run is not a statistics cookie
+==================
+* Title [50%] extra
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))))
+
+==================
+Trailing statistics cookie still parses
+==================
+* T [50%]
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title)
+      (statistics_cookie))))
+
+==================
 Comment-marker headline
 ==================
 * COMMENT Suspended
