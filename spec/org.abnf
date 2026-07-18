@@ -123,7 +123,7 @@ src-block-language =  ALPHA *(ALPHA / DIGIT / "_" / "+" / "-")
                                               ; language identifier (lua, python, …)
 block-header-args  =  ":" *non-line           ; Babel-style :key value :key2 v2
 block-switches  =  block-switch *(SP block-switch)
-block-switch    =  ("-" / "+") ALPHA [SP (1*DIGIT / DQUOTE *(%x20-21 / %x23-7E) DQUOTE)]
+block-switch    =  ("-" / "+") ALPHA [SP (1*DIGIT / DQUOTE *(%x00-09 / %x0B-21 / %x23-FF) DQUOTE)]
 lblock-args     =  1*non-line
 lblock-body     =  *lblock-line
 lblock-line     =  *non-line line-end          ; any line other than the matching #+end_*

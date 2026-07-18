@@ -364,6 +364,37 @@ x
       (block_switches))))
 
 ==================
+src_block switch with colon inside a quoted value does not split header args
+==================
+#+begin_src lua -l "a:b" :results output
+x
+#+end_src
+
+---
+
+(document
+  (zeroth_section
+    (src_block
+      (src_block_language)
+      (block_switches)
+      (block_header_args))))
+
+==================
+src_block with plus-prefixed switch
+==================
+#+begin_src lua +n 20
+x
+#+end_src
+
+---
+
+(document
+  (zeroth_section
+    (src_block
+      (src_block_language)
+      (block_switches))))
+
+==================
 example_block with switches
 ==================
 #+begin_example -n
