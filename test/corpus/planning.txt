@@ -112,3 +112,23 @@ Body paragraph here.
             (planning_keyword)
             (planning_timestamp))))
       (paragraph))))
+
+==================
+Lowercase scheduled keyword is planning
+==================
+* H
+scheduled: <2026-01-01 Thu>
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (planning
+        (planning_line
+          (planning_entry
+            (planning_keyword)
+            (planning_timestamp)))))))

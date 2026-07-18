@@ -139,16 +139,23 @@ static int parse_block_name(const uint8_t *trimmed, uint32_t rem,
 
 /* --- end hot helpers --- */
 
-static int starts_with(const uint8_t *p, uint32_t len, const char *kw) {
+static int has_prefix_ci(const uint8_t *p, uint32_t len, const char *kw) {
     size_t klen = strlen(kw);
     if (len < klen) return 0;
-    return memcmp(p, kw, klen) == 0;
+    for (size_t i = 0; i < klen; i++) {
+        uint8_t a = p[i];
+        uint8_t b = (uint8_t)kw[i];
+        if (a >= 'A' && a <= 'Z') a = a - 'A' + 'a';
+        if (b >= 'A' && b <= 'Z') b = b - 'A' + 'a';
+        if (a != b) return 0;
+    }
+    return 1;
 }
 
 static int is_planning(const uint8_t *p, uint32_t rem) {
-    static const char *KWS[] = { "SCHEDULED:", "DEADLINE:", "CLOSED:" };
+    static const char *KWS[] = { "scheduled:", "deadline:", "closed:" };
     for (int i = 0; i < 3; i++) {
-        if (starts_with(p, rem, KWS[i])) return 1;
+        if (has_prefix_ci(p, rem, KWS[i])) return 1;
     }
     return 0;
 }
@@ -186,19 +193,6 @@ static int is_node_property(const uint8_t *p, uint32_t rem) {
     if (i + 1 >= rem) return 1;
     if (p[i + 1] == ' ' || p[i + 1] == '\t') return 1;
     return 0;
-}
-
-static int has_prefix_ci(const uint8_t *p, uint32_t len, const char *kw) {
-    size_t klen = strlen(kw);
-    if (len < klen) return 0;
-    for (size_t i = 0; i < klen; i++) {
-        uint8_t a = p[i];
-        uint8_t b = (uint8_t)kw[i];
-        if (a >= 'A' && a <= 'Z') a = a - 'A' + 'a';
-        if (b >= 'A' && b <= 'Z') b = b - 'A' + 'a';
-        if (a != b) return 0;
-    }
-    return 1;
 }
 
 static int name_eq_ci(const uint8_t *p, uint32_t start, uint32_t end,
@@ -539,7 +533,7 @@ static LineTokenType classify_line(struct prepass_state *s,
     }
 
     if (is_planning(trimmed, rem)) return TT_PLANNING;
-    if (starts_with(trimmed, rem, "CLOCK:")) return TT_CLOCK;
+    if (has_prefix_ci(trimmed, rem, "CLOCK:")) return TT_CLOCK;
     if (rem >= 4 && trimmed[0] == '%' && trimmed[1] == '%'
         && trimmed[2] == '(' && trimmed[rem - 1] == ')') {
         return TT_DIARY_SEXP;

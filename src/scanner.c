@@ -530,14 +530,26 @@ static inline uint8_t classify_byte(int32_t la) {
     return (la >= 0 && la < 0x80) ? (uint8_t)la : 0x80;
 }
 
-/* Planning / clock keyword match on klen bytes.
+/* ASCII-CI planning / clock keyword match on klen bytes.
  * Returns 0 = none, 1 = planning (SCHEDULED / DEADLINE / CLOSED),
- * 2 = clock (CLOCK). */
+ * 2 = clock (CLOCK).  Emacs matches these with case-fold-search. */
 static int planning_clock_kw(const uint8_t *p, uint32_t klen) {
-    if (klen == 9 && memcmp(p, "SCHEDULED", 9) == 0) return 1;
-    if (klen == 8 && memcmp(p, "DEADLINE", 8) == 0)  return 1;
-    if (klen == 6 && memcmp(p, "CLOSED", 6) == 0)    return 1;
-    if (klen == 5 && memcmp(p, "CLOCK", 5) == 0)     return 2;
+    static const struct { const char *kw; uint32_t len; int kind; } KWS[] = {
+        { "scheduled", 9, 1 },
+        { "deadline",  8, 1 },
+        { "closed",    6, 1 },
+        { "clock",     5, 2 },
+    };
+    for (int k = 0; k < 4; k++) {
+        if (klen != KWS[k].len) continue;
+        bool eq = true;
+        for (uint32_t i = 0; i < klen; i++) {
+            uint8_t a = p[i];
+            if (a >= 'A' && a <= 'Z') a = (uint8_t)(a + 32);
+            if (a != (uint8_t)KWS[k].kw[i]) { eq = false; break; }
+        }
+        if (eq) return KWS[k].kind;
+    }
     return 0;
 }
 
