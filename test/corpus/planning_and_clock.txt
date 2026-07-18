@@ -11,12 +11,11 @@ SCHEDULED: <2026-04-25 Sat>
     (headline_line
       (stars)
       (title))
-    (section
-      (planning
-        (planning_line
-          (planning_entry
-            (planning_keyword)
-            (planning_timestamp)))))))
+    (planning
+      (planning_line
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp))))))
 
 ==================
 Planning: combined SCHEDULED + DEADLINE on one line
@@ -31,15 +30,14 @@ Planning: combined SCHEDULED + DEADLINE on one line
     (headline_line
       (stars)
       (title))
-    (section
-      (planning
-        (planning_line
-          (planning_entry
-            (planning_keyword)
-            (planning_timestamp))
-          (planning_entry
-            (planning_keyword)
-            (planning_timestamp)))))))
+    (planning
+      (planning_line
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp))
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp))))))
 
 ==================
 Planning: across three lines
@@ -56,20 +54,19 @@ Planning: across three lines
     (headline_line
       (stars)
       (title))
-    (section
-      (planning
-        (planning_line
-          (planning_entry
-            (planning_keyword)
-            (planning_timestamp)))
-        (planning_line
-          (planning_entry
-            (planning_keyword)
-            (planning_timestamp)))
-        (planning_line
-          (planning_entry
-            (planning_keyword)
-            (planning_timestamp)))))))
+    (planning
+      (planning_line
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp)))
+      (planning_line
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp)))
+      (planning_line
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp))))))
 
 ==================
 Clock: closed with duration

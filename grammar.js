@@ -95,8 +95,16 @@ module.exports = grammar({
       repeat($._content_line),
     )),
 
-    headline: $ => prec.right(seq(
+    headline: $ => prec.right(1, seq(
       $.headline_line,
+      /* The newline ending the headline line is itself an
+       * _empty_line token; planning and the property drawer are
+       * only recognized DIRECTLY after it (Emacs parity). */
+      optional(seq(
+        $._empty_line,
+        optional($.planning),
+        optional($.property_drawer),
+      )),
       repeat($._empty_line),
       optional($.section),
       repeat(choice($._empty_line, $.headline)),
@@ -232,7 +240,6 @@ module.exports = grammar({
     // `[fn:LABEL]` line per Emacs, so footnote_definition can't recurse
     // into its own body — see `_footnote_body_content_line` below.
     _non_fn_meaningful_content_line: $ => choice(
-      $.planning,
       $.property_drawer,
       $.drawer,
       $.greater_block,
@@ -431,11 +438,16 @@ module.exports = grammar({
      * regular headline) — scanner emits `_inlinetask_open` covering
      * only the leading stars + one space. The close `*************** END`
      * line stays as a single token (`_inlinetask_close`). */
-    inlinetask: $ => seq(
+    inlinetask: $ => prec.right(1, seq(
       $.inlinetask_line,
+      optional(seq(
+        $._empty_line,
+        optional($.planning),
+        optional($.property_drawer),
+      )),
       repeat($._content_line),
       $._inlinetask_close,
-    ),
+    )),
 
     inlinetask_line: $ => seq(
       field('stars',     alias($._inlinetask_open, $.stars)),

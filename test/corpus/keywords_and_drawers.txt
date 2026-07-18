@@ -71,11 +71,10 @@ Property drawer with one property
     (headline_line
       (stars)
       (title))
-    (section
-      (property_drawer
-        (node_property
-          (property_name)
-          (property_value))))))
+    (property_drawer
+      (node_property
+        (property_name)
+        (property_value)))))
 
 ==================
 Property drawer with multiple properties (indented)
@@ -94,14 +93,13 @@ Property drawer with multiple properties (indented)
     (headline_line
       (stars)
       (title))
-    (section
-      (property_drawer
-        (node_property
-          (property_name)
-          (property_value))
-        (node_property
-          (property_name)
-          (property_value))
-        (node_property
-          (property_name)
-          (property_value))))))
+    (property_drawer
+      (node_property
+        (property_name)
+        (property_value))
+      (node_property
+        (property_name)
+        (property_value))
+      (node_property
+        (property_name)
+        (property_value)))))

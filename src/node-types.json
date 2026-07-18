@@ -254,10 +254,6 @@
           "named": true
         },
         {
-          "type": "planning",
-          "named": true
-        },
-        {
           "type": "property_drawer",
           "named": true
         },
@@ -358,10 +354,6 @@
         },
         {
           "type": "paragraph",
-          "named": true
-        },
-        {
-          "type": "planning",
           "named": true
         },
         {
@@ -558,10 +550,6 @@
           "named": true
         },
         {
-          "type": "planning",
-          "named": true
-        },
-        {
           "type": "property_drawer",
           "named": true
         },
@@ -691,10 +679,6 @@
           "named": true
         },
         {
-          "type": "planning",
-          "named": true
-        },
-        {
           "type": "property_drawer",
           "named": true
         },
@@ -727,6 +711,14 @@
         },
         {
           "type": "headline_line",
+          "named": true
+        },
+        {
+          "type": "planning",
+          "named": true
+        },
+        {
+          "type": "property_drawer",
           "named": true
         },
         {
@@ -1312,10 +1304,6 @@
           "named": true
         },
         {
-          "type": "planning",
-          "named": true
-        },
-        {
           "type": "property_drawer",
           "named": true
         },
@@ -1569,10 +1557,6 @@
         },
         {
           "type": "paragraph",
-          "named": true
-        },
-        {
-          "type": "planning",
           "named": true
         },
         {

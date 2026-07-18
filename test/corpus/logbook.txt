@@ -106,11 +106,11 @@ CLOCK: [2026-04-26 Sun 14:30]
     (headline_line
       (stars)
       (title))
+    (property_drawer
+      (node_property
+        (property_name)
+        (property_value)))
     (section
-      (property_drawer
-        (node_property
-          (property_name)
-          (property_value)))
       (drawer
         (drawer_name)
         (clock

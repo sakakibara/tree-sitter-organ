@@ -1514,9 +1514,19 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
          * classification (which may not recognise indented CLOCK /
          * SCHEDULED lines as TT_CLOCK / TT_PLANNING). */
         if (b2_forced_sym >= 0) {
-            if (!valid_symbols[b2_forced_sym]) return false;
-            lexer->result_symbol = (TSSymbol)b2_forced_sym;
-            return true;
+            if (valid_symbols[b2_forced_sym]) {
+                lexer->result_symbol = (TSSymbol)b2_forced_sym;
+                return true;
+            }
+            /* Planning is only valid directly under a headline;
+             * anywhere else the line is plain paragraph text. */
+            if (b2_forced_sym == EXT_PLANNING_LINE
+                && valid_symbols[EXT_INLINE_CONTENT_LINE]) {
+                lexer->mark_end(lexer);
+                lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
+                return true;
+            }
+            return false;
         }
 
         PrepassScopeSnapshot snap = prepass_scope_snapshot(s->prepass);
@@ -1917,6 +1927,11 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         sym = EXT_CLOCK_LINE;
     } else if (mark_kind == MARK_PLANNING && valid_symbols[EXT_PLANNING_LINE]) {
         sym = EXT_PLANNING_LINE;
+    }
+    if (sym == EXT_PLANNING_LINE && !valid_symbols[EXT_PLANNING_LINE]
+        && valid_symbols[EXT_INLINE_CONTENT_LINE]) {
+        lexer->mark_end(lexer);
+        sym = EXT_INLINE_CONTENT_LINE;
     }
     if (!valid_symbols[sym]) {
         prepass_scope_restore(s->prepass, snap);

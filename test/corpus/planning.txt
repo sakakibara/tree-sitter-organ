@@ -12,12 +12,11 @@ SCHEDULED: <2026-04-25 Sat>
       (stars)
       (todo)
       (title))
-    (section
-      (planning
-        (planning_line
-          (planning_entry
-            (planning_keyword)
-            (planning_timestamp)))))))
+    (planning
+      (planning_line
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp))))))
 
 ==================
 SCHEDULED and DEADLINE on one line
@@ -33,15 +32,14 @@ SCHEDULED: <2026-04-25 Sat> DEADLINE: <2026-04-30 Thu>
       (stars)
       (todo)
       (title))
-    (section
-      (planning
-        (planning_line
-          (planning_entry
-            (planning_keyword)
-            (planning_timestamp))
-          (planning_entry
-            (planning_keyword)
-            (planning_timestamp)))))))
+    (planning
+      (planning_line
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp))
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp))))))
 
 ==================
 CLOSED with inactive timestamp
@@ -57,12 +55,11 @@ CLOSED: [2026-04-20 Mon 14:30]
       (stars)
       (todo)
       (title))
-    (section
-      (planning
-        (planning_line
-          (planning_entry
-            (planning_keyword)
-            (planning_timestamp)))))))
+    (planning
+      (planning_line
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp))))))
 
 ==================
 Planning split across multiple lines
@@ -79,16 +76,15 @@ DEADLINE: <2026-04-30 Thu>
       (stars)
       (todo)
       (title))
-    (section
-      (planning
-        (planning_line
-          (planning_entry
-            (planning_keyword)
-            (planning_timestamp)))
-        (planning_line
-          (planning_entry
-            (planning_keyword)
-            (planning_timestamp)))))))
+    (planning
+      (planning_line
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp)))
+      (planning_line
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp))))))
 
 ==================
 Planning followed by body paragraph
@@ -105,12 +101,12 @@ Body paragraph here.
       (stars)
       (todo)
       (title))
+    (planning
+      (planning_line
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp))))
     (section
-      (planning
-        (planning_line
-          (planning_entry
-            (planning_keyword)
-            (planning_timestamp))))
       (paragraph))))
 
 ==================
@@ -126,9 +122,36 @@ scheduled: <2026-01-01 Thu>
     (headline_line
       (stars)
       (title))
+    (planning
+      (planning_line
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp))))))
+
+==================
+SCHEDULED after a blank line is a paragraph
+==================
+* H
+
+SCHEDULED: <2026-01-01 Thu>
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
     (section
-      (planning
-        (planning_line
-          (planning_entry
-            (planning_keyword)
-            (planning_timestamp)))))))
+      (paragraph))))
+
+==================
+SCHEDULED in the zeroth section is a paragraph
+==================
+SCHEDULED: <2026-01-01 Thu>
+
+---
+
+(document
+  (zeroth_section
+    (paragraph)))
