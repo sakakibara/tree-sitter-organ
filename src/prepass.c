@@ -223,12 +223,13 @@ static int is_affiliated_keyword_name(const uint8_t *p, uint32_t s, uint32_t e) 
     return 0;
 }
 
-static int is_lesser_block_name(const uint8_t *p, uint32_t s, uint32_t e) {
-    return name_eq_ci(p, s, e, "src")
-        || name_eq_ci(p, s, e, "example")
-        || name_eq_ci(p, s, e, "export")
-        || name_eq_ci(p, s, e, "verse")
-        || name_eq_ci(p, s, e, "comment");
+uint8_t prepass_lblock_kind(const uint8_t *p, uint32_t start, uint32_t end) {
+    if (name_eq_ci(p, start, end, "src"))     return 1;
+    if (name_eq_ci(p, start, end, "example")) return 2;
+    if (name_eq_ci(p, start, end, "export"))  return 3;
+    if (name_eq_ci(p, start, end, "verse"))   return 4;
+    if (name_eq_ci(p, start, end, "comment")) return 5;
+    return 0;
 }
 
 static int parse_latexenv(const uint8_t *trimmed, uint32_t rem,
@@ -426,7 +427,7 @@ static LineTokenType classify_line(struct prepass_state *s,
     if (has_prefix_ci(trimmed, rem, "#+begin_")) {
         uint32_t ns, ne;
         if (parse_block_name(trimmed, rem, 8, &ns, &ne)) {
-            if (is_lesser_block_name(trimmed, ns, ne)) {
+            if (prepass_lblock_kind(trimmed, ns, ne)) {
                 scope_push(s, SCOPE_LBLOCK);
                 return TT_LBLOCK_OPEN;
             }

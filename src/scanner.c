@@ -180,26 +180,6 @@ typedef struct {
     uint8_t          fn_line_buf[ORG_LINE_BUF_MAX];
 } ScannerState;
 
-/* Match an ASCII-CI block name in `buf` of length `n` starting at
- * `start`.  Returns 1..5 for src/example/export/verse/comment, 0 if
- * unknown. */
-static uint8_t lblock_kind_from(const uint8_t *buf, uint32_t start, uint32_t n) {
-    /* Lower-case copy (up to 8 chars) to avoid case-sensitivity issues. */
-    char low[8] = {0};
-    uint32_t end = start + 8;
-    if (end > n) end = n;
-    for (uint32_t i = start, j = 0; i < end && j < 7; i++, j++) {
-        uint8_t c = buf[i];
-        low[j] = (c >= 'A' && c <= 'Z') ? (char)(c + 32) : (char)c;
-    }
-    if (strncmp(low, "src",     3) == 0) return 1;
-    if (strncmp(low, "example", 7) == 0) return 2;
-    if (strncmp(low, "export",  6) == 0) return 3;
-    if (strncmp(low, "verse",   5) == 0) return 4;
-    if (strncmp(low, "comment", 7) == 0) return 5;
-    return 0;
-}
-
 /* Find the byte index of the block name in `#+begin_NAME ...` or
  * `#+end_NAME ...` lines.  Returns the position after `#+begin_` /
  * `#+end_`, or 0 if not a block line. */
@@ -501,9 +481,15 @@ static bool consume_stats_cookie(TSLexer *lexer) {
  * position so the next external scanner can fire on the marker
  * char directly. Trailing ws right before the boundary is included
  * in the title (Emacs convention; consumers may trim). */
-static bool scan_headline_title(TSLexer *lexer) {
-    bool any_title_chars = false;
-    int32_t prev = '\n';
+/* Scan title content from the current position to end-of-line, a
+ * valid tag region, or a trailing statistics cookie.  `prev0` seeds
+ * the boundary check (callers mid-word pass their current
+ * lookahead; a line-start caller passes '\n').  Returns true when
+ * any title bytes were marked, including `any0` from bytes the
+ * caller already consumed and marked. */
+static bool scan_title_tail(TSLexer *lexer, int32_t prev0, bool any0) {
+    bool any_title_chars = any0;
+    int32_t prev = prev0;
     while (true) {
         int32_t c = lexer->lookahead;
         if (c == '\n' || c == '\r' || c == 0 || lexer->eof(lexer)) break;
@@ -527,6 +513,10 @@ static bool scan_headline_title(TSLexer *lexer) {
         prev = c;
     }
     return any_title_chars;
+}
+
+static bool scan_headline_title(TSLexer *lexer) {
+    return scan_title_tail(lexer, '\n', false);
 }
 
 /* Eat trailing inline whitespace after a bullet cookie so the
@@ -573,6 +563,15 @@ static int planning_clock_kw(const uint8_t *p, uint32_t klen) {
         if (eq) return KWS[k].kind;
     }
     return 0;
+}
+
+/* Keyword kind for a line prefix ending at its ':' (buf[len-1]).
+ * Returns 0 = none, 1 = planning, 2 = clock. */
+static int line_planning_clock_kind(const uint8_t *buf, uint32_t len) {
+    if (len < 6 || buf[len - 1] != ':') return 0;
+    uint32_t i = 0;
+    while (i < len && (buf[i] == ' ' || buf[i] == '\t')) i++;
+    return planning_clock_kw(buf + i, (len - 1) - i);
 }
 
 /* ASCII case-insensitive prefix match: does p[0..len) start with kw? */
@@ -705,9 +704,17 @@ enum LineMark { MARK_NONE, MARK_HASH, MARK_LBLOCK, MARK_COLON,
                 MARK_INLINETASK, MARK_DIARY_SEXP, MARK_COMMENT_LINE,
                 MARK_GBLOCK, MARK_DYNBLOCK, MARK_LATEXENV };
 
-/* Prefix length of `src` / `example` / `export` / `verse` / `comment`
- * indexed by lesser-block kind. */
-static const uint32_t name_len_for_kind[] = {0, 3, 7, 6, 5, 7};
+/* Kind of the lesser-block name starting at `off`, or 0.  Scans to
+ * the name's end within the buffer so partial reads mid-line match
+ * only when the complete name (and nothing more) is present. */
+static uint8_t lblock_kind_at(const uint8_t *buf, uint32_t off, uint32_t n) {
+    uint32_t end = off;
+    while (end < n && ((buf[end] >= 'a' && buf[end] <= 'z')
+                       || (buf[end] >= 'A' && buf[end] <= 'Z')
+                       || (buf[end] >= '0' && buf[end] <= '9')
+                       || buf[end] == '_' || buf[end] == '-')) end++;
+    return prepass_lblock_kind(buf, off, end);
+}
 
 static bool ws_only_before(const uint8_t *buf, uint32_t end) {
     for (uint32_t i = 0; i < end; i++) {
@@ -1006,32 +1013,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
              * and include those bytes in the title token. */
             if (!valid_symbols[EXT_HEADLINE_TITLE]) return false;
             lexer->mark_end(lexer);
-            int32_t prev = lexer->lookahead;
-            while (true) {
-                int32_t c = lexer->lookahead;
-                if (c == '\n' || c == '\r' || c == 0 || lexer->eof(lexer)) break;
-                if (c == ':' && (prev == ' ' || prev == '\t')) {
-                    if (consume_tag_region(lexer)) {
-                        lexer->result_symbol = EXT_HEADLINE_TITLE;
-                        return true;
-                    }
-                    lexer->mark_end(lexer);
-                    prev = lexer->lookahead;
-                    continue;
-                }
-                if (c == '[' && (prev == ' ' || prev == '\t')) {
-                    if (consume_stats_cookie(lexer)) {
-                        lexer->result_symbol = EXT_HEADLINE_TITLE;
-                        return true;
-                    }
-                    lexer->mark_end(lexer);
-                    prev = lexer->lookahead;
-                    continue;
-                }
-                lexer->advance(lexer, false);
-                lexer->mark_end(lexer);
-                prev = c;
-            }
+            scan_title_tail(lexer, lexer->lookahead, true);
             lexer->result_symbol = EXT_HEADLINE_TITLE;
             return true;
         }
@@ -1116,32 +1098,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             /* Not TODO/COMMENT — fall through to title. */
             if (!valid_symbols[EXT_HEADLINE_TITLE]) return false;
             lexer->mark_end(lexer);
-            int32_t prev = lexer->lookahead;
-            while (true) {
-                int32_t c = lexer->lookahead;
-                if (c == '\n' || c == '\r' || c == 0 || lexer->eof(lexer)) break;
-                if (c == ':' && (prev == ' ' || prev == '\t')) {
-                    if (consume_tag_region(lexer)) {
-                        lexer->result_symbol = EXT_HEADLINE_TITLE;
-                        return true;
-                    }
-                    lexer->mark_end(lexer);
-                    prev = lexer->lookahead;
-                    continue;
-                }
-                if (c == '[' && (prev == ' ' || prev == '\t')) {
-                    if (consume_stats_cookie(lexer)) {
-                        lexer->result_symbol = EXT_HEADLINE_TITLE;
-                        return true;
-                    }
-                    lexer->mark_end(lexer);
-                    prev = lexer->lookahead;
-                    continue;
-                }
-                lexer->advance(lexer, false);
-                lexer->mark_end(lexer);
-                prev = c;
-            }
+            scan_title_tail(lexer, lexer->lookahead, true);
             lexer->result_symbol = EXT_HEADLINE_TITLE;
             return true;
         }
@@ -1601,9 +1558,8 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                 && b2_mark != MARK_COMMENT_LINE && b2_forced_sym < 0) {
                 uint32_t off = lblock_name_offset(line_buf2, ll);
                 if (off > 0) {
-                    uint8_t kind = lblock_kind_from(line_buf2, off, ll);
-                    if (kind > 0 && kind <= 5
-                        && ll == off + name_len_for_kind[kind]) {
+                    uint8_t kind = lblock_kind_at(line_buf2, off, ll);
+                    if (kind > 0) {
                         int32_t la2 = lexer->lookahead;
                         if (la2 == ' ' || la2 == '\t' || la2 == '\n'
                             || la2 == '\r' || la2 == 0 || lexer->eof(lexer)) {
@@ -1681,9 +1637,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             /* Planning / clock keyword ending at this `:`.  Token
              * covers the prefix through the colon (non-zero-width). */
             if (line_buf2[ll - 1] == ':' && ll >= 6) {
-                uint32_t i = 0;
-                while (i < ll && (line_buf2[i] == ' ' || line_buf2[i] == '\t')) i++;
-                int kw = planning_clock_kw(line_buf2 + i, (ll - 1) - i);
+                int kw = line_planning_clock_kind(line_buf2, ll);
                 if (kw != 0) {
                     lexer->mark_end(lexer);
                     b2_forced_sym = (kw == 2) ? EXT_CLOCK_LINE
@@ -1734,7 +1688,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             lexer->mark_end(lexer);
         if (rr.type == TT_LBLOCK_OPEN) {
             uint32_t off = lblock_name_offset(line_buf2, ll);
-            uint8_t kind = off ? lblock_kind_from(line_buf2, off, ll) : 0;
+            uint8_t kind = off ? lblock_kind_at(line_buf2, off, ll) : 0;
             int open_sym = -1;
             switch (kind) {
                 case 1: open_sym = EXT_SRC_BLOCK_OPEN;     break;
@@ -1948,21 +1902,12 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
          * `_node_property_line` / `_fixed_width_line` token covers
          * only that single colon; JS rules then consume the rest
          * (name + closing `:` + value, or body text). */
-        if (mark_kind == MARK_NONE && line_buf[line_len - 1] == ':') {
-            /* Verify all preceding chars in the line so far are
-             * whitespace — i.e., this is the FIRST non-ws char. */
-            bool ws_only = true;
-            for (uint32_t i = 0; i + 1 < line_len; i++) {
-                if (line_buf[i] != ' ' && line_buf[i] != '\t') {
-                    ws_only = false; break;
-                }
-            }
-            if (ws_only) {
-                lexer->mark_end(lexer);
-                mark_kind = MARK_COLON;
-                have_prefix_mark = true;
-                continue;
-            }
+        if (mark_kind == MARK_NONE && line_buf[line_len - 1] == ':'
+            && ws_only_before(line_buf, line_len - 1)) {
+            lexer->mark_end(lexer);
+            mark_kind = MARK_COLON;
+            have_prefix_mark = true;
+            continue;
         }
 
         /* Lblock open is the most specific `#+` form — always allow
@@ -1972,18 +1917,15 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             && mark_kind != MARK_PROPERTY) {
             uint32_t off = lblock_name_offset(line_buf, line_len);
             if (off > 0) {
-                uint8_t kind = lblock_kind_from(line_buf, off, line_len);
-                if (kind > 0 && kind <= 5) {
-                    uint32_t prefix_end = off + name_len_for_kind[kind];
-                    if (line_len == prefix_end) {
-                        int32_t la2 = lexer->lookahead;
-                        if (la2 == ' ' || la2 == '\t' || la2 == '\n'
-                            || la2 == '\r' || la2 == 0 || lexer->eof(lexer)) {
-                            lexer->mark_end(lexer);
-                            mark_kind = MARK_LBLOCK;
-                            have_prefix_mark = true;
-                            continue;
-                        }
+                uint8_t kind = lblock_kind_at(line_buf, off, line_len);
+                if (kind > 0) {
+                    int32_t la2 = lexer->lookahead;
+                    if (la2 == ' ' || la2 == '\t' || la2 == '\n'
+                        || la2 == '\r' || la2 == 0 || lexer->eof(lexer)) {
+                        lexer->mark_end(lexer);
+                        mark_kind = MARK_LBLOCK;
+                        have_prefix_mark = true;
+                        continue;
                     }
                 }
                 /* Greater block: mark right after `#+begin_` (or
@@ -2111,9 +2053,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
          * or clock line (`CLOCK:`). */
         if (mark_kind == MARK_NONE
             && line_buf[line_len - 1] == ':' && line_len >= 6) {
-            uint32_t i = 0;
-            while (i < line_len && (line_buf[i] == ' ' || line_buf[i] == '\t')) i++;
-            int kw = planning_clock_kw(line_buf + i, (line_len - 1) - i);
+            int kw = line_planning_clock_kind(line_buf, line_len);
             if (kw != 0) {
                 /* Token covers the prefix up to and including the ':'
                  * - non-zero-width, so error recovery always makes
@@ -2170,7 +2110,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
      * dispatches by that saved kind and clears it. */
     if (r.type == TT_LBLOCK_OPEN) {
         uint32_t off = lblock_name_offset(line_buf, line_len);
-        uint8_t kind = off ? lblock_kind_from(line_buf, off, line_len) : 0;
+        uint8_t kind = off ? lblock_kind_at(line_buf, off, line_len) : 0;
         int open_sym = -1;
         switch (kind) {
             case 1: open_sym = EXT_SRC_BLOCK_OPEN;     break;

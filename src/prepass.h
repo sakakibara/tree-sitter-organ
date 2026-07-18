@@ -133,6 +133,10 @@ LineClassification prepass_classify_line(prepass_state_t *s,
                                           const uint8_t *line,
                                           uint32_t line_len);
 
+/* Lesser-block kind for name bytes p[start..end): 1 = src,
+ * 2 = example, 3 = export, 4 = verse, 5 = comment, 0 = other. */
+uint8_t prepass_lblock_kind(const uint8_t *p, uint32_t start, uint32_t end);
+
 /*
  * Serialize the pre-pass state (scope stack) into `buffer`. Returns the
  * number of bytes written, or the required size if `buffer == NULL`
