@@ -825,8 +825,11 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         /* Priority's separator is optional, so a COMMENT marker can be
          * the very next symbol while `la` still sits on that separator
          * whitespace. Defer to the internal `/[ \t]+/` token instead of
-         * folding it into title, so the next scan sees the word at
-         * column 0 and can classify it as COMMENT. */
+         * folding it into title, so the next scan starts at the word
+         * and can classify it as COMMENT. This guard is what keeps the
+         * shared `/[ \t]+/` separator token in grammar.js's headline
+         * rules safe: tree-sitter interns identical anonymous tokens,
+         * so editing those separators or this guard requires the other. */
         if ((la == ' ' || la == '\t') && valid_symbols[EXT_HEADLINE_COMMENT]) {
             return false;
         }
