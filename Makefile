@@ -101,7 +101,7 @@ test: build
 	@mkdir -p $(TS_LIBDIR)
 	@cp $(ORG_SO) $(TS_LIBDIR)/org.so
 	@touch $(TS_LIBDIR)/org.so
-	TREE_SITTER_LIBDIR=$(TS_LIBDIR) ./node_modules/.bin/tree-sitter test
+	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/run-corpus-tests.js
 	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/test-crlf.js
 
 test-crlf: build

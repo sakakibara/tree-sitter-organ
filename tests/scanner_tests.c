@@ -4,8 +4,10 @@
 #include "../src/scanner.c"
 
 #include <assert.h>
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 extern uint16_t organ_leading_indent_scalar(const uint8_t *p, uint32_t len);
 extern uint16_t organ_leading_indent_swar(const uint8_t *p, uint32_t len);
@@ -273,6 +275,52 @@ static void test_planning_token_is_not_zero_width(void) {
     tree_sitter_org_external_scanner_destroy(s);
 }
 
+/* SIGALRM handler for test_indented_table_row_terminates_when_no_table_slot:
+ * a regression that reintroduces an unbounded loop on this input must
+ * fail the test binary, not hang `make check-c` forever. */
+static void hang_guard_alarm(int sig) {
+    (void)sig;
+    fprintf(stderr, "FAIL: scan did not return within the bounded-iteration timeout\n");
+    _exit(1);
+}
+
+static void test_indented_table_row_terminates_when_no_table_slot(void) {
+    /* Indented `| a | b |` reached via the list-bullet fall-through
+     * (EXT_LIST_ITEM_BULLET valid, so Priority 4c's gate opens; `|` is
+     * not a bullet char, so control reaches the "not a real bullet"
+     * b2 path) with EXT_TABLE_ROW_START / EXT_TABLE_RULE_LINE both
+     * invalid: the dedicated `|` dispatch added for indented tables
+     * must not fire (it only diverts when a table slot is actually
+     * offered), so the line falls through to the generic classify
+     * loop, which sees prepass classify it as TT_TABLE_ROW with no
+     * table symbol on offer and must fall back to plain paragraph
+     * text.  Before the b2 rewrite this exact combination (a
+     * `|`-leading fall-through line with no dedicated handling) drove
+     * the parser into a pathological retry blow-up that hung
+     * `tree-sitter test`; guard the scan call itself with a hard
+     * wall-clock bound so any regression fails fast instead of
+     * hanging `make check-c`. */
+    ScannerState *s =
+        (ScannerState *)tree_sitter_org_external_scanner_create();
+    MockLexer m;
+    mock_init(&m, "  | a | b |\n");
+    bool valid[N_EXTERNALS];
+    memset(valid, false, sizeof(valid));
+    valid[EXT_LIST_ITEM_BULLET] = true;      /* opens the Priority 4c gate */
+    valid[EXT_INLINE_CONTENT_LINE] = true;   /* table syms deliberately absent */
+
+    void (*prev)(int) = signal(SIGALRM, hang_guard_alarm);
+    alarm(5);
+    bool ok = tree_sitter_org_external_scanner_scan(s, &m.lexer, valid);
+    alarm(0);
+    signal(SIGALRM, prev);
+
+    CHECK(ok == true);
+    CHECK(m.lexer.result_symbol == EXT_INLINE_CONTENT_LINE);
+
+    tree_sitter_org_external_scanner_destroy(s);
+}
+
 int main(void) {
     test_deserialize_zero_resets_state();
     test_deserialize_corrupt_buffer_resets_state();
@@ -280,6 +328,7 @@ int main(void) {
     test_swar_indent_matches_scalar();
     test_classify_rollback_on_failed_scan();
     test_planning_token_is_not_zero_width();
+    test_indented_table_row_terminates_when_no_table_slot();
     if (failures > 0) {
         fprintf(stderr, "scanner_tests: %d failure(s)\n", failures);
         return 1;
