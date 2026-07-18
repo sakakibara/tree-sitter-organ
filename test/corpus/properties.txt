@@ -147,3 +147,23 @@ Body paragraph.
         (property_value)))
     (section
       (paragraph))))
+
+==================
+Node property with no space before the value
+==================
+* H
+:PROPERTIES:
+:ID:abc
+:END:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (property_drawer
+      (node_property
+        (property_name)
+        (property_value)))))

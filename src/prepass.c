@@ -190,9 +190,7 @@ static int is_node_property(const uint8_t *p, uint32_t rem) {
         p[i] == '_' || p[i] == '-' || p[i] == '+'
     )) i++;
     if (i == 1 || i >= rem || p[i] != ':') return 0;
-    if (i + 1 >= rem) return 1;
-    if (p[i + 1] == ' ' || p[i + 1] == '\t') return 1;
-    return 0;
+    return 1;
 }
 
 static int name_eq_ci(const uint8_t *p, uint32_t start, uint32_t end,

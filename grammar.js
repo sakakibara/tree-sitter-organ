@@ -223,12 +223,12 @@ module.exports = grammar({
       $._node_property_line,
       field('name', $.property_name),
       ':',
-      optional(seq(/[ \t]+/, field('value', $.property_value))),
+      optional(seq(optional(/[ \t]+/), field('value', $.property_value))),
       /[ \t]*\r?\n/,
     ),
 
     property_name:  $ => /[A-Za-z_][A-Za-z0-9_+-]*/,
-    property_value: $ => /[^\n]+/,
+    property_value: $ => /[^ \t\n][^\n]*/,
 
     section: $ => prec.right(seq(
       $._meaningful_content_line,
@@ -497,26 +497,26 @@ module.exports = grammar({
        * `org-table-formula-regexp`).  `#+tblfm:` and `#+Tblfm:` work. */
       field('name', alias(token(prec(2, /[Tt][Bb][Ll][Ff][Mm]/)), $.directive_name)),
       ':',
-      optional(seq(/[ \t]+/, field('value', $.directive_value))),
+      optional(seq(optional(/[ \t]+/), field('value', $.directive_value))),
       /[ \t]*\r?\n/,
     ),
     keyword: $ => seq(
       $._keyword_line,
       field('name', $.directive_name),
       ':',
-      optional(seq(/[ \t]+/, field('value', $.directive_value))),
+      optional(seq(optional(/[ \t]+/), field('value', $.directive_value))),
       /[ \t]*\r?\n/,
     ),
     affiliated_keyword: $ => seq(
       $._affiliated_keyword_line,
       field('name', $.directive_name),
       ':',
-      optional(seq(/[ \t]+/, field('value', $.directive_value))),
+      optional(seq(optional(/[ \t]+/), field('value', $.directive_value))),
       /[ \t]*\r?\n/,
     ),
 
     directive_name:  $ => /[A-Za-z][A-Za-z0-9_-]*/,
-    directive_value: $ => /[^\n]+/,
+    directive_value: $ => /[^ \t\n][^\n]*/,
     /* Comment / fixed-width paragraphs.  The body content is exposed
      * as a `comment_body` / `fixed_width_body` field via an external
      * scanner token (NOT a `/[^\n]+/` regex — that earlier attempt

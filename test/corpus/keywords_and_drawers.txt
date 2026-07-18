@@ -116,3 +116,16 @@ Indented keyword
     (keyword
       (directive_name)
       (directive_value))))
+
+==================
+Keyword with no space before the value
+==================
+#+TITLE:value
+
+---
+
+(document
+  (zeroth_section
+    (keyword
+      (directive_name)
+      (directive_value))))
