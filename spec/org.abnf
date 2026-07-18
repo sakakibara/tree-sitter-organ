@@ -171,7 +171,7 @@ footnote-label      =  1*(ALPHA / DIGIT / "_" / "-")
 
 ; --- Inlinetask (Worg §3 Inlinetasks) -------------------------------------
 inlinetask          =  inlinetask-line *content-line inlinetask-close
-inlinetask-line     =  15*"*" SP [todo SP] [comment-marker SP] [priority [SP]]
+inlinetask-line     =  15*"*" SP [todo SP] [priority [SP]] [comment-marker SP]
                        title [SP statistics-cookie] [SP tag-list] line-end
 inlinetask-open     =  15*"*" SP [todo SP] [priority [SP]] title [SP tag-list] line-end
 inlinetask-close    =  15*"*" SP "END" line-end

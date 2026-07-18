@@ -121,16 +121,14 @@ module.exports = grammar({
       field('stars',     alias($._heading_open, $.stars)),
       /[ \t]+/,
       optional(seq(field('todo',     $.todo),     /[ \t]+/)),
+      /* Emacs order: priority cookie BEFORE the COMMENT marker
+       * (org-complex-heading-regexp).  The separator after `[#X]` is
+       * optional - `[#A]Foo` is priority + title - and must be
+       * optional(/[ \t]+/), never the zero-or-more form: a token that
+       * can match the empty string mis-lexes here and loops error
+       * recovery. */
+      optional(seq(field('priority', $.priority), optional(/[ \t]+/))),
       optional(seq(field('comment',  $.comment_marker), /[ \t]+/)),
-      /* The trailing separator after `[#X]` is optional — mirrors Emacs
-       * `org-priority-regexp` ("\\] ?"), so `[#A]Foo` (no space) parses
-       * as priority + title=Foo.  Zero-or-more (not one-or-more) handles
-       * both. `[\t ]*` (byte-order swapped vs the identical pattern used
-       * elsewhere) keeps this an unshared token — tree-sitter interns
-       * anonymous regexes by source text, and sharing one here with an
-       * unrelated external-token-headed rule corrupts this state's
-       * external-token candidate list. */
-      optional(seq(field('priority', $.priority), /[\t ]*/)),
       optional(field('title',    $.title)),
       optional(field('cookie',   $.statistics_cookie)),
       optional(field('tag_list', $.tag_list)),
@@ -437,11 +435,8 @@ module.exports = grammar({
       /* No leading /[ \t]+/ — the `_inlinetask_open` token already
        * covers stars + one ws byte. */
       optional(seq(field('todo',     $.todo),     /[ \t]+/)),
+      optional(seq(field('priority', $.priority), optional(/[ \t]+/))),
       optional(seq(field('comment',  $.comment_marker), /[ \t]+/)),
-      /* The trailing separator after `[#X]` is optional — mirrors Emacs
-       * `org-priority-regexp` ("\\] ?"), so `[#A]Foo` (no space) parses
-       * as priority + title=Foo.  `[ \t]*` (not `[ \t]+`) handles both. */
-      optional(seq(field('priority', $.priority), /[ \t]*/)),
       optional(field('title',    $.title)),
       optional(field('cookie',   $.statistics_cookie)),
       optional(field('tag_list', $.tag_list)),

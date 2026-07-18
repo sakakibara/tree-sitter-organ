@@ -822,6 +822,15 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         || valid_symbols[EXT_HEADLINE_TAG_LIST_OPEN]) {
         int32_t la = lexer->lookahead;
 
+        /* Priority's separator is optional, so a COMMENT marker can be
+         * the very next symbol while `la` still sits on that separator
+         * whitespace. Defer to the internal `/[ \t]+/` token instead of
+         * folding it into title, so the next scan sees the word at
+         * column 0 and can classify it as COMMENT. */
+        if ((la == ' ' || la == '\t') && valid_symbols[EXT_HEADLINE_COMMENT]) {
+            return false;
+        }
+
         /* `[` — could be priority `[#X]`, cookie `[N%]` / `[N/M]`,
          * or part of the title. We commit to advancing past `[`,
          * peek the next char to decide which branch, and either

@@ -167,15 +167,23 @@
               "members": [
                 {
                   "type": "FIELD",
-                  "name": "comment",
+                  "name": "priority",
                   "content": {
                     "type": "SYMBOL",
-                    "name": "comment_marker"
+                    "name": "priority"
                   }
                 },
                 {
-                  "type": "PATTERN",
-                  "value": "[ \\t]+"
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "PATTERN",
+                      "value": "[ \\t]+"
+                    },
+                    {
+                      "type": "BLANK"
+                    }
+                  ]
                 }
               ]
             },
@@ -192,15 +200,15 @@
               "members": [
                 {
                   "type": "FIELD",
-                  "name": "priority",
+                  "name": "comment",
                   "content": {
                     "type": "SYMBOL",
-                    "name": "priority"
+                    "name": "comment_marker"
                   }
                 },
                 {
                   "type": "PATTERN",
-                  "value": "[\\t ]*"
+                  "value": "[ \\t]+"
                 }
               ]
             },
@@ -1374,15 +1382,23 @@
               "members": [
                 {
                   "type": "FIELD",
-                  "name": "comment",
+                  "name": "priority",
                   "content": {
                     "type": "SYMBOL",
-                    "name": "comment_marker"
+                    "name": "priority"
                   }
                 },
                 {
-                  "type": "PATTERN",
-                  "value": "[ \\t]+"
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "PATTERN",
+                      "value": "[ \\t]+"
+                    },
+                    {
+                      "type": "BLANK"
+                    }
+                  ]
                 }
               ]
             },
@@ -1399,15 +1415,15 @@
               "members": [
                 {
                   "type": "FIELD",
-                  "name": "priority",
+                  "name": "comment",
                   "content": {
                     "type": "SYMBOL",
-                    "name": "priority"
+                    "name": "comment_marker"
                   }
                 },
                 {
                   "type": "PATTERN",
-                  "value": "[ \\t]*"
+                  "value": "[ \\t]+"
                 }
               ]
             },

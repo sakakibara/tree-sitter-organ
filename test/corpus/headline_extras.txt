@@ -69,10 +69,25 @@ TODO + comment + priority + title + tags
       (stars)
       (todo)
       (comment_marker)
-      (priority)
       (title)
       (tag_list
         (tag)))))
+
+==================
+TODO + priority + comment + title (Emacs field order)
+==================
+* TODO [#A] COMMENT Title
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (todo)
+      (priority)
+      (comment_marker)
+      (title))))
 
 ==================
 Hyphenated TODO keyword
