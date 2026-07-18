@@ -2,6 +2,7 @@
 #include "prepass.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -131,6 +132,9 @@ static int prepass_to_external(LineTokenType t) {
 
 typedef struct {
     prepass_state_t *prepass;
+    /* Levels of open headings, innermost last.  Full at 32 entries
+     * (a serialized depth of exactly ORG_HEADING_STACK is valid);
+     * deeper headings are tracked by the parser but not the stack. */
     uint8_t          heading_levels[ORG_HEADING_STACK];
     uint8_t          heading_depth;
     /* When the scanner encounters a heading line it may need to emit
@@ -166,6 +170,14 @@ typedef struct {
     /* Consecutive empty lines emitted so far.  Two consecutive
      * blanks terminate plain lists and footnote definitions. */
     uint8_t          blank_run;
+
+    /* Per-instance line-read scratch (never serialized); keeps the
+     * scanner reentrant across parser instances.  Must stay the
+     * last members: scanner_state_clear memsets only up to here. */
+    uint8_t          row_buf[ORG_LINE_BUF_MAX];
+    uint8_t          line_buf[ORG_LINE_BUF_MAX];
+    uint8_t          line_buf2[ORG_LINE_BUF_MAX];
+    uint8_t          fn_line_buf[ORG_LINE_BUF_MAX];
 } ScannerState;
 
 /* Match an ASCII-CI block name in `buf` of length `n` starting at
@@ -282,7 +294,7 @@ unsigned tree_sitter_org_external_scanner_serialize(void *payload, char *buffer)
 
 static void scanner_state_clear(ScannerState *s) {
     prepass_state_t *pp = s->prepass;
-    memset(s, 0, sizeof(*s));
+    memset(s, 0, offsetof(ScannerState, row_buf));
     s->prepass = pp;
     s->pending_list_open_indent = -1;
     prepass_reset(s->prepass);
@@ -1185,7 +1197,8 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             lexer->advance(lexer, false);
         }
         lexer->mark_end(lexer);
-        s->heading_levels[s->heading_depth++] = level;
+        if (s->heading_depth < ORG_HEADING_STACK)
+            s->heading_levels[s->heading_depth++] = level;
         lexer->result_symbol = EXT_HEADING_OPEN;
         return true;
     }
@@ -1244,7 +1257,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         /* Count leading stars. */
         uint8_t level = 0;
         while (!lexer->eof(lexer) && lexer->lookahead == '*') {
-            level++;
+            if (level < 255) level++;
             lexer->advance(lexer, false);
         }
 
@@ -1287,7 +1300,8 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
              * end to the current position (after stars). */
             if (valid_symbols[EXT_HEADING_OPEN]) {
                 lexer->mark_end(lexer);  /* token spans the stars */
-                s->heading_levels[s->heading_depth++] = level;
+                if (s->heading_depth < ORG_HEADING_STACK)
+                    s->heading_levels[s->heading_depth++] = level;
                 lexer->result_symbol = EXT_HEADING_OPEN;
                 return true;
             }
@@ -1361,7 +1375,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         lexer->advance(lexer, false);
         lexer->mark_end(lexer);   /* position after the leading | */
 
-        static uint8_t row_buf[ORG_LINE_BUF_MAX];
+        uint8_t *row_buf = s->row_buf;
         uint32_t row_len = 1;
         row_buf[0] = '|';
         while (!lexer->eof(lexer)
@@ -1521,7 +1535,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
 
         /* Fall through to line classification with the consumed bytes
          * prepended so the prepass sees the full line. */
-        static uint8_t line_buf2[ORG_LINE_BUF_MAX];
+        uint8_t *line_buf2 = s->line_buf2;
         uint32_t ll = 0;
         for (uint32_t i = 0; i < bullet_consumed_len && ll < ORG_LINE_BUF_MAX; i++)
             line_buf2[ll++] = bullet_consumed[i];
@@ -1858,7 +1872,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         /* Not actually a footnote-def.  Continue building the line buffer
          * with the speculatively-consumed bytes as prefix, then classify
          * normally — analogous to the list-bullet fall-through path. */
-        static uint8_t fn_line_buf[ORG_LINE_BUF_MAX];
+        uint8_t *fn_line_buf = s->fn_line_buf;
         uint32_t fn_ll = 0;
         for (uint32_t i = 0; i < fn_len && fn_ll < ORG_LINE_BUF_MAX; i++)
             fn_line_buf[fn_ll++] = fn_consumed[i];
@@ -1892,7 +1906,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
     }
 
     /* ── Priority 5: classify line via prepass (non-heading). ────────── */
-    static uint8_t line_buf[ORG_LINE_BUF_MAX];
+    uint8_t *line_buf = s->line_buf;
     uint32_t line_len = 0;
 
     for (uint8_t i = 0; i < consumed_stars && line_len < ORG_LINE_BUF_MAX; i++)

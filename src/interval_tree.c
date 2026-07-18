@@ -15,6 +15,7 @@ interval_tree_t *interval_tree_new(void) {
     interval_tree_t *t = (interval_tree_t *)calloc(1, sizeof(interval_tree_t));
     if (!t) return NULL;
     t->items = (LineToken *)calloc(INITIAL_CAP, sizeof(LineToken));
+    if (!t->items) { free(t); return NULL; }
     t->cap = INITIAL_CAP;
     return t;
 }

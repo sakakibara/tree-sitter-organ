@@ -321,6 +321,43 @@ static void test_indented_table_row_terminates_when_no_table_slot(void) {
     tree_sitter_org_external_scanner_destroy(s);
 }
 
+static void test_star_counter_does_not_wrap(void) {
+    /* 257 stars wraps a uint8_t to 1: pre-fix the line scans as a
+     * level-1 heading; post-fix it stays an inlinetask open. */
+    char buf[300];
+    memset(buf, '*', 257);
+    snprintf(buf + 257, sizeof(buf) - 257, " deep\n");
+    ScannerState *s =
+        (ScannerState *)tree_sitter_org_external_scanner_create();
+    MockLexer m;
+    mock_init(&m, buf);
+    static const int head_syms[] = {
+        EXT_HEADING_OPEN, EXT_HEADING_CLOSE, EXT_INLINETASK_OPEN,
+    };
+    bool ok = scan_with(s, &m, head_syms, 3);
+    CHECK(ok == true);
+    CHECK(m.lexer.result_symbol != EXT_HEADING_OPEN);
+    CHECK(m.lexer.result_symbol != EXT_HEADING_CLOSE);
+    CHECK(m.lexer.result_symbol == EXT_INLINETASK_OPEN);
+    tree_sitter_org_external_scanner_destroy(s);
+}
+
+static void test_heading_stack_push_is_bounded(void) {
+    ScannerState *s =
+        (ScannerState *)tree_sitter_org_external_scanner_create();
+    s->heading_depth = ORG_HEADING_STACK;   /* full but valid */
+    s->pending_open_level = 1;
+    MockLexer m;
+    mock_init(&m, "* x\n");
+    bool valid[N_EXTERNALS];
+    memset(valid, false, sizeof(valid));
+    valid[EXT_HEADING_OPEN] = true;
+    bool ok = tree_sitter_org_external_scanner_scan(s, &m.lexer, valid);
+    CHECK(ok == true);
+    CHECK(s->heading_depth <= ORG_HEADING_STACK);
+    tree_sitter_org_external_scanner_destroy(s);
+}
+
 int main(void) {
     test_deserialize_zero_resets_state();
     test_deserialize_corrupt_buffer_resets_state();
@@ -329,6 +366,8 @@ int main(void) {
     test_classify_rollback_on_failed_scan();
     test_planning_token_is_not_zero_width();
     test_indented_table_row_terminates_when_no_table_slot();
+    test_star_counter_does_not_wrap();
+    test_heading_stack_push_is_bounded();
     if (failures > 0) {
         fprintf(stderr, "scanner_tests: %d failure(s)\n", failures);
         return 1;
