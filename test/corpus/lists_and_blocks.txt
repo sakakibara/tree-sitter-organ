@@ -333,6 +333,51 @@ x = 1
       (block_header_args))))
 
 ==================
+src_block with language, switches, and header args
+==================
+#+begin_src lua -n 20 :results output
+x
+#+end_src
+
+---
+
+(document
+  (zeroth_section
+    (src_block
+      (src_block_language)
+      (block_switches)
+      (block_header_args))))
+
+==================
+src_block with bare switches
+==================
+#+begin_src emacs-lisp -r -l "fmt"
+x
+#+end_src
+
+---
+
+(document
+  (zeroth_section
+    (src_block
+      (src_block_language)
+      (block_switches))))
+
+==================
+example_block with switches
+==================
+#+begin_example -n
+x
+#+end_example
+
+---
+
+(document
+  (zeroth_section
+    (example_block
+      (block_switches))))
+
+==================
 src_block without language
 ==================
 #+begin_src

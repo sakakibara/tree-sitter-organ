@@ -759,6 +759,31 @@
                 },
                 {
                   "type": "FIELD",
+                  "name": "switches",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "block_switches"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "PATTERN",
+                  "value": "[ \\t]+"
+                },
+                {
+                  "type": "FIELD",
                   "name": "header_args",
                   "content": {
                     "type": "SYMBOL",
@@ -795,6 +820,31 @@
         {
           "type": "SYMBOL",
           "name": "_example_block_open"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "PATTERN",
+                  "value": "[ \\t]+"
+                },
+                {
+                  "type": "FIELD",
+                  "name": "switches",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "block_switches"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
         },
         {
           "type": "CHOICE",
@@ -992,6 +1042,10 @@
     "block_header_args": {
       "type": "PATTERN",
       "value": ":[^\\n]*"
+    },
+    "block_switches": {
+      "type": "PATTERN",
+      "value": "[-+][A-Za-z]([ \\t]+(\"[^\"\\n]*\"|[0-9]+))?([ \\t]+[-+][A-Za-z]([ \\t]+(\"[^\"\\n]*\"|[0-9]+))?)*"
     },
     "latex_environment": {
       "type": "SEQ",

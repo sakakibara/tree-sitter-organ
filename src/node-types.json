@@ -391,6 +391,16 @@
             "named": true
           }
         ]
+      },
+      "switches": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "block_switches",
+            "named": true
+          }
+        ]
       }
     }
   },
@@ -1342,6 +1352,16 @@
             "named": true
           }
         ]
+      },
+      "switches": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "block_switches",
+            "named": true
+          }
+        ]
       }
     }
   },
@@ -1587,6 +1607,10 @@
   },
   {
     "type": "block_header_args",
+    "named": true
+  },
+  {
+    "type": "block_switches",
     "named": true
   },
   {

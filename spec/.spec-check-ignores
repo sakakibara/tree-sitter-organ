@@ -80,3 +80,6 @@ affiliated-keyword-key
 # key/suffix nodes
 property-key
 property-suffix
+
+# Single switch inside block-switches - one grammar node covers the run
+block-switch

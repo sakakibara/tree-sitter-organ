@@ -297,6 +297,7 @@ module.exports = grammar({
     src_block: $ => seq(
       $._src_block_open,
       optional(seq(/[ \t]+/, field('language',    $.src_block_language))),
+      optional(seq(/[ \t]+/, field('switches',    $.block_switches))),
       optional(seq(/[ \t]+/, field('header_args', $.block_header_args))),
       /[ \t]*\r?\n/,
       repeat($._lblock_body),
@@ -304,6 +305,7 @@ module.exports = grammar({
     ),
     example_block: $ => seq(
       $._example_block_open,
+      optional(seq(/[ \t]+/, field('switches',    $.block_switches))),
       optional(seq(/[ \t]+/, field('header_args', $.block_header_args))),
       /[ \t]*\r?\n/,
       repeat($._lblock_body),
@@ -337,6 +339,10 @@ module.exports = grammar({
     /* Babel-style header arguments: `:key value :key2 v2 …`. Captured
      * as one node; consumers can split on `:` for individual pairs. */
     block_header_args: $ => /:[^\n]*/,
+
+    /* Block switches: `-n 20 -r -l "fmt"` etc.  One node covering the
+     * whole run; values are numbers or double-quoted strings. */
+    block_switches: $ => /[-+][A-Za-z]([ \t]+("[^"\n]*"|[0-9]+))?([ \t]+[-+][A-Za-z]([ \t]+("[^"\n]*"|[0-9]+))?)*/,
     latex_environment: $ => seq($._latexenv_open, repeat($._latexenv_body), $._latexenv_close),
 
     list: $ => prec.right(seq(

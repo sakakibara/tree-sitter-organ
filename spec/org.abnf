@@ -102,10 +102,11 @@ gblock-args     =  1*non-line                     ; trailing parameters (raw)
 lesser-block    =  src-block / example-block / export-block /
                    verse-block / comment-block
 src-block       =  indent "#+begin_" %s"src" [SP src-block-language]
-                   [SP block-header-args] indent line-end
+                   [SP block-switches] [SP block-header-args] indent line-end
                    lblock-body
                    indent "#+end_"   %s"src"  indent line-end
-example-block   =  indent "#+begin_" %s"example" [SP block-header-args] indent line-end
+example-block   =  indent "#+begin_" %s"example"
+                   [SP block-switches] [SP block-header-args] indent line-end
                    lblock-body
                    indent "#+end_"   %s"example"                        indent line-end
 export-block    =  indent "#+begin_" %s"export" [SP src-block-language]
@@ -121,6 +122,8 @@ comment-block   =  indent "#+begin_" %s"comment" indent line-end
 src-block-language =  ALPHA *(ALPHA / DIGIT / "_" / "+" / "-")
                                               ; language identifier (lua, python, …)
 block-header-args  =  ":" *non-line           ; Babel-style :key value :key2 v2
+block-switches  =  block-switch *(SP block-switch)
+block-switch    =  ("-" / "+") ALPHA [SP (1*DIGIT / DQUOTE *(%x20-21 / %x23-7E) DQUOTE)]
 lblock-args     =  1*non-line
 lblock-body     =  *lblock-line
 lblock-line     =  *non-line line-end          ; any line other than the matching #+end_*
