@@ -556,3 +556,20 @@ Indented comment line
     (comment
       (comment_line
         (comment_body)))))
+
+==================
+Deeper-indented src block inside a list item stays paragraph text
+==================
+- item
+  #+begin_src lua
+  print(1)
+  #+end_src
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (paragraph)))))

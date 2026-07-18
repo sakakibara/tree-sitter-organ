@@ -1642,17 +1642,23 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                 case 3: open_sym = EXT_EXPORT_BLOCK_OPEN;  break;
                 case 4: open_sym = EXT_VERSE_BLOCK_OPEN;   break;
                 case 5: open_sym = EXT_COMMENT_BLOCK_OPEN; break;
-                default:
-                    prepass_scope_restore(s->prepass, snap);
-                    return false;
+                default: break;
             }
-            if (!valid_symbols[open_sym]) {
-                prepass_scope_restore(s->prepass, snap);
-                return false;
+            if (open_sym >= 0 && valid_symbols[open_sym]) {
+                s->lblock_kind = kind;
+                lexer->result_symbol = (TSSymbol)open_sym;
+                return true;
             }
-            s->lblock_kind = kind;
-            lexer->result_symbol = (TSSymbol)open_sym;
-            return true;
+            /* No slot for this block type here (e.g. a list item, whose
+             * grammar only nests paragraph/list content) - same
+             * graceful degradation as the table fallback below. */
+            prepass_scope_restore(s->prepass, snap);
+            if (valid_symbols[EXT_INLINE_CONTENT_LINE]) {
+                lexer->mark_end(lexer);
+                lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
+                return true;
+            }
+            return false;
         }
         if (rr.type == TT_LBLOCK_CLOSE) {
             int close_sym = -1;
@@ -1662,17 +1668,23 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                 case 3: close_sym = EXT_EXPORT_BLOCK_CLOSE;  break;
                 case 4: close_sym = EXT_VERSE_BLOCK_CLOSE;   break;
                 case 5: close_sym = EXT_COMMENT_BLOCK_CLOSE; break;
-                default:
-                    prepass_scope_restore(s->prepass, snap);
-                    return false;
+                default: break;
             }
-            if (!valid_symbols[close_sym]) {
-                prepass_scope_restore(s->prepass, snap);
-                return false;
+            if (close_sym >= 0 && valid_symbols[close_sym]) {
+                s->lblock_kind = 0;
+                lexer->result_symbol = (TSSymbol)close_sym;
+                return true;
             }
-            s->lblock_kind = 0;
-            lexer->result_symbol = (TSSymbol)close_sym;
-            return true;
+            /* No open block to close here (e.g. the matching `#+begin_`
+             * was itself downgraded to paragraph text above) - same
+             * graceful degradation as the table fallback below. */
+            prepass_scope_restore(s->prepass, snap);
+            if (valid_symbols[EXT_INLINE_CONTENT_LINE]) {
+                lexer->mark_end(lexer);
+                lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
+                return true;
+            }
+            return false;
         }
         /* Table lines with no table slot here (e.g. inside a list
          * item) stay paragraph text. */
