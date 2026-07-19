@@ -421,21 +421,31 @@ static inline bool is_digit(int32_t c) { return c >= '0' && c <= '9'; }
 /* From the current lexer position, ADVANCE through a candidate tag
  * region (`:tag:tag:[ws]*` ending at newline/EOF) and return true if
  * we found one. On success the lexer is past the region (caller can
- * use mark_end to bound the actual emitted token). */
-static bool consume_tag_region(TSLexer *lexer) {
+ * use mark_end to bound the actual emitted token).  `*last_consumed`
+ * tracks the last byte advanced past, mirroring consume_stats_cookie,
+ * so a failed caller can reseed its own boundary check from the true
+ * preceding byte instead of the post-failure lookahead. */
+static bool consume_tag_region(TSLexer *lexer, int32_t *last_consumed) {
     if (lexer->lookahead != ':') return false;
+    *last_consumed = lexer->lookahead;
     lexer->advance(lexer, false);  /* opening `:` */
     if (!is_tag_char(lexer->lookahead)) return false;
     while (true) {
-        while (is_tag_char(lexer->lookahead)) lexer->advance(lexer, false);
+        while (is_tag_char(lexer->lookahead)) {
+            *last_consumed = lexer->lookahead;
+            lexer->advance(lexer, false);
+        }
         if (lexer->lookahead != ':') return false;
+        *last_consumed = lexer->lookahead;
         lexer->advance(lexer, false);  /* closing `:` of this tag */
         int32_t la = lexer->lookahead;
         if (is_tag_char(la)) continue;          /* `:tag1:tag2:` next iter */
         /* End of tag region. Skip trailing inline whitespace then
          * verify we reached end-of-line. */
-        while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
+        while (lexer->lookahead == ' ' || lexer->lookahead == '\t') {
+            *last_consumed = lexer->lookahead;
             lexer->advance(lexer, false);
+        }
         return lexer->lookahead == '\n' || lexer->lookahead == '\r'
             || lexer->lookahead == 0 || lexer->eof(lexer);
     }
@@ -484,7 +494,10 @@ static bool consume_stats_cookie(TSLexer *lexer, int32_t *last_consumed) {
     if (lexer->lookahead == '\n' || lexer->lookahead == '\r'
         || lexer->lookahead == 0 || lexer->eof(lexer))
         return true;
-    if (lexer->lookahead == ':') return consume_tag_region(lexer);
+    /* Thread our own out-param through: on failure here, the caller
+     * needs the true last-consumed byte (not this function's stale
+     * pre-":" value) to reseed its own boundary check. */
+    if (lexer->lookahead == ':') return consume_tag_region(lexer, last_consumed);
     return false;
 }
 
@@ -508,10 +521,11 @@ static bool scan_title_tail(TSLexer *lexer, int32_t prev0, bool any0) {
         int32_t c = lexer->lookahead;
         if (c == '\n' || c == '\r' || c == 0 || lexer->eof(lexer)) break;
         if (c == ':' && (prev == ' ' || prev == '\t')) {
-            if (consume_tag_region(lexer)) return any_title_chars;
+            int32_t last_consumed = c;
+            if (consume_tag_region(lexer, &last_consumed)) return any_title_chars;
             any_title_chars = true;
             lexer->mark_end(lexer);
-            prev = lexer->lookahead;
+            prev = last_consumed;
             continue;
         }
         if (c == '[' && (prev == ' ' || prev == '\t')) {
@@ -706,7 +720,8 @@ static int scan_list_bracket_cookie(TSLexer *lexer, const bool *valid_symbols) {
 static bool scan_tag_list_open(TSLexer *lexer) {
     if (lexer->lookahead != ':') return false;
     lexer->mark_end(lexer);  /* zero-width emit */
-    return consume_tag_region(lexer);
+    int32_t last_consumed;
+    return consume_tag_region(lexer, &last_consumed);
 }
 
 /* Scan a priority cookie `[#X]` where X is uppercase letter or digit. */
@@ -1045,7 +1060,8 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                          * advances are outside the token; the next
                          * scan re-lexes the tags. */
                         lexer->mark_end(lexer);
-                        if (consume_tag_region(lexer)) {
+                        int32_t last_consumed;
+                        if (consume_tag_region(lexer, &last_consumed)) {
                             lexer->result_symbol = EXT_HEADLINE_STATS_COOKIE;
                             return true;
                         }

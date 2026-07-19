@@ -201,3 +201,29 @@ Numeric priority cookie
       (todo)
       (priority)
       (title))))
+
+==================
+Bare colon after a failed tag region does not seed a trailing cookie
+==================
+* T :[50%]
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))))
+
+==================
+Cookie followed by a failed tag region does not seed a later cookie either
+==================
+* T [1/2] :[50%]
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))))
