@@ -19,6 +19,26 @@ SCHEDULED: <2026-04-25 Sat>
           (planning_timestamp))))))
 
 ==================
+SCHEDULED with no space before the timestamp
+==================
+* TODO Task
+SCHEDULED:<2026-01-01 Thu>
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (todo)
+      (title))
+    (planning
+      (planning_line
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp))))))
+
+==================
 SCHEDULED and DEADLINE on one line
 ==================
 * TODO Task

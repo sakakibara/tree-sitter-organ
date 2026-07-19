@@ -220,7 +220,7 @@ module.exports = grammar({
      * under case-fold-search. */
     planning_entry: $ => seq(
       field('keyword',   alias($._planning_line, $.planning_keyword)),
-      /[ \t]+/,
+      optional(/[ \t]+/),
       field('timestamp', $.planning_timestamp),
     ),
 
