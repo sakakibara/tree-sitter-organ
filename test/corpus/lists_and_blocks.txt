@@ -623,6 +623,21 @@ body
       (paragraph))))
 
 ==================
+Dynamic block with no args
+==================
+#+begin: name
+body
+#+end:
+
+---
+
+(document
+  (zeroth_section
+    (dynamic_block
+      (block_name)
+      (paragraph))))
+
+==================
 Latex environment exposes its name
 ==================
 \begin{align}

@@ -249,3 +249,36 @@ outside
       (footnote_label)
       (paragraph))
     (paragraph)))
+
+==================
+Horizontal rule
+==================
+  -----
+
+---
+
+(document
+  (zeroth_section
+    (horizontal_rule)))
+
+==================
+Diary sexp with trailing text after the last paren
+==================
+%%(foo) trailing
+
+---
+
+(document
+  (zeroth_section
+    (paragraph)))
+
+==================
+Empty diary sexp body
+==================
+%%()
+
+---
+
+(document
+  (zeroth_section
+    (diary_sexp)))

@@ -171,3 +171,38 @@ SCHEDULED: <2026-01-01]
       (title))
     (section
       (paragraph))))
+
+==================
+Mismatched timestamp delimiters the other direction also degrade to paragraph
+==================
+* H
+DEADLINE: [2026-01-01>
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (paragraph))))
+
+==================
+Mixed-case planning keyword is still planning
+==================
+* H
+Scheduled: <2026-01-01 Thu>
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (planning
+      (planning_line
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp))))))

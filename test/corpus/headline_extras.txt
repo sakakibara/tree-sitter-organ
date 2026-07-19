@@ -172,3 +172,18 @@ URL in title (colon not a tag)
     (headline_line
       (stars)
       (title))))
+
+==================
+Numeric priority cookie
+==================
+* TODO [#1] Numeric
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (todo)
+      (priority)
+      (title))))

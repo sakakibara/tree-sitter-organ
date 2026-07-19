@@ -222,6 +222,20 @@ some text
     (paragraph)))
 
 ==================
+Document starting with multiple blank lines then text
+==================
+
+
+
+text
+
+---
+
+(document
+  (zeroth_section
+    (paragraph)))
+
+==================
 Document starting with a blank line then a headline
 ==================
 

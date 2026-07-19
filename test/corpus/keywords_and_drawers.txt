@@ -129,3 +129,75 @@ Keyword with no space before the value
     (keyword
       (directive_name)
       (directive_value))))
+
+==================
+Affiliated keyword attaches before a table
+==================
+#+CAPTION: a table
+| a |
+
+---
+
+(document
+  (zeroth_section
+    (affiliated_keyword
+      (directive_name)
+      (directive_value))
+    (table
+      (table_row
+        (table_cell)))))
+
+==================
+Lowercase tblfm formula
+==================
+#+tblfm: $2=$1
+
+---
+
+(document
+  (zeroth_section
+    (formula
+      (directive_name)
+      (directive_value))))
+
+==================
+Whitespace-only keyword value produces no value node
+==================
+#+TITLE:   
+
+---
+
+(document
+  (zeroth_section
+    (keyword
+      (directive_name))))
+
+==================
+Affiliated keyword with no space before the value
+==================
+#+CAPTION:v
+| a |
+
+---
+
+(document
+  (zeroth_section
+    (affiliated_keyword
+      (directive_name)
+      (directive_value))
+    (table
+      (table_row
+        (table_cell)))))
+
+==================
+Formula with no space before the value
+==================
+#+TBLFM:@2$1=@1$1
+
+---
+
+(document
+  (zeroth_section
+    (formula
+      (directive_name)
+      (directive_value))))

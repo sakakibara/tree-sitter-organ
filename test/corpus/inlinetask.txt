@@ -129,3 +129,37 @@ Body paragraph.
             (property_name)
             (property_value)))
         (paragraph)))))
+
+==================
+Inlinetask line with statistics cookie
+==================
+*************** Task [1/2]
+*************** END
+
+---
+
+(document
+  (zeroth_section
+    (inlinetask
+      (inlinetask_line
+        (stars)
+        (title)
+        (statistics_cookie)))))
+
+==================
+Planning-shaped line after a blank line inside an inlinetask is a paragraph
+==================
+*************** Inlinetask
+
+SCHEDULED: <2026-01-01>
+*************** END
+
+---
+
+(document
+  (zeroth_section
+    (inlinetask
+      (inlinetask_line
+        (stars)
+        (title))
+      (paragraph))))
