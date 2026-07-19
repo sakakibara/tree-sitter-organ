@@ -704,15 +704,23 @@ enum LineMark { MARK_NONE, MARK_HASH, MARK_LBLOCK, MARK_COLON,
                 MARK_INLINETASK, MARK_DIARY_SEXP, MARK_COMMENT_LINE,
                 MARK_GBLOCK, MARK_DYNBLOCK, MARK_LATEXENV };
 
-/* Kind of the lesser-block name starting at `off`, or 0.  Scans to
- * the name's end within the buffer so partial reads mid-line match
- * only when the complete name (and nothing more) is present. */
-static uint8_t lblock_kind_at(const uint8_t *buf, uint32_t off, uint32_t n) {
+/* Kind of the lesser-block name starting at `off`, or 0.  Scans only
+ * the name-char run (stopping at the first byte outside
+ * [a-zA-Z0-9_-] or at `n`) and matches that run exactly - bytes
+ * beyond the run, up to `n`, are ignored.  This leniency is required
+ * by the TT_LBLOCK_OPEN dispatch call sites, which pass the full
+ * line (name plus any trailing switches/args) as `n`.  Callers that
+ * read a line incrementally and need to know the name run reached
+ * exactly to `n` (nothing pending after it yet) should pass a
+ * non-NULL `end_out` and compare `*end_out == n` themselves. */
+static uint8_t lblock_kind_at(const uint8_t *buf, uint32_t off, uint32_t n,
+                              uint32_t *end_out) {
     uint32_t end = off;
     while (end < n && ((buf[end] >= 'a' && buf[end] <= 'z')
                        || (buf[end] >= 'A' && buf[end] <= 'Z')
                        || (buf[end] >= '0' && buf[end] <= '9')
                        || buf[end] == '_' || buf[end] == '-')) end++;
+    if (end_out) *end_out = end;
     return prepass_lblock_kind(buf, off, end);
 }
 
@@ -1558,8 +1566,9 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                 && b2_mark != MARK_COMMENT_LINE && b2_forced_sym < 0) {
                 uint32_t off = lblock_name_offset(line_buf2, ll);
                 if (off > 0) {
-                    uint8_t kind = lblock_kind_at(line_buf2, off, ll);
-                    if (kind > 0) {
+                    uint32_t name_end;
+                    uint8_t kind = lblock_kind_at(line_buf2, off, ll, &name_end);
+                    if (kind > 0 && name_end == ll) {
                         int32_t la2 = lexer->lookahead;
                         if (la2 == ' ' || la2 == '\t' || la2 == '\n'
                             || la2 == '\r' || la2 == 0 || lexer->eof(lexer)) {
@@ -1688,7 +1697,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             lexer->mark_end(lexer);
         if (rr.type == TT_LBLOCK_OPEN) {
             uint32_t off = lblock_name_offset(line_buf2, ll);
-            uint8_t kind = off ? lblock_kind_at(line_buf2, off, ll) : 0;
+            uint8_t kind = off ? lblock_kind_at(line_buf2, off, ll, NULL) : 0;
             int open_sym = -1;
             switch (kind) {
                 case 1: open_sym = EXT_SRC_BLOCK_OPEN;     break;
@@ -1917,8 +1926,9 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             && mark_kind != MARK_PROPERTY) {
             uint32_t off = lblock_name_offset(line_buf, line_len);
             if (off > 0) {
-                uint8_t kind = lblock_kind_at(line_buf, off, line_len);
-                if (kind > 0) {
+                uint32_t name_end;
+                uint8_t kind = lblock_kind_at(line_buf, off, line_len, &name_end);
+                if (kind > 0 && name_end == line_len) {
                     int32_t la2 = lexer->lookahead;
                     if (la2 == ' ' || la2 == '\t' || la2 == '\n'
                         || la2 == '\r' || la2 == 0 || lexer->eof(lexer)) {
@@ -2110,7 +2120,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
      * dispatches by that saved kind and clears it. */
     if (r.type == TT_LBLOCK_OPEN) {
         uint32_t off = lblock_name_offset(line_buf, line_len);
-        uint8_t kind = off ? lblock_kind_at(line_buf, off, line_len) : 0;
+        uint8_t kind = off ? lblock_kind_at(line_buf, off, line_len, NULL) : 0;
         int open_sym = -1;
         switch (kind) {
             case 1: open_sym = EXT_SRC_BLOCK_OPEN;     break;
