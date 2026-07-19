@@ -23,11 +23,11 @@ drawer-close
 # Planning keyword - collapsed into the `_planning_line` external token
 planning-keyword
 
-# Greater-block open/close — collapsed into externals
+# Greater-block open/close - collapsed into externals
 gblock-open
 gblock-close
 
-# Dynamic-block open/close — collapsed into externals
+# Dynamic-block open/close - collapsed into externals
 dynblock-open
 dynblock-close
 
@@ -46,7 +46,7 @@ latexenv-close
 latexenv-body
 latexenv-line
 
-# Inlinetask close — collapsed into externals
+# Inlinetask close - collapsed into externals
 inlinetask-close
 
 # List-item shape — `bullet` is an alias of `_list_item_bullet`; the

@@ -34,9 +34,8 @@ PREPASS_SIMD    := $(BUILD_DIR)/prepass_simd.so
 build: $(ORG_SO)
 
 # Compile org.so directly (bypasses `tree-sitter build`'s C compilation
-# so we can include the Plan B pre-pass sources alongside parser.c +
-# scanner.c). `tree-sitter generate` still produces parser.c from
-# grammar.js.
+# so we can include the pre-pass sources alongside parser.c + scanner.c).
+# `tree-sitter generate` still produces parser.c from grammar.js.
 ORG_SO_SOURCES = src/parser.c src/scanner.c \
                  src/prepass.c src/prepass_scalar.c src/prepass_simd.c
 ORG_SO_HEADERS = src/prepass.h
