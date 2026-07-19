@@ -242,3 +242,25 @@ CLOSED: [unclosed DEADLINE: [2026-01-01]
       (title))
     (section
       (paragraph))))
+
+==================
+Two closed bracket-form entries on one line both parse
+==================
+* H
+CLOSED: [2026-01-01 Thu 10:00] SCHEDULED: [2026-01-02 Fri]
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (planning
+      (planning_line
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp))
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp))))))

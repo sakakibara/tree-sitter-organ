@@ -1065,6 +1065,15 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                             lexer->result_symbol = EXT_HEADLINE_STATS_COOKIE;
                             return true;
                         }
+                        /* Failed tag region: reseed fallback_prev from
+                         * the true last-consumed byte (not the stale
+                         * pre-":" whitespace) so the title fallback
+                         * below doesn't wrongly treat a later `[` as
+                         * following whitespace it never actually
+                         * followed - same fix as scan_title_tail's own
+                         * `:` branch and consume_stats_cookie's nested
+                         * probe. */
+                        fallback_prev = last_consumed;
                     }
                     /* Mid-title cookie: fall through to the title
                      * fallback below with the bytes already consumed. */

@@ -227,3 +227,16 @@ Cookie followed by a failed tag region does not seed a later cookie either
     (headline_line
       (stars)
       (title))))
+
+==================
+Leading cookie followed by a failed tag region does not seed a later cookie either
+==================
+* [50%] :bad[33%]
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))))
