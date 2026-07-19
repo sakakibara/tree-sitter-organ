@@ -73,6 +73,21 @@ static void mock_init(MockLexer *m, const char *src) {
     mock_sync(m);
 }
 
+/* Like mock_init, but takes an explicit length so NUL-containing
+ * sources aren't truncated by strlen. */
+static void mock_init_n(MockLexer *m, const char *src, uint32_t len) {
+    memset(m, 0, sizeof(*m));
+    m->lexer.advance = mock_advance;
+    m->lexer.mark_end = mock_mark_end;
+    m->lexer.get_column = mock_get_column;
+    m->lexer.is_at_included_range_start = mock_included_range_start;
+    m->lexer.eof = mock_eof;
+    m->lexer.log = mock_log;
+    m->src = src;
+    m->len = len;
+    mock_sync(m);
+}
+
 static int failures = 0;
 #define CHECK(cond) do { \
     if (!(cond)) { \
@@ -322,6 +337,43 @@ static void test_indented_table_row_terminates_when_no_table_slot(void) {
     tree_sitter_org_external_scanner_destroy(s);
 }
 
+/* R4 regression: a NUL byte inside a keyword/block line must not wedge
+ * the scan loop.  alarm() + the existing hang_guard_alarm handler make
+ * a reintroduced loop FAIL the binary instead of hanging make check-c;
+ * the ASan run bounds memory. */
+static void test_scan_terminates_on_embedded_nul(void) {
+    static const char src[] = "#+TBLFM: $3=\0$1\n";
+    MockLexer m;
+    mock_init_n(&m, src, sizeof(src) - 1);
+    ScannerState *s = (ScannerState *)tree_sitter_org_external_scanner_create();
+    bool valid[N_EXTERNALS];
+    for (int i = 0; i < N_EXTERNALS; i++) valid[i] = true;
+    signal(SIGALRM, hang_guard_alarm);
+    alarm(10);
+    (void)tree_sitter_org_external_scanner_scan(s, &m.lexer, valid);
+    alarm(0);
+    CHECK(m.pos <= m.len);           /* never walked past the buffer */
+    tree_sitter_org_external_scanner_destroy(s);
+}
+
+static void test_scan_terminates_on_high_codepoint_in_property(void) {
+    /* An e-acute arrives from the real lexer as one lookahead > 0xFF;
+     * the mock delivers the raw UTF-8 bytes, which covers the
+     * byte-table indexing half of the bug.  Same alarm bound. */
+    static const char src[] = "* H\n:PROPERTIES:\n:ID\xc3\xa9 x\n:END:\n";
+    MockLexer m;
+    mock_init_n(&m, src, sizeof(src) - 1);
+    ScannerState *s = (ScannerState *)tree_sitter_org_external_scanner_create();
+    bool valid[N_EXTERNALS];
+    for (int i = 0; i < N_EXTERNALS; i++) valid[i] = true;
+    signal(SIGALRM, hang_guard_alarm);
+    alarm(10);
+    (void)tree_sitter_org_external_scanner_scan(s, &m.lexer, valid);
+    alarm(0);
+    CHECK(m.pos <= m.len);
+    tree_sitter_org_external_scanner_destroy(s);
+}
+
 static void test_star_counter_does_not_wrap(void) {
     /* 257 stars wraps a uint8_t to 1: pre-fix the line scans as a
      * level-1 heading; post-fix it stays an inlinetask open. */
@@ -387,6 +439,8 @@ int main(void) {
     test_classify_rollback_on_failed_scan();
     test_planning_token_is_not_zero_width();
     test_indented_table_row_terminates_when_no_table_slot();
+    test_scan_terminates_on_embedded_nul();
+    test_scan_terminates_on_high_codepoint_in_property();
     test_star_counter_does_not_wrap();
     test_heading_stack_push_is_bounded();
     test_prepass_index_scan_and_edit();

@@ -447,7 +447,7 @@ static bool consume_tag_region(TSLexer *lexer, int32_t *last_consumed) {
             lexer->advance(lexer, false);
         }
         return lexer->lookahead == '\n' || lexer->lookahead == '\r'
-            || lexer->lookahead == 0 || lexer->eof(lexer);
+            || lexer->eof(lexer);
     }
 }
 
@@ -492,7 +492,7 @@ static bool consume_stats_cookie(TSLexer *lexer, int32_t *last_consumed) {
         lexer->advance(lexer, false);
     }
     if (lexer->lookahead == '\n' || lexer->lookahead == '\r'
-        || lexer->lookahead == 0 || lexer->eof(lexer))
+        || lexer->eof(lexer))
         return true;
     /* Thread our own out-param through: on failure here, the caller
      * needs the true last-consumed byte (not this function's stale
@@ -566,9 +566,11 @@ static inline void push_byte(uint8_t *buf, uint32_t cap, uint32_t *len,
 }
 
 /* Classification buffers hold one byte per codepoint; any non-ASCII
- * codepoint becomes 0x80, which matches no structural prefix test. */
+ * codepoint, and an embedded NUL (never EOF here - callers only call
+ * this once eof() has already excluded that), becomes 0x80, which
+ * matches no structural prefix test. */
 static inline uint8_t classify_byte(int32_t la) {
-    return (la >= 0 && la < 0x80) ? (uint8_t)la : 0x80;
+    return (la > 0 && la < 0x80) ? (uint8_t)la : 0x80;
 }
 
 /* ASCII-CI planning / clock keyword match on klen bytes.
@@ -798,6 +800,18 @@ bool tree_sitter_org_external_scanner_scan(void *payload, TSLexer *lexer,
 
 static bool scan_impl(ScannerState *s, TSLexer *lexer,
                       const bool *valid_symbols) {
+    /* R4: set by any line-buffer read loop below that meets a raw
+     * embedded NUL (never EOF - those loops already gate on eof()).
+     * A NUL byte inside content destined for a JS-side regex token
+     * (directive_value, property_value, block_args, ...) cannot be
+     * tokenized: tree-sitter's generated lexer and its own
+     * error-recovery use codepoint 0 as their EOF sentinel and never
+     * advance past a real one, which livelocks the GLR parser.  Emacs
+     * treats such bytes as opaque text, so once seen, the affected
+     * line degrades to plain content instead of a structured token -
+     * same "invalid shape falls back to paragraph" discipline used
+     * everywhere else in this file. */
+    bool saw_nul = false;
 
     /* Diary-sexp body: everything up to (not including) the line's
      * LAST `)` - Emacs reads to the outermost closing paren, so
@@ -1050,7 +1064,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                         lexer->advance(lexer, false);
                     }
                     if (lexer->lookahead == '\n' || lexer->lookahead == '\r'
-                        || lexer->lookahead == 0 || lexer->eof(lexer)) {
+                        || lexer->eof(lexer)) {
                         lexer->mark_end(lexer);
                         lexer->result_symbol = EXT_HEADLINE_STATS_COOKIE;
                         return true;
@@ -1609,6 +1623,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         uint32_t b2_kw_colon = 0;
         while (!lexer->eof(lexer) && lexer->lookahead != '\n'
                && ll < ORG_LINE_BUF_MAX) {
+            if (lexer->lookahead == 0) saw_nul = true;
             line_buf2[ll++] = classify_byte(lexer->lookahead);
             lexer->advance(lexer, false);
 
@@ -1725,6 +1740,16 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             lexer->advance(lexer, false);
         if (!have_b2_mark) lexer->mark_end(lexer);
 
+        /* R4: b2_forced_sym is always CLOCK/PLANNING, both parsed by a
+         * JS-side timestamp regex that cannot advance past a raw NUL -
+         * degrade unconditionally (see the Priority 5 comment). */
+        if (saw_nul && b2_forced_sym >= 0
+            && valid_symbols[EXT_INLINE_CONTENT_LINE]) {
+            lexer->mark_end(lexer);
+            lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
+            return true;
+        }
+
         if (b2_forced_sym >= 0) {
             if (b2_forced_sym == EXT_PLANNING_LINE
                 && !planning_timestamp_follows(line_buf2, ll, b2_kw_colon)) {
@@ -1753,6 +1778,14 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         if (rr.type == TT_HEADING) {
             prepass_scope_restore(s->prepass, snap);
             return false;
+        }
+        if (saw_nul && rr.type != TT_BODY && rr.type != TT_EMPTY
+            && rr.type != TT_COMMENT && rr.type != TT_FIXED_WIDTH
+            && valid_symbols[EXT_INLINE_CONTENT_LINE]) {
+            prepass_scope_restore(s->prepass, snap);
+            lexer->mark_end(lexer);
+            lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
+            return true;
         }
         /* Close-line tokens with no JS-side tail cover the whole line. */
         if (rr.type == TT_DRAWER_CLOSE || rr.type == TT_PROPDRAWER_CLOSE
@@ -1904,6 +1937,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             fn_line_buf[fn_ll++] = fn_consumed[i];
         while (!lexer->eof(lexer) && lexer->lookahead != '\n'
                && fn_ll < ORG_LINE_BUF_MAX) {
+            if (lexer->lookahead == 0) saw_nul = true;
             fn_line_buf[fn_ll++] = classify_byte(lexer->lookahead);
             lexer->advance(lexer, false);
         }
@@ -1917,6 +1951,13 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         if (fr.type == TT_HEADING) {
             prepass_scope_restore(s->prepass, snap);
             return false;
+        }
+        if (saw_nul && fr.type != TT_BODY && fr.type != TT_EMPTY
+            && fr.type != TT_COMMENT && fr.type != TT_FIXED_WIDTH
+            && valid_symbols[EXT_INLINE_CONTENT_LINE]) {
+            prepass_scope_restore(s->prepass, snap);
+            lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
+            return true;
         }
         int fsym = prepass_to_external(fr.type);
         if (fsym < 0) {
@@ -1963,6 +2004,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
     bool have_prefix_mark = false;
     while (!lexer->eof(lexer) && lexer->lookahead != '\n'
            && line_len < ORG_LINE_BUF_MAX) {
+        if (lexer->lookahead == 0) saw_nul = true;
         line_buf[line_len++] = classify_byte(lexer->lookahead);
         lexer->advance(lexer, false);
 
@@ -2164,6 +2206,20 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
          * happen) — return false to avoid confusing the grammar. */
         prepass_scope_restore(s->prepass, snap);
         return false;
+    }
+
+    /* R4: everything except TT_BODY/TT_EMPTY (already plain content)
+     * and TT_COMMENT/TT_FIXED_WIDTH (body already flows through the
+     * NUL-safe external EXT_COMMENT_BODY_TEXT/EXT_FIXED_WIDTH_BODY_TEXT
+     * path above) has a JS-side tail parsed by an internal regex token
+     * that cannot advance past a raw NUL - degrade to plain content. */
+    if (saw_nul && r.type != TT_BODY && r.type != TT_EMPTY
+        && r.type != TT_COMMENT && r.type != TT_FIXED_WIDTH
+        && valid_symbols[EXT_INLINE_CONTENT_LINE]) {
+        prepass_scope_restore(s->prepass, snap);
+        lexer->mark_end(lexer);
+        lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
+        return true;
     }
 
     /* Close-line tokens with no JS-side tail cover the whole line.
