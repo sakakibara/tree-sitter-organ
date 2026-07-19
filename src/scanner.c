@@ -2277,6 +2277,24 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         return true;
     }
 
+    /* A bullet is only a list at a line's first non-whitespace position
+     * (Priority 4c owns that case and runs before this classify).  Reaching
+     * TT_LIST_ITEM here means either no grammar slot accepts a list right
+     * now, or (footnote-def body reentry) this "line" is really a mid-line
+     * suffix read from a lexer position that was never column 0 - Emacs
+     * treats `[fn:1]+ x` as paragraph text, never a list.  Degrade to plain
+     * content rather than emit an unmapped symbol, which would return
+     * false and livelock GLR error recovery on the zero-width retry. */
+    if (r.type == TT_LIST_ITEM) {
+        if (valid_symbols[EXT_INLINE_CONTENT_LINE]) {
+            lexer->mark_end(lexer);
+            lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
+            return true;
+        }
+        prepass_scope_restore(s->prepass, snap);
+        return false;
+    }
+
     int sym = prepass_to_external(r.type);
     if (sym < 0) {
         prepass_scope_restore(s->prepass, snap);

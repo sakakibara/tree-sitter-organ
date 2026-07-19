@@ -282,3 +282,42 @@ Empty diary sexp body
 (document
   (zeroth_section
     (diary_sexp)))
+
+==================
+Footnote definition followed by a bullet on the same line stays a paragraph
+==================
+[fn:1]+ First footnote.
+
+---
+
+(document
+  (zeroth_section
+    (footnote_definition
+      (footnote_label)
+      (paragraph))))
+
+==================
+Footnote definition followed by a numbered bullet on the same line stays a paragraph
+==================
+[fn:2]1. x
+
+---
+
+(document
+  (zeroth_section
+    (footnote_definition
+      (footnote_label)
+      (paragraph))))
+
+==================
+Footnote definition followed by a dash bullet on the same line stays a paragraph
+==================
+[fn:3]- x
+
+---
+
+(document
+  (zeroth_section
+    (footnote_definition
+      (footnote_label)
+      (paragraph))))
