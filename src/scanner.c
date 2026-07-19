@@ -1582,7 +1582,6 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         bool have_b2_mark = false;
         int  b2_forced_sym = -1;
         uint32_t b2_kw_colon = 0;
-        lexer->mark_end(lexer);
         while (!lexer->eof(lexer) && lexer->lookahead != '\n'
                && ll < ORG_LINE_BUF_MAX) {
             line_buf2[ll++] = classify_byte(lexer->lookahead);
@@ -1937,9 +1936,6 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
     int mark_kind = MARK_NONE;
     uint32_t p5_kw_colon = 0;
     bool have_prefix_mark = false;
-    /* Pre-mark at line start; mid-loop mark_end calls move this
-     * forward as a prefix kind is detected. */
-    lexer->mark_end(lexer);
     while (!lexer->eof(lexer) && lexer->lookahead != '\n'
            && line_len < ORG_LINE_BUF_MAX) {
         line_buf[line_len++] = classify_byte(lexer->lookahead);
