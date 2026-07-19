@@ -427,7 +427,13 @@ static LineTokenType classify_line(struct prepass_state *s,
     if (has_prefix_ci(trimmed, rem, "#+begin_")) {
         uint32_t ns, ne;
         if (parse_block_name(trimmed, rem, 8, &ns, &ne)) {
-            if (prepass_lblock_kind(trimmed, ns, ne)) {
+            /* A lesser-block name must end at whitespace/EOL, matching
+             * the scanner's lblock_kind_at boundary check; a name run
+             * cut short by some other byte (`#+begin_src.`) takes the
+             * full non-whitespace run as the block name instead, per
+             * Emacs, and is a greater block. */
+            if (prepass_lblock_kind(trimmed, ns, ne)
+                && (ne == rem || trimmed[ne] == ' ' || trimmed[ne] == '\t')) {
                 scope_push(s, SCOPE_LBLOCK);
                 return TT_LBLOCK_OPEN;
             }

@@ -667,7 +667,7 @@ Indented greater block
       (paragraph))))
 
 ==================
-Block name followed immediately by a non-name byte is not a src block open
+Block name followed immediately by a non-name byte is a greater block, not a src block
 ==================
 #+begin_src.
 foo
@@ -676,5 +676,7 @@ foo
 
 (document
   (zeroth_section
-    (src_block
-      (ERROR))))
+    (greater_block
+      (block_name)
+      (ERROR)
+      (paragraph))))
