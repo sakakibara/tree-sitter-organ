@@ -601,6 +601,22 @@ static bool prefix_ci(const uint8_t *p, uint32_t len, const char *kw) {
     return true;
 }
 
+/* Position of the next SCHEDULED:/DEADLINE:/CLOSED:/CLOCK: occurrence
+ * (case-insensitive) at or after `start`, or `len` if none.  Bounds
+ * the bracket-timestamp scan below so an unclosed `[` can't run past
+ * a following entry's own keyword and validate against ITS closing
+ * `]` instead. */
+static uint32_t next_planning_kw_at(const uint8_t *buf, uint32_t start,
+                                    uint32_t len) {
+    for (uint32_t p = start; p < len; p++) {
+        if (prefix_ci(buf + p, len - p, "scheduled:")) return p;
+        if (prefix_ci(buf + p, len - p, "deadline:")) return p;
+        if (prefix_ci(buf + p, len - p, "closed:")) return p;
+        if (prefix_ci(buf + p, len - p, "clock:")) return p;
+    }
+    return len;
+}
+
 /* True when buf[after_colon..len) starts (after inline whitespace)
  * with a well-formed <...> or [...] timestamp.  Mirrors the grammar
  * regex: angle form may not contain '<' or '>', bracket form may
@@ -617,9 +633,10 @@ static bool planning_timestamp_follows(const uint8_t *buf, uint32_t len,
         return j > i + 1 && j < len && buf[j] == '>';
     }
     if (buf[i] == '[') {
+        uint32_t limit = next_planning_kw_at(buf, i + 1, len);
         uint32_t j = i + 1;
-        while (j < len && buf[j] != ']') j++;
-        return j > i + 1 && j < len;
+        while (j < limit && buf[j] != ']') j++;
+        return j > i + 1 && j < limit && buf[j] == ']';
     }
     return false;
 }

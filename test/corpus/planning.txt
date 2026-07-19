@@ -226,3 +226,19 @@ Scheduled: <2026-01-01 Thu>
         (planning_entry
           (planning_keyword)
           (planning_timestamp))))))
+
+==================
+Unclosed bracket timestamp does not run past a later entry's own keyword
+==================
+* H
+CLOSED: [unclosed DEADLINE: [2026-01-01]
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (paragraph))))
