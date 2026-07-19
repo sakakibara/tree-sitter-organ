@@ -46,8 +46,11 @@ todo            =  1*ALPHA                    ; per-document configurable; ABNF 
 priority        =  "[#" %x41-5A "]"           ; [#A] – [#Z]
 comment-marker  =  "COMMENT"                  ; suppresses export
 title           =  1*non-line                 ; injected for inline parsing — see inline rules
-statistics-cookie =  "[" (1*DIGIT "%" / 1*DIGIT "/" 1*DIGIT) "]"
-                                              ; per-headline progress: [N%] or [N/M]
+statistics-cookie =  "[" (*DIGIT "%" / *DIGIT "/" *DIGIT) "]"
+                                              ; per-headline progress: [N%] or [N/M];
+                                              ; digits are optional per Emacs's
+                                              ; [0-9]*% / [0-9]*/[0-9]* cookie regexes,
+                                              ; so [%], [/], and [2/] are also valid.
 tag-list        =  ":" 1*(tag ":")
 tag             =  1*(ALPHA / DIGIT / "_" / "@" / "#" / "%")
 

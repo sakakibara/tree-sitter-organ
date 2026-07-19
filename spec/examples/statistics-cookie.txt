@@ -1,0 +1,12 @@
+# Statistics cookie: per-headline progress as [N%] or [N/M].  Digits
+# are optional in both arms (Emacs's [0-9]*% / [0-9]*/[0-9]* regexes),
+# so [%], [/], and [2/] are also valid cookies.
+
++ * Mostly done [33%]
++ * Half [1/2]
++ * Bare percent [%]
++ * Bare fraction [/]
++ * Fraction missing denominator [2/]
+
+# Mid-title bracket run, not a trailing cookie.
+- * Title [50%] extra
