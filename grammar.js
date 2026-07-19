@@ -1,3 +1,34 @@
+/* Shared shape of the five lesser blocks: open token, optional head
+ * fields, newline, verbatim body, close token. */
+const lesserBlock = ($, open, close, ...head) => seq(
+  open,
+  ...head,
+  /[ \t]*\r?\n/,
+  repeat($._lblock_body),
+  close,
+);
+
+/* Field tail shared by headline_line and inlinetask_line.  Order is
+ * Emacs org-complex-heading-regexp: todo, priority, COMMENT, title,
+ * cookie, tags.  The priority separator must be optional(/[ \t]+/),
+ * never a zero-or-more `[ \t]*` form - an empty-matching token
+ * mis-lexes and can loop error recovery. */
+const headlineTail = $ => [
+  optional(seq(field('todo',     $.todo),     /[ \t]+/)),
+  optional(seq(field('priority', $.priority), optional(/[ \t]+/))),
+  optional(seq(field('comment',  $.comment_marker), /[ \t]+/)),
+  optional(field('title',    $.title)),
+  optional(field('cookie',   $.statistics_cookie)),
+  optional(field('tag_list', $.tag_list)),
+];
+
+/* `: [value]` tail shared by formula, keyword, affiliated_keyword. */
+const directiveTail = $ => [
+  ':',
+  optional(seq(optional(/[ \t]+/), field('value', $.directive_value))),
+  /[ \t]*\r?\n/,
+];
+
 module.exports = grammar({
   name: 'org',
 
@@ -129,18 +160,7 @@ module.exports = grammar({
     headline_line: $ => seq(
       field('stars',     alias($._heading_open, $.stars)),
       /[ \t]+/,
-      optional(seq(field('todo',     $.todo),     /[ \t]+/)),
-      /* Emacs order: priority cookie BEFORE the COMMENT marker
-       * (org-complex-heading-regexp).  The separator after `[#X]` is
-       * optional - `[#A]Foo` is priority + title - and must be
-       * optional(/[ \t]+/), never the zero-or-more form: a token that
-       * can match the empty string mis-lexes here and loops error
-       * recovery. */
-      optional(seq(field('priority', $.priority), optional(/[ \t]+/))),
-      optional(seq(field('comment',  $.comment_marker), /[ \t]+/)),
-      optional(field('title',    $.title)),
-      optional(field('cookie',   $.statistics_cookie)),
-      optional(field('tag_list', $.tag_list)),
+      ...headlineTail($),
     ),
 
     /* TODO keyword. External token: uppercase word (>= 2 chars,
@@ -319,45 +339,20 @@ module.exports = grammar({
      * leaving the language identifier + header arguments + newline to
      * be parsed as JS rules. That makes `language`, `header_args` real
      * named children (a Babel-aware consumer can read them directly). */
-    src_block: $ => seq(
-      $._src_block_open,
+    src_block: $ => lesserBlock($, $._src_block_open, $._src_block_close,
       optional(seq(/[ \t]+/, field('language',    $.src_block_language))),
       optional(seq(/[ \t]+/, field('switches',    $.block_switches))),
-      optional(seq(/[ \t]+/, field('header_args', $.block_header_args))),
-      /[ \t]*\r?\n/,
-      repeat($._lblock_body),
-      $._src_block_close,
-    ),
-    example_block: $ => seq(
-      $._example_block_open,
+      optional(seq(/[ \t]+/, field('header_args', $.block_header_args)))),
+    example_block: $ => lesserBlock($, $._example_block_open, $._example_block_close,
       optional(seq(/[ \t]+/, field('switches',    $.block_switches))),
-      optional(seq(/[ \t]+/, field('header_args', $.block_header_args))),
-      /[ \t]*\r?\n/,
-      repeat($._lblock_body),
-      $._example_block_close,
-    ),
-    export_block: $ => seq(
-      $._export_block_open,
+      optional(seq(/[ \t]+/, field('header_args', $.block_header_args)))),
+    export_block: $ => lesserBlock($, $._export_block_open, $._export_block_close,
       optional(seq(/[ \t]+/, field('format',
         alias($.src_block_language, $.export_format)))),
-      optional(seq(/[ \t]+/, field('header_args', $.block_header_args))),
-      /[ \t]*\r?\n/,
-      repeat($._lblock_body),
-      $._export_block_close,
-    ),
-    verse_block: $ => seq(
-      $._verse_block_open,
-      optional(seq(/[ \t]+/, field('header_args', $.block_header_args))),
-      /[ \t]*\r?\n/,
-      repeat($._lblock_body),
-      $._verse_block_close,
-    ),
-    comment_block: $ => seq(
-      $._comment_block_open,
-      /[ \t]*\r?\n/,
-      repeat($._lblock_body),
-      $._comment_block_close,
-    ),
+      optional(seq(/[ \t]+/, field('header_args', $.block_header_args)))),
+    verse_block: $ => lesserBlock($, $._verse_block_open, $._verse_block_close,
+      optional(seq(/[ \t]+/, field('header_args', $.block_header_args)))),
+    comment_block: $ => lesserBlock($, $._comment_block_open, $._comment_block_close),
 
     /* Source-block language identifier (`lua`, `python`, `org`, …). */
     src_block_language: $ => /[A-Za-z][A-Za-z0-9_+-]*/,
@@ -472,12 +467,7 @@ module.exports = grammar({
       field('stars',     alias($._inlinetask_open, $.stars)),
       /* No leading /[ \t]+/ — the `_inlinetask_open` token already
        * covers stars + one ws byte. */
-      optional(seq(field('todo',     $.todo),     /[ \t]+/)),
-      optional(seq(field('priority', $.priority), optional(/[ \t]+/))),
-      optional(seq(field('comment',  $.comment_marker), /[ \t]+/)),
-      optional(field('title',    $.title)),
-      optional(field('cookie',   $.statistics_cookie)),
-      optional(field('tag_list', $.tag_list)),
+      ...headlineTail($),
     ),
 
     /* Clock entry: `CLOCK: [start]` (running) or
@@ -515,23 +505,17 @@ module.exports = grammar({
       /* Case-insensitive (Emacs `case-fold-search` on
        * `org-table-formula-regexp`).  `#+tblfm:` and `#+Tblfm:` work. */
       field('name', alias(token(prec(2, /[Tt][Bb][Ll][Ff][Mm]/)), $.directive_name)),
-      ':',
-      optional(seq(optional(/[ \t]+/), field('value', $.directive_value))),
-      /[ \t]*\r?\n/,
+      ...directiveTail($),
     ),
     keyword: $ => seq(
       $._keyword_line,
       field('name', $.directive_name),
-      ':',
-      optional(seq(optional(/[ \t]+/), field('value', $.directive_value))),
-      /[ \t]*\r?\n/,
+      ...directiveTail($),
     ),
     affiliated_keyword: $ => seq(
       $._affiliated_keyword_line,
       field('name', $.directive_name),
-      ':',
-      optional(seq(optional(/[ \t]+/), field('value', $.directive_value))),
-      /[ \t]*\r?\n/,
+      ...directiveTail($),
     ),
 
     directive_name:  $ => /[A-Za-z][A-Za-z0-9_-]*/,
