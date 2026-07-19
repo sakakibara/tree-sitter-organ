@@ -2295,10 +2295,20 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
      * recognised a CLOCK / planning entry. Inside SCOPE_DRAWER the
      * prepass classifies everything except `:END:` as TT_BODY; that's
      * correct for arbitrary drawer content but loses CLOCK structure
-     * for `:LOGBOOK:` which is the only place CLOCK lines live. */
-    if (mark_kind == MARK_CLOCK && valid_symbols[EXT_CLOCK_LINE]) {
+     * for `:LOGBOOK:` which is the only place CLOCK lines live.
+     *
+     * R4: gated on !saw_nul - this promotion is the one path where a
+     * NUL-bearing line can reach here still classified TT_BODY (the
+     * earlier saw_nul degrade deliberately excludes TT_BODY as
+     * already-safe), and EXT_CLOCK_LINE/EXT_PLANNING_LINE's JS-side
+     * timestamp regex is exactly the internal-token tail that
+     * livelocks on a raw NUL. Suppressing the promotion leaves `sym`
+     * at prepass_to_external(TT_BODY) == EXT_INLINE_CONTENT_LINE,
+     * the same safe degradation used everywhere else in this file. */
+    if (mark_kind == MARK_CLOCK && !saw_nul && valid_symbols[EXT_CLOCK_LINE]) {
         sym = EXT_CLOCK_LINE;
-    } else if (mark_kind == MARK_PLANNING && valid_symbols[EXT_PLANNING_LINE]) {
+    } else if (mark_kind == MARK_PLANNING && !saw_nul
+               && valid_symbols[EXT_PLANNING_LINE]) {
         sym = EXT_PLANNING_LINE;
     }
     if (sym == EXT_PLANNING_LINE && !valid_symbols[EXT_PLANNING_LINE]
