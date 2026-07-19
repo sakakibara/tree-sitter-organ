@@ -70,6 +70,20 @@ Trailing statistics cookie still parses
       (statistics_cookie))))
 
 ==================
+Last of multiple cookies wins
+==================
+* T [1/2] [50%]
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title)
+      (statistics_cookie))))
+
+==================
 Comment-marker headline
 ==================
 * COMMENT Suspended

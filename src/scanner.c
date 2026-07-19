@@ -445,28 +445,42 @@ static bool consume_tag_region(TSLexer *lexer) {
  * `[N/M]`, valid ONLY when followed (after inline whitespace) by
  * end-of-line or a tag region - Emacs treats a mid-title cookie as
  * plain text.  Advances past the candidate; on true the caller must
- * not mark_end past it. */
-static bool consume_stats_cookie(TSLexer *lexer) {
+ * not mark_end past it.  `*last_consumed` tracks the last byte
+ * advanced past (including the trailing ws-skip loop) so a failed
+ * caller can reseed its own boundary check from the true preceding
+ * byte instead of the post-failure lookahead. */
+static bool consume_stats_cookie(TSLexer *lexer, int32_t *last_consumed) {
     if (lexer->lookahead != '[') return false;
+    *last_consumed = lexer->lookahead;
     lexer->advance(lexer, false);
-    while (lexer->lookahead >= '0' && lexer->lookahead <= '9')
+    while (lexer->lookahead >= '0' && lexer->lookahead <= '9') {
+        *last_consumed = lexer->lookahead;
         lexer->advance(lexer, false);
+    }
     int32_t c = lexer->lookahead;
     if (c == '%') {
+        *last_consumed = lexer->lookahead;
         lexer->advance(lexer, false);
         if (lexer->lookahead != ']') return false;
+        *last_consumed = lexer->lookahead;
         lexer->advance(lexer, false);
     } else if (c == '/') {
+        *last_consumed = lexer->lookahead;
         lexer->advance(lexer, false);
-        while (lexer->lookahead >= '0' && lexer->lookahead <= '9')
+        while (lexer->lookahead >= '0' && lexer->lookahead <= '9') {
+            *last_consumed = lexer->lookahead;
             lexer->advance(lexer, false);
+        }
         if (lexer->lookahead != ']') return false;
+        *last_consumed = lexer->lookahead;
         lexer->advance(lexer, false);
     } else {
         return false;
     }
-    while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
+    while (lexer->lookahead == ' ' || lexer->lookahead == '\t') {
+        *last_consumed = lexer->lookahead;
         lexer->advance(lexer, false);
+    }
     if (lexer->lookahead == '\n' || lexer->lookahead == '\r'
         || lexer->lookahead == 0 || lexer->eof(lexer))
         return true;
@@ -501,10 +515,11 @@ static bool scan_title_tail(TSLexer *lexer, int32_t prev0, bool any0) {
             continue;
         }
         if (c == '[' && (prev == ' ' || prev == '\t')) {
-            if (consume_stats_cookie(lexer)) return any_title_chars;
+            int32_t last_consumed = c;
+            if (consume_stats_cookie(lexer, &last_consumed)) return any_title_chars;
             any_title_chars = true;
             lexer->mark_end(lexer);
-            prev = lexer->lookahead;
+            prev = last_consumed;
             continue;
         }
         lexer->advance(lexer, false);
@@ -957,6 +972,10 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                 || valid_symbols[EXT_HEADLINE_STATS_COOKIE])) {
             lexer->advance(lexer, false);  /* past `[` */
             int32_t c1 = lexer->lookahead;
+            /* Seeds scan_title_tail's boundary check on fallthrough;
+             * the mid-title-cookie path below overrides this with the
+             * true last-consumed byte once it skips trailing ws. */
+            int32_t fallback_prev = c1;
             /* Priority `[#X]`. */
             if (c1 == '#' && valid_symbols[EXT_HEADLINE_PRIORITY]) {
                 lexer->advance(lexer, false);
@@ -993,8 +1012,11 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                     }
                 }
                 if (ok) {
-                    while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
+                    fallback_prev = ']';
+                    while (lexer->lookahead == ' ' || lexer->lookahead == '\t') {
+                        fallback_prev = lexer->lookahead;
                         lexer->advance(lexer, false);
+                    }
                     if (lexer->lookahead == '\n' || lexer->lookahead == '\r'
                         || lexer->lookahead == 0 || lexer->eof(lexer)) {
                         lexer->mark_end(lexer);
@@ -1021,7 +1043,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
              * and include those bytes in the title token. */
             if (!valid_symbols[EXT_HEADLINE_TITLE]) return false;
             lexer->mark_end(lexer);
-            scan_title_tail(lexer, lexer->lookahead, true);
+            scan_title_tail(lexer, fallback_prev, true);
             lexer->result_symbol = EXT_HEADLINE_TITLE;
             return true;
         }
