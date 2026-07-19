@@ -680,3 +680,43 @@ foo
       (block_name)
       (ERROR)
       (paragraph))))
+
+==================
+Table cell content starting with a star stays a table row
+==================
+| col1 | col2 |
+|------+------|
+| a    |* b    |
+| c    | d    |
+
+---
+
+(document
+  (zeroth_section
+    (table
+      (table_header_row
+        (table_cell)
+        (table_cell))
+      (table_rule)
+      (table_row
+        (table_cell)
+        (table_cell))
+      (table_row
+        (table_cell)
+        (table_cell)))))
+
+==================
+Dash-pipe line after a table row is a paragraph
+==================
+| a | b |
+-| c | d |
+
+---
+
+(document
+  (zeroth_section
+    (table
+      (table_row
+        (table_cell)
+        (table_cell)))
+    (paragraph)))

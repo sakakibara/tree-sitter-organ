@@ -1289,7 +1289,16 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
 
     /* ── Priority 4: detect heading line; emit close(s) then open. ───── */
     uint8_t consumed_stars = 0;
-    if (lexer->lookahead == '*') {
+    /* A `*` mid-row is opaque cell content (Emacs: any byte after `|` is
+     * cell text) - table-cell/pipe/row-end being valid means we're
+     * already inside a row, so skip the heading probe and let Priority 4a
+     * consume it below.  Without this guard, a cell like `|* b` gets
+     * partway into headline_line before the grammar discovers the row
+     * doesn't fit that shape, with no token able to make progress. */
+    bool mid_table_row = valid_symbols[EXT_TABLE_PIPE]
+                       || valid_symbols[EXT_TABLE_CELL_CONTENT]
+                       || valid_symbols[EXT_TABLE_ROW_END];
+    if (lexer->lookahead == '*' && !mid_table_row) {
         bool at_line_start = lexer->get_column(lexer) == 0;
 
         /* Call mark_end before advancing, so that if we emit a
@@ -1586,8 +1595,12 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         /* Indented table row or rule (Priority 4b only fires at
          * column 0).  Diverts only when the parser can take a table
          * token; inside a list item the classification fallback
-         * below keeps the line paragraph text. */
+         * below keeps the line paragraph text.  Requires bullet_consumed
+         * to be pure indentation (no failed-bullet byte, e.g. the `-` in
+         * `-|`) - a real content byte before `|` disqualifies the line
+         * as a table row (Emacs: `-|...` is a paragraph, not a row). */
         if (lexer->lookahead == '|'
+            && bullet_consumed_len == indent
             && (valid_symbols[EXT_TABLE_ROW_START]
                 || valid_symbols[EXT_TABLE_RULE_LINE])) {
             if (ll < ORG_LINE_BUF_MAX) line_buf2[ll++] = '|';
