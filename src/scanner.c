@@ -2292,10 +2292,10 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
     }
 
     /* Override the prepass classification when our in-line detection
-     * recognised a CLOCK / planning entry. Inside SCOPE_DRAWER the
-     * prepass classifies everything except `:END:` as TT_BODY; that's
-     * correct for arbitrary drawer content but loses CLOCK structure
-     * for `:LOGBOOK:` which is the only place CLOCK lines live.
+     * recognised a CLOCK / planning entry. A scope whose classification
+     * blankets non-close lines as TT_BODY (SCOPE_PROPDRAWER) would
+     * otherwise lose CLOCK structure; this promotes it back when the
+     * grammar has a slot for it (`valid_symbols[EXT_CLOCK_LINE]`).
      *
      * R4: gated on !saw_nul - this promotion is the one path where a
      * NUL-bearing line can reach here still classified TT_BODY (the

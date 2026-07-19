@@ -406,7 +406,10 @@ static LineTokenType classify_line(struct prepass_state *s,
             scope_pop(s);
             return TT_DRAWER_CLOSE;
         }
-        return TT_BODY;
+        /* Anything else falls through to the general dispatch below
+         * (table, list, block, nested drawer, ...) - a drawer body is
+         * just another `_content_line` sequence, same as a greater
+         * block's (SCOPE_GBLOCK, handled the same way below). */
     }
 
     if (has_prefix_ci(trimmed, rem, "#+end_")) {

@@ -201,3 +201,51 @@ Formula with no space before the value
     (formula
       (directive_name)
       (directive_value))))
+
+==================
+Drawer containing a table
+==================
+:mydrawer:
+| c |
+:END:
+
+---
+
+(document
+  (zeroth_section
+    (drawer
+      (drawer_name)
+      (table
+        (table_row
+          (table_cell))))))
+
+==================
+Unclosed drawer containing a table row truncates at EOF
+==================
+:mydrawer:
+| c |
+
+---
+
+(document
+  (zeroth_section
+    (drawer
+      (drawer_name)
+      (table
+        (table_row
+          (table_cell))))))
+
+==================
+Unclosed drawer containing a block open truncates at EOF
+==================
+:mydrawer:
+#+begin_quote
+
+---
+
+(document
+  (zeroth_section
+    (drawer
+      (drawer_name)
+      (greater_block
+        (block_name)))))
