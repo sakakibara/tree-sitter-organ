@@ -5,8 +5,9 @@
 // mutations + hostile compositions + known-bad regressions), parses
 // every input with the compiled parser via batched `tree-sitter parse
 // -q` (the same binary scripts/run-corpus-tests.js drives), and
-// reports every input whose tree contains ERROR or MISSING nodes or
-// whose parse fails to terminate.
+// reports every input whose tree contains ERROR or MISSING nodes, whose
+// parse fails to terminate (RUNAWAY), or whose parse aborts against the
+// memory cap (OOM_SUSPECT).
 //
 // Modes:
 //   --discover  full report: failing inputs grouped by tree signature
@@ -14,8 +15,16 @@
 //
 // Deterministic: fixed seed constants, no runtime randomness.
 //
-// spawnSync note: a runaway parse ignores the default SIGTERM kill;
-// killSignal SIGKILL is required for the timeout to actually reap it.
+// Every parse child runs under both a hard wall-clock timeout and a
+// ulimit -v memory cap (see MEM_CAP_KB below) - the parser has known
+// single-input kernel-OOM classes, and an unbounded child can invoke the
+// kernel OOM killer, which may reap an unrelated process instead. Two
+// spawnSync notes make the bound work as intended:
+//   - a runaway parse ignores the default SIGTERM kill; killSignal
+//     SIGKILL is required for the timeout to actually reap it.
+//   - spawnSync sets `.error.code === 'ETIMEDOUT'` only when its own
+//     timeout fired the kill; that is the sole reliable signal for
+//     RUNAWAY vs OOM_SUSPECT (see classifyFailure below).
 
 'use strict';
 
@@ -203,39 +212,76 @@ for (const [content, id] of space) {
   files.push(fp);
 }
 
+// ---- memory bound -----------------------------------------------------
+// ulimit -v cap (KB), applied to every parse child via a shell wrapper.
+// Measured on this repo: starting the tree-sitter CLI and parsing the
+// largest legitimate input this harness ever generates (a 4096-byte
+// well-formed document, alone or batched 200-up) needs ~19-20MB of
+// virtual memory. This cap is ~6.4x that - generous headroom for any
+// legitimate parse - while the parser's known single-input kernel-OOM
+// classes blow past it within milliseconds (measured: ~80-170ms to
+// SIGSEGV/SIGABRT, versus the multi-second wall-clock timeout they'd
+// otherwise consume).
+const MEM_CAP_KB = 131072;
+
+// spawnSync only sets `.error.code === 'ETIMEDOUT'` when its own timeout
+// fired the kill. Any other signal death, or a null status without that
+// code, means the ulimit cap killed the child (malloc failure -> abort
+// or a NULL-deref segfault) rather than the wall clock - that is the
+// sole reliable way to tell RUNAWAY (did not terminate) apart from
+// OOM_SUSPECT (terminated fast, but only because memory ran out).
+function classifyFailure(r) {
+  if (r.error && r.error.code === 'ETIMEDOUT') return 'RUNAWAY';
+  if (r.signal || r.status === null) return 'OOM_SUSPECT';
+  return null;
+}
+
 // ---- batched parse --------------------------------------------------------
+function spawnBounded(args, timeoutMs, maxBuffer) {
+  return cp.spawnSync('sh',
+    ['-c', `ulimit -v ${MEM_CAP_KB}; exec "$0" "$@"`, tsBin, ...args],
+    {
+      cwd: repo,
+      env: { ...process.env, TREE_SITTER_LIBDIR: libdir },
+      encoding: 'utf8',
+      maxBuffer,
+      timeout: timeoutMs,
+      killSignal: 'SIGKILL',
+    });
+}
 function parseQ(paths, timeoutMs) {
-  return cp.spawnSync(tsBin, ['parse', '-q', ...paths], {
-    cwd: repo,
-    env: { ...process.env, TREE_SITTER_LIBDIR: libdir },
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-    timeout: timeoutMs,
-    killSignal: 'SIGKILL',
-  });
+  return spawnBounded(['parse', '-q', ...paths], timeoutMs, 64 * 1024 * 1024);
 }
 
 const startedAt = Date.now();
 const flagged = [];
-const killed = [];
-for (let i = 0; i < files.length; i += CHUNK) {
+const runawayFiles = [];
+const oomFiles = [];
+function gateDeadlineCheck(where) {
   if (MODE === 'gate' && Date.now() - startedAt > GATE_DEADLINE_MS) {
-    process.stderr.write(`error: no-error gate exceeded ${GATE_DEADLINE_MS}ms budget\n`);
+    process.stderr.write(`error: no-error gate exceeded ${GATE_DEADLINE_MS}ms budget (${where})\n`);
     process.exit(1);
   }
+}
+for (let i = 0; i < files.length; i += CHUNK) {
+  gateDeadlineCheck('chunk loop');
   const chunk = files.slice(i, i + CHUNK);
   const r = parseQ(chunk, CHUNK_TIMEOUT_MS);
-  if (!r.signal && r.status !== null) {
+  const failure = classifyFailure(r);
+  if (!failure) {
     for (const line of (r.stdout || '').split('\n')) {
       const m = line.match(/^(\S+\.org)\t/);
       if (m) flagged.push(m[1]);
     }
     continue;
   }
-  // Chunk contained a runaway input: isolate per file.
+  // Chunk contained a bad input (timeout or memory-cap abort): isolate per file.
   for (const fp of chunk) {
+    gateDeadlineCheck('per-file isolation');
     const r1 = parseQ([fp], SINGLE_TIMEOUT_MS);
-    if (r1.signal || r1.status === null) killed.push(fp);
+    const f1 = classifyFailure(r1);
+    if (f1 === 'RUNAWAY') runawayFiles.push(fp);
+    else if (f1 === 'OOM_SUSPECT') oomFiles.push(fp);
     else {
       for (const line of (r1.stdout || '').split('\n')) {
         const m = line.match(/^(\S+\.org)\t/);
@@ -259,23 +305,36 @@ function signatureOf(tree) {
   return '(no ERROR node in tree)';
 }
 
-if (flagged.length === 0 && killed.length === 0) {
-  process.stdout.write(`no-error harness: ${files.length} inputs, 0 ERROR/MISSING, 0 runaway (${elapsed}ms)\n`);
+// Identity of a run's finding set, independent of path/timing noise:
+// sorted basenames across all three failure kinds, hashed. Two runs are
+// deterministic iff this fingerprint matches, not merely their counts.
+function fingerprint() {
+  const names = [
+    ...flagged.map((f) => path.basename(f)),
+    ...runawayFiles.map((f) => path.basename(f)),
+    ...oomFiles.map((f) => path.basename(f)),
+  ].sort();
+  return require('crypto').createHash('sha256').update(names.join('\n')).digest('hex');
+}
+
+if (flagged.length === 0 && runawayFiles.length === 0 && oomFiles.length === 0) {
+  process.stdout.write(`no-error harness: ${files.length} inputs, 0 ERROR/MISSING, 0 runaway, 0 oom-suspect (${elapsed}ms)\n`);
+  process.stdout.write(`fingerprint: ${fingerprint()}\n`);
   process.exit(0);
 }
 
-process.stdout.write(`no-error harness: ${files.length} inputs -> ${flagged.length} ERROR/MISSING, ${killed.length} runaway (${elapsed}ms)\n\n`);
-for (const fp of killed.slice(0, MODE === 'gate' ? 10 : killed.length)) {
+process.stdout.write(`no-error harness: ${files.length} inputs -> ${flagged.length} ERROR/MISSING, ${runawayFiles.length} runaway, ${oomFiles.length} oom-suspect (${elapsed}ms)\n`);
+process.stdout.write(`fingerprint: ${fingerprint()}\n\n`);
+for (const fp of runawayFiles.slice(0, MODE === 'gate' ? 10 : runawayFiles.length)) {
   process.stdout.write(`RUNAWAY ${path.basename(fp)}: ${JSON.stringify(fs.readFileSync(fp, 'utf8').slice(0, 120))}\n`);
+}
+for (const fp of oomFiles.slice(0, MODE === 'gate' ? 10 : oomFiles.length)) {
+  process.stdout.write(`OOM_SUSPECT ${path.basename(fp)}: ${JSON.stringify(fs.readFileSync(fp, 'utf8').slice(0, 120))}\n`);
 }
 const classes = new Map();
 const detail = MODE === 'discover' ? flagged : flagged.slice(0, 50);
 for (const fp of detail) {
-  const r = cp.spawnSync(tsBin, ['parse', fp], {
-    cwd: repo, env: { ...process.env, TREE_SITTER_LIBDIR: libdir },
-    encoding: 'utf8', maxBuffer: 16 * 1024 * 1024,
-    timeout: SINGLE_TIMEOUT_MS, killSignal: 'SIGKILL',
-  });
+  const r = spawnBounded(['parse', fp], SINGLE_TIMEOUT_MS, 16 * 1024 * 1024);
   const sig = signatureOf(r.stdout || '');
   if (!classes.has(sig)) classes.set(sig, []);
   classes.get(sig).push(fp);
