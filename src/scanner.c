@@ -2267,7 +2267,18 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             sym = EXT_FN_EMPTY_LINE;
         }
         if (!valid_symbols[sym]) {
+            /* No grammar slot for this classification here (e.g. a
+             * `#+TBLFM:`/other keyword line indented inside a list item,
+             * whose grammar only nests paragraph/list content) - same
+             * graceful degradation as the table/lblock fallbacks above,
+             * rather than a hard failure that would abort the whole scan
+             * call at this position for every other candidate token. */
             prepass_scope_restore(s->prepass, snap);
+            if (valid_symbols[EXT_INLINE_CONTENT_LINE]) {
+                lexer->mark_end(lexer);
+                lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
+                return true;
+            }
             return false;
         }
         lexer->result_symbol = (TSSymbol)sym;

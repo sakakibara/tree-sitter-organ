@@ -134,6 +134,36 @@ Colon pair without surrounding space is not a tag
         (paragraph)))))
 
 ==================
+Indented affiliated keyword inside a list item degrades to paragraph text (Emacs: a real keyword sibling, but list_item here has no slot for one - clean degrade, not a structural match)
+==================
+- box
+    #+TBLFM: $2=$1
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (paragraph)))))
+
+==================
+Truncated #+begin_s inside a list item degrades to paragraph text
+==================
+- item
+  #+begin_s
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (paragraph)))))
+
+==================
 Description tag after a checkbox
 ==================
 - [ ] todo :: tagged
