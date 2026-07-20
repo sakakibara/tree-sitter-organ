@@ -26,9 +26,16 @@ const CASES = [
     expect: ['property_drawer', 'node_property', 'paragraph'],
   },
   {
+    // Span-qualified: a name-only check for `block_header_args` also
+    // passes on the pre-fix parser, where the field's `[^\n]`-only
+    // regex ran straight past the bare-CR terminator and swallowed
+    // `print(1)\r#+end_src\r` all the way to EOF with no ERROR node -
+    // silently worse than an ERROR, not just an unhandled one. The
+    // exact end column pins the field to `:results output`, not EOF.
     name: 'bare-CR src block with header args',
     input: '#+begin_src lua :results output\rprint(1)\r#+end_src\r',
-    expect: ['src_block', 'src_block_language', 'block_header_args'],
+    expect: ['src_block', 'src_block_language',
+      'block_header_args [0, 16] - [0, 31]'],
   },
   {
     name: 'bare-CR headline with tags',
@@ -46,9 +53,15 @@ const CASES = [
     expect: ['planning', 'planning_keyword', 'planning_timestamp'],
   },
   {
+    // Span-qualified: a name-only check for `list_item` also passes on
+    // the pre-fix parser, where the second bullet's `get_column() == 0`
+    // gate never re-fires on a bare-CR file (tree-sitter's own column
+    // count never resets without a real `\n`) and "- two" is absorbed
+    // into the first item's paragraph instead of starting a second
+    // item - one `list_item` spanning the whole input, not two.
     name: 'bare-CR list',
     input: '- one\r- two\r',
-    expect: ['list', 'list_item', 'bullet'],
+    expect: ['list', 'list_item [0, 0] - [0, 6]', 'list_item [0, 6] - [0, 12]', 'bullet'],
   },
   {
     name: 'bare-CR table, final cell has no closing pipe (cell-content guard)',
