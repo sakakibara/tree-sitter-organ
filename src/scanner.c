@@ -2898,19 +2898,72 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         sym = EXT_INLINE_CONTENT_LINE;
     }
     /* Plain body text (never promoted above) needs the whole-line
-     * boundary when MARK_COLON fired but classification landed on
-     * TT_BODY anyway (e.g. a `:` line whose remainder isn't actually
-     * drawer/property/fixed-width shaped) - same reasoning as the
-     * list-item-continuation dispatch's identical fix. Scoped to
-     * MARK_COLON specifically, NOT the broader "any prefix mark":
-     * MARK_HASH/MARK_GBLOCK are deliberately excluded from the
-     * "stop reconsidering" guard elsewhere in this file and rely on
-     * staying short here (e.g. an unmatched `#+end_src` splitting
-     * into its own token is what keeps "Headline terminates src
-     * block" producing two separate paragraphs, not one merged one -
-     * broadening this to MARK_HASH regressed that corpus test). */
-    if (was_body && mark_kind == MARK_COLON
+     * boundary when MARK_COLON or MARK_COMMENT_LINE fired but
+     * classification landed on TT_BODY anyway (a `:` line whose
+     * remainder isn't drawer/property/fixed-width shaped; a `#` line
+     * whose next byte isn't `+`/space/tab, e.g. "#*...", which the
+     * mark's own eager `!= '+'` check accepts as a comment candidate
+     * but the stricter classify_line shape check then rejects) - same
+     * reasoning as the list-item-continuation dispatch's identical
+     * fix. Scoped to these two specifically, NOT the broader "any
+     * prefix mark": MARK_HASH/MARK_GBLOCK are deliberately excluded
+     * from the "stop reconsidering" guard elsewhere in this file and
+     * rely on staying short here (e.g. an unmatched `#+end_src`
+     * splitting into its own token is what keeps "Headline terminates
+     * src block" producing two separate paragraphs, not one merged
+     * one - broadening this to MARK_HASH regressed that corpus test). */
+    if (was_body
+        && (mark_kind == MARK_COLON || mark_kind == MARK_COMMENT_LINE)
         && sym == EXT_INLINE_CONTENT_LINE) {
+        lexer->mark_end(lexer);
+    }
+    /* MARK_LBLOCK (an "#+end_NAME" shaped prefix reclassified as plain
+     * TT_BODY, e.g. an unmatched close outside any lesser-block scope)
+     * is deliberately NOT in the blanket list above: "Headline
+     * terminates src block" depends on a bare `#+end_src` with nothing
+     * else on the line staying at its short mark (so it becomes its
+     * own paragraph-starting token, splitting the following lines into
+     * two separate paragraphs the way that corpus test expects).
+     * Extend only when there's trailing non-whitespace content on the
+     * SAME line past the recognized name (e.g. "#+end_example
+     * #+TBLFM: ...") - there the short mark strands that content for a
+     * fresh scan at a genuinely mid-line position, which has no valid
+     * candidate to classify it as and ERRORs; a name running straight
+     * to EOL never hits that starvation, so leaving it short is safe
+     * AND required for the paragraph-split test above. */
+    if (was_body && mark_kind == MARK_LBLOCK
+        && sym == EXT_INLINE_CONTENT_LINE) {
+        uint32_t i = 0;
+        while (i < line_len && (line_buf[i] == ' ' || line_buf[i] == '\t')) i++;
+        if (prefix_ci(line_buf + i, line_len - i, "#+end_")) {
+            uint32_t j = i + 6;
+            while (j < line_len && (
+                (line_buf[j] >= 'a' && line_buf[j] <= 'z') ||
+                (line_buf[j] >= 'A' && line_buf[j] <= 'Z') ||
+                (line_buf[j] >= '0' && line_buf[j] <= '9') ||
+                line_buf[j] == '_' || line_buf[j] == '-'
+            )) j++;
+            while (j < line_len && (line_buf[j] == ' ' || line_buf[j] == '\t')) j++;
+            if (j < line_len) lexer->mark_end(lexer);
+        }
+    }
+    /* TT_LBLOCK_BODY / TT_LATEXENV_BODY are opaque external tokens
+     * with no JS-side tail (unlike TT_PLANNING/TT_CLOCK/TT_KEYWORD/...,
+     * whose short prefix leaves the rest for JS or another external
+     * token to consume) - they always want the whole-line boundary,
+     * regardless of which prefix mark fired first. Safe to apply
+     * unconditionally, including MARK_HASH: inside either scope,
+     * classify_line's own scope dispatch runs before the general
+     * `#+...` checks, so a `#+`-shaped line inside one of these
+     * scopes is always TT_LBLOCK_BODY/TT_LATEXENV_BODY here, never
+     * the plain TT_BODY case "Headline terminates src block" depends
+     * on MARK_HASH staying short for. Fixes e.g. a MARK_PLANNING-
+     * shaped `SCHEDULED:` line inside a latex environment: the early
+     * MARK_PLANNING branch above only acts when EXT_PLANNING_LINE is
+     * actually valid_symbols-offered, which it isn't inside these
+     * scopes, so the mark it left behind otherwise strands here too. */
+    if ((r.type == TT_LBLOCK_BODY || r.type == TT_LATEXENV_BODY)
+        && valid_symbols[sym]) {
         lexer->mark_end(lexer);
     }
     if (!valid_symbols[sym]) {

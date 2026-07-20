@@ -948,3 +948,75 @@ content
       (block_name)
       (block_args)
       (paragraph))))
+
+==================
+A hash-prefixed non-comment/non-block-open line stays paragraph text, not just its leading hash
+==================
+*************** T1
+#************** ENDx
+
+---
+
+(document
+  (zeroth_section
+    (inlinetask
+      (inlinetask_line
+        (stars)
+        (title))
+      (paragraph))))
+
+==================
+A drawer-shaped colon line's shape check failing degrades to paragraph text, not a truncated one
+==================
+* Real
+:MYDRAWER:
+content
+#* foo
+after
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (drawer
+        (drawer_name)
+        (paragraph)))))
+
+==================
+An unmatched #+end_ with trailing content on the same line stays paragraph text past the block-name prefix
+==================
+#+end_example        #+TBLFM: $2=$1
+
+---
+
+(document
+  (zeroth_section
+    (paragraph)))
+
+==================
+An unmatched #+end_ alone on its line still starts its own token (Headline-terminates-src-block precedent, no trailing content to strand)
+==================
+#+end_example
+
+---
+
+(document
+  (zeroth_section
+    (paragraph)))
+
+==================
+A planning-shaped line inside a latex environment stays opaque body text
+==================
+\begin{align}
+SCHEDULED:* garbage not a timestamp
+
+---
+
+(document
+  (zeroth_section
+    (latex_environment
+      (latexenv_name))))
