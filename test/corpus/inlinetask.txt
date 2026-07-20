@@ -271,3 +271,19 @@ A second inlinetask line with extra whitespace then a non-END word still redefin
       (inlinetask_line
         (stars)
         (title)))))
+
+==================
+A colon-prefixed non-drawer/property/fixed-width line inside an inlinetask body stays paragraph text, not just its leading colon
+==================
+*************** T1
+:************** ENDx
+
+---
+
+(document
+  (zeroth_section
+    (inlinetask
+      (inlinetask_line
+        (stars)
+        (title))
+      (paragraph))))

@@ -2848,6 +2848,12 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         return false;
     }
 
+    /* Original r.type, before the CLOCK/PLANNING promotion below can
+     * override `sym` away from EXT_INLINE_CONTENT_LINE - needed to
+     * scope the whole-line mark_end() fix further down to genuine
+     * plain-body lines only. */
+    bool was_body = (r.type == TT_BODY);
+
     int sym = prepass_to_external(r.type);
     if (sym < 0) {
         prepass_scope_restore(s->prepass, snap);
@@ -2890,6 +2896,22 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         && valid_symbols[EXT_INLINE_CONTENT_LINE]) {
         lexer->mark_end(lexer);
         sym = EXT_INLINE_CONTENT_LINE;
+    }
+    /* Plain body text (never promoted above) needs the whole-line
+     * boundary when MARK_COLON fired but classification landed on
+     * TT_BODY anyway (e.g. a `:` line whose remainder isn't actually
+     * drawer/property/fixed-width shaped) - same reasoning as the
+     * list-item-continuation dispatch's identical fix. Scoped to
+     * MARK_COLON specifically, NOT the broader "any prefix mark":
+     * MARK_HASH/MARK_GBLOCK are deliberately excluded from the
+     * "stop reconsidering" guard elsewhere in this file and rely on
+     * staying short here (e.g. an unmatched `#+end_src` splitting
+     * into its own token is what keeps "Headline terminates src
+     * block" producing two separate paragraphs, not one merged one -
+     * broadening this to MARK_HASH regressed that corpus test). */
+    if (was_body && mark_kind == MARK_COLON
+        && sym == EXT_INLINE_CONTENT_LINE) {
+        lexer->mark_end(lexer);
     }
     if (!valid_symbols[sym]) {
         prepass_scope_restore(s->prepass, snap);
