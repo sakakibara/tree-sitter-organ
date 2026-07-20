@@ -15,7 +15,7 @@
 #
 # Requires: Node + pnpm (or npm) so we can install tree-sitter-cli.
 
-.PHONY: build install clean test check-c prepass spec-check test-spec test-crlf test-no-error
+.PHONY: build install clean test check-c prepass spec-check test-spec test-crlf test-bare-cr test-no-error
 
 # ---------------------------------------------------------------------------
 # Platform detection. uname -s lower-cased + uname -m gives darwin-arm64,
@@ -101,6 +101,7 @@ test: build
 	@touch $(TS_LIBDIR)/org.so
 	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/run-corpus-tests.js
 	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/test-crlf.js
+	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/test-bare-cr.js
 	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/large-input-stress-test.js
 	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/adversarial-no-error.js --gate
 
@@ -115,6 +116,12 @@ test-crlf: build
 	@cp $(ORG_SO) $(TS_LIBDIR)/org.so
 	@touch $(TS_LIBDIR)/org.so
 	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/test-crlf.js
+
+test-bare-cr: build
+	@mkdir -p $(TS_LIBDIR)
+	@cp $(ORG_SO) $(TS_LIBDIR)/org.so
+	@touch $(TS_LIBDIR)/org.so
+	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/test-bare-cr.js
 
 # C-level scanner tests under ASan/UBSan.  The harness includes
 # scanner.c directly, so only the prepass sources are linked.

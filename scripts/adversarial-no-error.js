@@ -285,21 +285,19 @@ function* deepNesting() {
   }
 }
 
-// ---- known-unhandled bare-CR family (tracked, not gated) ------------------
+// ---- bare-CR line-ending family (gated) ------------------------------------
 // Bare-CR (classic Mac) line endings are a real Emacs line-ending
 // convention - `insert-file-contents` auto-detects and normalizes LF,
-// CRLF, and bare-CR alike on read - but this scanner has no bare-CR
-// support: every line-reading loop in scanner.c terminates on '\n'
-// alone, and grammar.js's own line-end tokens are `\r?\n` (CR only as
-// an optional CRLF prefix, never a terminator by itself). Confirmed:
-// `#+begin_src lua\rx\r#+end_src\r` ERRORs at both base and this
-// branch's head. Properly fixing it means auditing and changing every
-// one of those loops plus the grammar-side line-end tokens without
-// regressing CRLF handling - out of proportion for this pass. Tracked
-// here (not folded into the gated `space` below) so the gap stays
-// visible in every run's output instead of silently uncovered; see the
-// bare-CR report line below.
-function bareCrVariants(seed) {
+// CRLF, and bare-CR alike on read - and the grammar treats a bare `\r`
+// as a first-class line terminator alongside `\r\n` and bare `\n` (see
+// scan_line_end / bol_col in src/scanner.c). Bare-CR is no longer a
+// tracked exception: every input already in `space` gets a bare-CR
+// sibling below, feeding the SAME gated set everything else does - a
+// bare-CR regression fails the build exactly like an LF/CRLF one
+// would. `\n` -> `\r` also collapses any `\r\n` already in the input
+// to `\r\r` (two consecutive bare-CR terminators, i.e. a blank line),
+// which is intentional: it stays a well-formed bare-CR-only document.
+function bareCrVariant(seed) {
   return seed.replace(/\n/g, '\r');
 }
 
@@ -316,7 +314,9 @@ for (const s of seeds) for (const m of mutations(s)) add(m);
 for (const s of hostile(4000, 6)) add(s);
 for (const s of closeLineTrailers()) add(s);
 for (const s of deepNesting()) add(s);
-process.stderr.write(`no-error harness: ${seeds.length} corpus seeds -> ${space.size} unique inputs\n`);
+const lfCrlfCount = space.size;
+for (const s of [...space.keys()]) add(bareCrVariant(s));
+process.stderr.write(`no-error harness: ${seeds.length} corpus seeds -> ${lfCrlfCount} LF/CRLF inputs + ${space.size - lfCrlfCount} bare-CR inputs -> ${space.size} unique inputs\n`);
 
 const inputDir = path.join(workDir, 'inputs');
 fs.rmSync(inputDir, { recursive: true, force: true });
@@ -326,22 +326,6 @@ for (const [content, id] of space) {
   const fp = path.join(inputDir, `i${String(id).padStart(6, '0')}.org`);
   fs.writeFileSync(fp, content);
   files.push(fp);
-}
-
-const bareCrDir = path.join(workDir, 'bare-cr-known-unhandled');
-fs.rmSync(bareCrDir, { recursive: true, force: true });
-fs.mkdirSync(bareCrDir, { recursive: true });
-const bareCrFiles = [];
-{
-  const seen = new Set();
-  for (const s of seeds) {
-    const bc = bareCrVariants(s);
-    if (bc.length === 0 || bc.length > MAX_INPUT_LEN || seen.has(bc)) continue;
-    seen.add(bc);
-    const fp = path.join(bareCrDir, `b${String(bareCrFiles.length).padStart(6, '0')}.org`);
-    fs.writeFileSync(fp, bc);
-    bareCrFiles.push(fp);
-  }
 }
 
 // ---- memory bound -----------------------------------------------------
@@ -423,32 +407,6 @@ for (let i = 0; i < files.length; i += CHUNK) {
   }
 }
 const elapsed = Date.now() - startedAt;
-
-// Bare-CR is a known, documented, deliberately-unfixed gap (see
-// bareCrVariants above) - probed and reported for visibility, but never
-// gates: a RUNAWAY/OOM_SUSPECT classification here would still be a
-// genuine bug (those aren't part of the accepted gap), so only that
-// case is escalated into the gating counts below.
-let bareCrErrorCount = 0;
-for (let i = 0; i < bareCrFiles.length; i += CHUNK) {
-  const chunk = bareCrFiles.slice(i, i + CHUNK);
-  const r = parseQ(chunk, CHUNK_TIMEOUT_MS);
-  const failure = classifyFailure(r);
-  if (!failure) {
-    for (const line of (r.stdout || '').split('\n')) {
-      if (/^\S+\.org\t/.test(line)) bareCrErrorCount++;
-    }
-    continue;
-  }
-  for (const fp of chunk) {
-    const r1 = parseQ([fp], SINGLE_TIMEOUT_MS);
-    const f1 = classifyFailure(r1);
-    if (f1 === 'RUNAWAY') runawayFiles.push(fp);
-    else if (f1 === 'OOM_SUSPECT') oomFiles.push(fp);
-    else if (/^\S+\.org\t/.test(r1.stdout || '')) bareCrErrorCount++;
-  }
-}
-process.stdout.write(`bare-CR (known, not gated): ${bareCrFiles.length} inputs, ${bareCrErrorCount} ERROR/MISSING\n`);
 
 // ---- report ---------------------------------------------------------------
 function signatureOf(tree) {
