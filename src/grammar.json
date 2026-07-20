@@ -1080,13 +1080,8 @@
                   "type": "FIELD",
                   "name": "format",
                   "content": {
-                    "type": "ALIAS",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "src_block_language"
-                    },
-                    "named": true,
-                    "value": "export_format"
+                    "type": "SYMBOL",
+                    "name": "export_format"
                   }
                 }
               ]
@@ -1103,8 +1098,16 @@
               "type": "SEQ",
               "members": [
                 {
-                  "type": "PATTERN",
-                  "value": "[ \\t]+"
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "PATTERN",
+                      "value": "[ \\t]+"
+                    },
+                    {
+                      "type": "BLANK"
+                    }
+                  ]
                 },
                 {
                   "type": "FIELD",
@@ -1229,6 +1232,10 @@
     "block_switches": {
       "type": "SYMBOL",
       "name": "_block_switches"
+    },
+    "export_format": {
+      "type": "SYMBOL",
+      "name": "_export_format"
     },
     "latex_environment": {
       "type": "SEQ",
@@ -2467,6 +2474,10 @@
     {
       "type": "SYMBOL",
       "name": "_block_switches"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_export_format"
     }
   ],
   "inline": [],

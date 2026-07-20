@@ -13,7 +13,7 @@
 extern uint16_t organ_leading_indent_scalar(const uint8_t *p, uint32_t len);
 extern uint16_t organ_leading_indent_swar(const uint8_t *p, uint32_t len);
 
-#define N_EXTERNALS (EXT_BLOCK_SWITCHES + 1)
+/* N_EXTERNALS comes from scanner.c's EXT__COUNT sentinel (included above). */
 
 typedef struct {
     TSLexer lexer;

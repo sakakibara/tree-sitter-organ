@@ -459,6 +459,11 @@
     }
   },
   {
+    "type": "export_format",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "fixed_width",
     "named": true,
     "fields": {},
@@ -1687,10 +1692,6 @@
   },
   {
     "type": "drawer_name",
-    "named": true
-  },
-  {
-    "type": "export_format",
     "named": true
   },
   {

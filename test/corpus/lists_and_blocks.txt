@@ -766,7 +766,7 @@ x
       (block_header_args))))
 
 ==================
-Export format followed by junk keeps the export block
+Export format followed by junk has no format, whole tail is header args
 ==================
 #+begin_export html <b>
 x
@@ -777,5 +777,4 @@ x
 (document
   (zeroth_section
     (export_block
-      (export_format)
       (block_header_args))))

@@ -83,7 +83,15 @@ enum OrgExternal {
     EXT_DIARY_SEXP_BODY,         /* diary sexp body up to the line's last `)` */
     EXT_FORMULA_LINE,            /* `#+TBLFM:` prefix (name confirmed here, not JS) */
     EXT_BLOCK_SWITCHES,          /* `-n 20 -r -l "fmt"` run after src/example language */
+    EXT_EXPORT_FORMAT,           /* export-block backend, valid only if nothing but
+                                   * trailing whitespace follows it to end of line */
+    EXT__COUNT,                  /* sentinel - keep last; not a real external symbol */
 };
+
+/* Number of real external symbols (excludes the EXT__COUNT sentinel
+ * itself).  Anchored to the enum so a symbol appended without bumping
+ * some separate manual constant cannot silently desync. */
+#define N_EXTERNALS ((int)EXT__COUNT)
 
 /* Map prepass LineTokenType → tree-sitter external symbol (non-heading types). */
 static int prepass_to_external(LineTokenType t) {
@@ -826,6 +834,33 @@ static bool scan_block_switches(TSLexer *lexer) {
     return any;
 }
 
+/* Export-block backend name (`html`, `latex`, ...): a single
+ * non-whitespace run, valid ONLY when nothing but whitespace follows
+ * it to end of line - mirrors Emacs's org-element-export-block-parser,
+ * whose backend regex group is anchored `[ \t]+(\S-+))?[ \t]*$` against
+ * the whole line. `#+begin_export html <b>` therefore has no backend
+ * at all in Emacs (:type nil): the entire tail, "html <b>", falls
+ * through to block_header_args instead of splitting into a format plus
+ * leftover. Declining (false) here with no mark_end reached discards
+ * all movement, same rollback-on-false contract as every other
+ * external in this file. */
+static bool scan_export_format(TSLexer *lexer) {
+    if (lexer->lookahead == ' ' || lexer->lookahead == '\t'
+        || lexer->lookahead == '\r' || lexer->lookahead == '\n'
+        || lexer->eof(lexer)) return false;
+    while (!lexer->eof(lexer) && lexer->lookahead != ' '
+           && lexer->lookahead != '\t' && lexer->lookahead != '\r'
+           && lexer->lookahead != '\n')
+        lexer->advance(lexer, false);
+    lexer->mark_end(lexer);
+    while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
+        lexer->advance(lexer, false);
+    if (!lexer->eof(lexer) && lexer->lookahead != '\r'
+        && lexer->lookahead != '\n')
+        return false;
+    return true;
+}
+
 /* -----------------------------------------------------------------------
  * Main scanner
  * --------------------------------------------------------------------- */
@@ -948,7 +983,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         return true;
     }
 
-    /* ── Priority 0a: block_switches run after a src/example block's
+    /* -- Priority 0a: block_switches run after a src/example block's
      * language (or block-open, for example_block). See
      * scan_block_switches for why this is external rather than JS
      * regex tokens. */
@@ -958,6 +993,13 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             lexer->result_symbol = EXT_BLOCK_SWITCHES;
             return true;
         }
+    }
+
+    /* -- Priority 0a: export-block backend name. See scan_export_format
+     * for why this can't just reuse src_block_language's catch-all. */
+    if (valid_symbols[EXT_EXPORT_FORMAT] && scan_export_format(lexer)) {
+        lexer->result_symbol = EXT_EXPORT_FORMAT;
+        return true;
     }
 
     /* ── Priority 0a: list counter `[@N]` / checkbox `[ ]`. Both fire
