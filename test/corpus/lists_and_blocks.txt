@@ -1020,3 +1020,81 @@ SCHEDULED:* garbage not a timestamp
   (zeroth_section
     (latex_environment
       (latexenv_name))))
+
+==================
+A lesser block's close line with trailing #+TBLFM: content is recognized as a formula sibling, not absorbed or ERRORed (Emacs: the whole thing is one paragraph instead - trailing content on a close line invalidates the close entirely; kept here as a divergence, matching the already-accepted "unclosed container runs to EOF" precedent, since Emacs never treats a container as a real structural element without a clean close line either)
+==================
+#+begin_example
+body
+#+end_example  #+TBLFM: $1=1
+
+---
+
+(document
+  (zeroth_section
+    (example_block)
+    (formula
+      (directive_name)
+      (directive_value))))
+
+==================
+An indented src block's close line with trailing #+CAPTION: content is recognized as an affiliated-keyword sibling
+==================
+  #+begin_src sh
+  code
+  #+end_src  #+CAPTION: cap
+
+---
+
+(document
+  (zeroth_section
+    (src_block
+      (src_block_language))
+    (affiliated_keyword
+      (directive_name)
+      (directive_value))))
+
+==================
+A lesser block's close line with trailing content shaped like another block open starts that new (unclosed, runs-to-EOF) block
+==================
+#+begin_example
+body
+#+end_example  #+begin_src
+
+---
+
+(document
+  (zeroth_section
+    (example_block)
+    (src_block)))
+
+==================
+A lesser block's close line with trailing table-row content stays plain text, not an ERROR (table rows require column 0; mid-line here they have no table slot)
+==================
+#+begin_src sh
+code
+#+end_src  | a | b |
+
+---
+
+(document
+  (zeroth_section
+    (src_block
+      (src_block_language))
+    (paragraph)))
+
+==================
+A verse block's close line with trailing #+TBLFM: content is recognized as a formula sibling
+==================
+#+begin_verse
+x
+#+end_verse  #+TBLFM: $1=1
+
+---
+
+(document
+  (zeroth_section
+    (verse_block)
+    (formula
+      (directive_name)
+      (directive_value))))

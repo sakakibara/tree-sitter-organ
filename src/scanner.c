@@ -2686,9 +2686,27 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             }
         }
 
-        /* Keyword / affiliated keyword: `#+` prefix at line start. */
+        /* Keyword / affiliated keyword: `#+` prefix, optionally indented.
+         * `ws_only_before` (not a bare `line_len == 2`) matches the
+         * `lblock_name_offset`/MARK_COLON precedent a few lines below and
+         * above: without it, this only fired when "#+" were literally
+         * the line's first two bytes, so an indented generic keyword
+         * (not "#+begin_"/"#+end_", which lblock_name_offset already
+         * handles indent-tolerantly) fell through to the default
+         * whole-line mark_end() - fine for a genuinely fresh, indented
+         * top-level line (Priority 4c's list-open dispatch intercepts
+         * those first and has its own indent-tolerant `#+` check), but
+         * not for one reached via a SECOND scan mid-line (e.g. trailing
+         * content after a lesser-block's `#+end_NAME` close, which is
+         * never at column 0): there `get_column() == 0` is false, so
+         * Priority 4c never fires and this was the only remaining `#+`
+         * detector - the resulting whole-line-consuming external token
+         * left nothing for the JS-side `directive_name`/`directive_value`
+         * fields to match. */
         if (mark_kind == MARK_NONE
-            && line_len == 2 && line_buf[0] == '#' && line_buf[1] == '+') {
+            && line_len >= 2 && line_buf[line_len - 1] == '+'
+            && line_buf[line_len - 2] == '#'
+            && ws_only_before(line_buf, line_len - 2)) {
             lexer->mark_end(lexer);
             mark_kind = MARK_HASH;
             have_prefix_mark = true;
@@ -2846,6 +2864,26 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         }
         prepass_scope_restore(s->prepass, snap);
         return false;
+    }
+
+    /* Table lines with no table slot here stay paragraph text - the
+     * list-item-continuation dispatch already has this exact fallback
+     * (TT_TABLE_ROW/TT_TABLE_RULE deliberately aren't in
+     * prepass_to_external's map, since a real table row is handled
+     * cell-by-cell via dedicated Priority 4a/4b tokens instead), but
+     * this column-0 dispatch never did: genuine top-level table content
+     * always has EXT_TABLE_ROW_START offered via Priority 4b at column
+     * 0, so the gap was unreachable until a SECOND, mid-line scan (not
+     * at column 0, so Priority 4b's own `|`-at-lookahead check never
+     * gets a turn) reads a table-row-shaped line with no table slot -
+     * e.g. trailing `| a | b |` on a lesser-block's close line. Without
+     * this, `sym < 0` below hard-fails since prepass_to_external has no
+     * mapping for either type. */
+    if ((r.type == TT_TABLE_ROW || r.type == TT_TABLE_RULE)
+        && valid_symbols[EXT_INLINE_CONTENT_LINE]) {
+        lexer->mark_end(lexer);
+        lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
+        return true;
     }
 
     /* Original r.type, before the CLOCK/PLANNING promotion below can
