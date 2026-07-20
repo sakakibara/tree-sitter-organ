@@ -1730,6 +1730,54 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                 lexer->result_symbol = EXT_PLAIN_LIST_CLOSE;
                 return true;
             }
+        } else if (level >= ORG_INLINETASK_MIN_LEVEL && at_line_start
+                   && prepass_scope_top(s->prepass) == SCOPE_INLINETASK
+                   && lexer->lookahead == ' ') {
+            /* A second 15+-star line while an inlinetask is already open
+             * either closes it (a real `org-inlinetask-END-regexp` match)
+             * or redefines it (Emacs: any other such line starts a new,
+             * sibling inlinetask) - peek past the mandatory space to tell
+             * the two apart, mirroring is_inlinetask_end_line's lenience
+             * (any horizontal whitespace run before/after the literal
+             * `END`).
+             *
+             * Unlike the free-form peeks elsewhere in this file, this one
+             * MUST end in a `return` on every path: mark_end is still at
+             * line start (set above), which only stays the correct token
+             * boundary as long as we either commit to it (`return true`,
+             * next scan restarts fresh from there) or abandon the whole
+             * candidate (`return false`, tree-sitter restores the pre-call
+             * position) - falling through to the ordinary `consumed_stars`
+             * path below would resume byte-buffering from wherever this
+             * peek left the lexer instead of right after the stars. */
+            lexer->advance(lexer, false);  /* the one mandatory space */
+            while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
+                lexer->advance(lexer, false);
+            bool is_close = false;
+            if (lexer->lookahead == 'E') {
+                lexer->advance(lexer, false);
+                if (lexer->lookahead == 'N') {
+                    lexer->advance(lexer, false);
+                    if (lexer->lookahead == 'D') {
+                        lexer->advance(lexer, false);
+                        while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
+                            lexer->advance(lexer, false);
+                        is_close = lexer->eof(lexer)
+                                 || lexer->lookahead == '\n'
+                                 || lexer->lookahead == '\r';
+                    }
+                }
+            }
+            if (is_close) {
+                if (!valid_symbols[EXT_INLINETASK_CLOSE]) return false;
+                if (lexer->lookahead == '\r') lexer->advance(lexer, false);
+                if (lexer->lookahead == '\n') lexer->advance(lexer, false);
+                lexer->mark_end(lexer);
+                prepass_scope_pop(s->prepass);
+                lexer->result_symbol = EXT_INLINETASK_CLOSE;
+                return true;
+            }
+            return close_innermost_scope(s, lexer, valid_symbols);
         }
         /* Not a heading OR fell through (lesser-block scope, etc.).
          * We already advanced past `level` stars; record so we can

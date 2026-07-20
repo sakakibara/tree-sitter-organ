@@ -163,3 +163,73 @@ SCHEDULED: <2026-01-01>
         (stars)
         (title))
       (paragraph))))
+
+==================
+A second inlinetask line without a matching END redefines the first (Emacs: two sibling inlinetasks, no ERROR)
+==================
+*************** T1
+*************** T2
+
+---
+
+(document
+  (zeroth_section
+    (inlinetask
+      (inlinetask_line
+        (stars)
+        (title)))
+    (inlinetask
+      (inlinetask_line
+        (stars)
+        (title)))))
+
+==================
+A bare star run with no trailing space is not inlinetask-shaped and stays body text
+==================
+*************** T1
+***************
+
+---
+
+(document
+  (zeroth_section
+    (inlinetask
+      (inlinetask_line
+        (stars)
+        (title))
+      (paragraph))))
+
+==================
+Inlinetask close tolerates extra internal and trailing horizontal whitespace around END
+==================
+*************** T1
+***************  END
+
+---
+
+(document
+  (zeroth_section
+    (inlinetask
+      (inlinetask_line
+        (stars)
+        (title)))))
+
+==================
+A star line whose title merely starts with END does not close - it redefines
+==================
+*************** T1
+*************** ENDx
+
+---
+
+(document
+  (zeroth_section
+    (inlinetask
+      (inlinetask_line
+        (stars)
+        (title)))
+    (inlinetask
+      (inlinetask_line
+        (stars)
+        (title)))))
+

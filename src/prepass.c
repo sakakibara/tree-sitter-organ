@@ -149,6 +149,20 @@ static int has_prefix_ci(const uint8_t *p, uint32_t len, const char *kw) {
     return 1;
 }
 
+/* Emacs `org-inlinetask-END-regexp` is `^\*{N,}[ \t]+END[ \t]*$` -
+ * any run of horizontal whitespace both before and after the literal
+ * `END`, not just the single space already consumed to identify the
+ * line as inlinetask-shaped. `pos` starts right after that one
+ * mandatory space. */
+static int is_inlinetask_end_line(const uint8_t *line, uint32_t line_len,
+                                  uint32_t pos) {
+    while (pos < line_len && (line[pos] == ' ' || line[pos] == '\t')) pos++;
+    if (line_len - pos < 3 || memcmp(line + pos, "END", 3) != 0) return 0;
+    pos += 3;
+    while (pos < line_len && (line[pos] == ' ' || line[pos] == '\t')) pos++;
+    return pos == line_len;
+}
+
 static int is_planning(const uint8_t *p, uint32_t rem) {
     static const char *KWS[] = { "scheduled:", "deadline:", "closed:" };
     for (int i = 0; i < 3; i++) {
@@ -408,9 +422,8 @@ static LineTokenType classify_line(struct prepass_state *s,
             ScopeKind top = scope_top(s);
             if (top != SCOPE_LBLOCK && top != SCOPE_LATEXENV) {
                 uint32_t after_star = i + 1;
-                if (line_len - after_star == 3
-                    && memcmp(line + after_star, "END", 3) == 0
-                    && top == SCOPE_INLINETASK) {
+                if (top == SCOPE_INLINETASK
+                    && is_inlinetask_end_line(line, line_len, after_star)) {
                     scope_pop(s);
                     return TT_INLINETASK_CLOSE;
                 }

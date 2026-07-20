@@ -480,6 +480,66 @@ static void test_blank_line_stays_body_in_lblock_and_latexenv(void) {
     prepass_index_free(ix);
 }
 
+/* A second 15+-star line while an inlinetask is already open must not
+ * fall through to the ordinary star-counting path with the lexer
+ * already advanced past the peek for the END check - that resumes
+ * byte-buffering from the wrong position and corrupts every
+ * subsequent well-formed inlinetask (caught as 5 regressions in
+ * `make test` during development). Pins both outcomes of the peek at
+ * the scan_impl level: a non-END second line closes the first
+ * inlinetask zero-width (mark stays at line start) so it can be
+ * redefined as a sibling; a real END line - even with extra internal/
+ * trailing horizontal whitespace org-inlinetask-END-regexp tolerates -
+ * closes it by consuming the whole line. */
+static void test_second_inlinetask_line_closes_first_correctly(void) {
+    ScannerState *s =
+        (ScannerState *)tree_sitter_org_external_scanner_create();
+    {
+        const char *line = "*************** T1";
+        prepass_classify_line(s->prepass, (const uint8_t *)line,
+                              (uint32_t)strlen(line));
+        CHECK(prepass_scope_top(s->prepass) == SCOPE_INLINETASK);
+    }
+    bool valid[N_EXTERNALS];
+    memset(valid, false, sizeof(valid));
+    valid[EXT_INLINETASK_CLOSE] = true;
+
+    MockLexer m;
+    mock_init(&m, "*************** T2\n");
+    bool ok = tree_sitter_org_external_scanner_scan(s, &m.lexer, valid);
+    CHECK(ok == true);
+    CHECK(m.lexer.result_symbol == EXT_INLINETASK_CLOSE);
+    CHECK(m.mark == 0);   /* zero-width: redefinition, not a real close */
+    CHECK(prepass_scope_top(s->prepass) == SCOPE_NONE);
+
+    tree_sitter_org_external_scanner_destroy(s);
+}
+
+static void test_inlinetask_close_tolerates_extra_whitespace(void) {
+    ScannerState *s =
+        (ScannerState *)tree_sitter_org_external_scanner_create();
+    {
+        const char *line = "*************** T1";
+        prepass_classify_line(s->prepass, (const uint8_t *)line,
+                              (uint32_t)strlen(line));
+        CHECK(prepass_scope_top(s->prepass) == SCOPE_INLINETASK);
+    }
+    bool valid[N_EXTERNALS];
+    memset(valid, false, sizeof(valid));
+    valid[EXT_INLINETASK_CLOSE] = true;
+
+    MockLexer m;
+    const char *doc = "***************  END\n";
+    mock_init(&m, doc);
+    bool ok = tree_sitter_org_external_scanner_scan(s, &m.lexer, valid);
+    CHECK(ok == true);
+    CHECK(m.lexer.result_symbol == EXT_INLINETASK_CLOSE);
+    CHECK(m.mark == strlen(doc));   /* whole-line token: a real close */
+    CHECK(prepass_scope_top(s->prepass) == SCOPE_NONE);
+
+    tree_sitter_org_external_scanner_destroy(s);
+}
+
 int main(void) {
     test_deserialize_zero_resets_state();
     test_deserialize_corrupt_buffer_resets_state();
@@ -495,6 +555,8 @@ int main(void) {
     test_heading_stack_push_is_bounded();
     test_prepass_index_scan_and_edit();
     test_blank_line_stays_body_in_lblock_and_latexenv();
+    test_second_inlinetask_line_closes_first_correctly();
+    test_inlinetask_close_tolerates_extra_whitespace();
     if (failures > 0) {
         fprintf(stderr, "scanner_tests: %d failure(s)\n", failures);
         return 1;
