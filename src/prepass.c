@@ -361,7 +361,19 @@ static LineTokenType classify_line(struct prepass_state *s,
 
     if (line_len > 0 && line[line_len - 1] == '\r') line_len--;
 
-    if (indent >= line_len) return TT_EMPTY;
+    if (indent >= line_len) {
+        /* A lesser-block / latex-environment body is an opaque external
+         * token (`_lblock_body` / `_latexenv_body` carry no sub-parsed
+         * children), unlike a drawer's or greater block's body which
+         * flows through the generic `_content_line` set that already
+         * accepts `_empty_line` - a blank line here must stay body
+         * content instead of becoming a stray `_empty_line` the
+         * grammar has no slot for at this position. */
+        ScopeKind top = scope_top(s);
+        if (top == SCOPE_LBLOCK)   return TT_LBLOCK_BODY;
+        if (top == SCOPE_LATEXENV) return TT_LATEXENV_BODY;
+        return TT_EMPTY;
+    }
 
     if (indent == 0 && line_len >= 5 && line[0] == '['
         && line[1] == 'f' && line[2] == 'n' && line[3] == ':') {

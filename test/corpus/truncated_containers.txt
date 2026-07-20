@@ -94,6 +94,17 @@ foo
         (src_block_language)))))
 
 ==================
+Unclosed src block with a trailing blank line stays inside the block body
+==================
+#+begin_src
+
+---
+
+(document
+  (zeroth_section
+    (src_block)))
+
+==================
 Unclosed greater block runs to EOF
 ==================
 * H

@@ -452,6 +452,34 @@ static void test_prepass_index_scan_and_edit(void) {
     prepass_index_free(ix);
 }
 
+/* A blank line inside an unclosed lesser block / latex environment must
+ * stay opaque body content (TT_LBLOCK_BODY / TT_LATEXENV_BODY), not
+ * TT_EMPTY - `_lblock_body` / `_latexenv_body` carry no sub-parsed
+ * children, so a stray `_empty_line` token has no grammar slot there
+ * and the parse ERRORs. Emacs verdict: unaffected (both are already
+ * the accepted "runs to EOF" divergence for the unclosed case); this
+ * only fixes the crash, not that divergence. */
+static void test_blank_line_stays_body_in_lblock_and_latexenv(void) {
+    prepass_index_t *ix = prepass_index_new();
+
+    const char *src_doc = "#+begin_src\n\n";
+    LineToken toks[4];
+    size_t n = prepass_index_scan(ix, (const uint8_t *)src_doc,
+                                  strlen(src_doc), toks, 4);
+    CHECK(n == 2);
+    CHECK(toks[0].type == TT_LBLOCK_OPEN);
+    CHECK(toks[1].type == TT_LBLOCK_BODY);
+
+    const char *latex_doc = "\\begin{align}\n\n";
+    n = prepass_index_scan(ix, (const uint8_t *)latex_doc,
+                           strlen(latex_doc), toks, 4);
+    CHECK(n == 2);
+    CHECK(toks[0].type == TT_LATEXENV_OPEN);
+    CHECK(toks[1].type == TT_LATEXENV_BODY);
+
+    prepass_index_free(ix);
+}
+
 int main(void) {
     test_deserialize_zero_resets_state();
     test_deserialize_corrupt_buffer_resets_state();
@@ -466,6 +494,7 @@ int main(void) {
     test_star_counter_does_not_wrap();
     test_heading_stack_push_is_bounded();
     test_prepass_index_scan_and_edit();
+    test_blank_line_stays_body_in_lblock_and_latexenv();
     if (failures > 0) {
         fprintf(stderr, "scanner_tests: %d failure(s)\n", failures);
         return 1;

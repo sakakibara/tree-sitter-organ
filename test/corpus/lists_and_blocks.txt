@@ -422,6 +422,35 @@ no language
     (src_block)))
 
 ==================
+src_block with a blank line in its body stays inside the block
+==================
+#+begin_src
+
+body after a blank line
+#+end_src
+
+---
+
+(document
+  (zeroth_section
+    (src_block)))
+
+==================
+Latex environment with a blank line in its body stays inside the environment
+==================
+\begin{align}
+
+x = 1
+\end{align}
+
+---
+
+(document
+  (zeroth_section
+    (latex_environment
+      (latexenv_name))))
+
+==================
 example_block
 ==================
 #+begin_example
