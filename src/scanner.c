@@ -1583,12 +1583,21 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
 
     /* ── Priority 1.6: drain queued list open (zero-width). ──────────── */
     if (s->pending_list_open_indent >= 0 && valid_symbols[EXT_PLAIN_LIST_OPEN]) {
-        lexer->mark_end(lexer);
-        if (s->list_depth < ORG_LIST_STACK)
-            s->list_indents[s->list_depth++] = (uint8_t)s->pending_list_open_indent;
+        /* The push that queued this (Priority 4c) only ever defers an
+         * open that already had cap headroom at that point, and closes
+         * drained since then can only have grown it - this can't fail
+         * in practice.  Guarded anyway so the invariant is enforced at
+         * the point of emission, not merely assumed: never emit
+         * EXT_PLAIN_LIST_OPEN without a backing push, same discipline
+         * as the immediate-open site below. */
+        int16_t open_indent = s->pending_list_open_indent;
         s->pending_list_open_indent = -1;
-        lexer->result_symbol = EXT_PLAIN_LIST_OPEN;
-        return true;
+        if (s->list_depth < ORG_LIST_STACK) {
+            lexer->mark_end(lexer);
+            s->list_indents[s->list_depth++] = (uint8_t)open_indent;
+            lexer->result_symbol = EXT_PLAIN_LIST_OPEN;
+            return true;
+        }
     }
 
     /* ── Priority 2: emit queued _heading_open (covers the stars). ──
@@ -2012,32 +2021,48 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             bool need_open = (depth == 0
                               || s->list_indents[depth - 1] < cur_indent);
 
-            /* Emit close first (zero-width — mark_end is still at start). */
-            if (closes_needed > 0 && valid_symbols[EXT_PLAIN_LIST_CLOSE]) {
-                s->pending_list_closes = closes_needed - 1;
-                s->pending_list_open_indent = need_open ? (int16_t)cur_indent : -1;
-                s->list_depth--;
-                lexer->result_symbol = EXT_PLAIN_LIST_CLOSE;
-                return true;
+            /* `depth` here is what list_depth will be after any closes
+             * above are applied - a fresh push only overflows the stack
+             * when it's already at cap with zero closes pending (any
+             * closes_needed > 0 leaves room, since it strictly shrinks
+             * depth first). At the cap, do not open a nesting level the
+             * stack can't represent: fall through past this whole block
+             * to the "not a real bullet" path below, which classifies
+             * the bullet-shaped text as plain continuation content of
+             * the deepest still-open (capped) item instead - the same
+             * no-slot-degrades-to-content discipline as the prepass
+             * scope stack. */
+            bool would_overflow = need_open && depth >= ORG_LIST_STACK;
+
+            if (!would_overflow) {
+                /* Emit close first (zero-width — mark_end is still at start). */
+                if (closes_needed > 0 && valid_symbols[EXT_PLAIN_LIST_CLOSE]) {
+                    s->pending_list_closes = closes_needed - 1;
+                    s->pending_list_open_indent = need_open ? (int16_t)cur_indent : -1;
+                    s->list_depth--;
+                    lexer->result_symbol = EXT_PLAIN_LIST_CLOSE;
+                    return true;
+                }
+
+                /* No closes; emit open if needed (zero-width). */
+                if (need_open && valid_symbols[EXT_PLAIN_LIST_OPEN]) {
+                    if (s->list_depth < ORG_LIST_STACK)
+                        s->list_indents[s->list_depth++] = cur_indent;
+                    lexer->result_symbol = EXT_PLAIN_LIST_OPEN;
+                    return true;
+                }
+
+                /* No close, no open — emit bullet directly.  Update mark_end to
+                 * end of the consumed bytes. */
+                if (valid_symbols[EXT_LIST_ITEM_BULLET]) {
+                    lexer->mark_end(lexer);
+                    lexer->result_symbol = EXT_LIST_ITEM_BULLET;
+                    return true;
+                }
             }
 
-            /* No closes; emit open if needed (zero-width). */
-            if (need_open && valid_symbols[EXT_PLAIN_LIST_OPEN]) {
-                if (s->list_depth < ORG_LIST_STACK)
-                    s->list_indents[s->list_depth++] = cur_indent;
-                lexer->result_symbol = EXT_PLAIN_LIST_OPEN;
-                return true;
-            }
-
-            /* No close, no open — emit bullet directly.  Update mark_end to
-             * end of the consumed bytes. */
-            if (valid_symbols[EXT_LIST_ITEM_BULLET]) {
-                lexer->mark_end(lexer);
-                lexer->result_symbol = EXT_LIST_ITEM_BULLET;
-                return true;
-            }
-
-            /* Fall through if none valid (shouldn't happen in well-formed input). */
+            /* Fall through if none valid (shouldn't happen in well-formed
+             * input), or if would_overflow degraded this line to content. */
         }
 
         /* Not a real bullet.  A continuation line must be indented

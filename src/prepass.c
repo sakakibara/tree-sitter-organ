@@ -10,8 +10,17 @@ struct prepass_state {
     uint8_t           depth;
 };
 
-static void scope_push(struct prepass_state *s, ScopeKind kind) {
-    if (s->depth < PREPASS_STACK_MAX) s->stack[s->depth++] = (uint8_t)kind;
+/* Returns 1 on success, 0 when the stack is already full (the push is
+ * dropped).  classify_line's own container-open call sites check this
+ * and degrade to TT_BODY instead of returning an *_OPEN type the stack
+ * can't back - a dropped-but-unreported push there would desync the
+ * scope model from the token stream and produce an ERROR. */
+static int scope_push(struct prepass_state *s, ScopeKind kind) {
+    if (s->depth < PREPASS_STACK_MAX) {
+        s->stack[s->depth++] = (uint8_t)kind;
+        return 1;
+    }
+    return 0;
 }
 
 static ScopeKind scope_top(const struct prepass_state *s) {
@@ -448,7 +457,7 @@ static LineTokenType classify_line(struct prepass_state *s,
                     return TT_INLINETASK_CLOSE;
                 }
                 if (top != SCOPE_INLINETASK) {
-                    scope_push(s, SCOPE_INLINETASK);
+                    if (!scope_push(s, SCOPE_INLINETASK)) return TT_BODY;
                 }
                 return TT_INLINETASK_OPEN;
             }
@@ -524,10 +533,10 @@ static LineTokenType classify_line(struct prepass_state *s,
              * Emacs, and is a greater block. */
             if (prepass_lblock_kind(trimmed, ns, ne)
                 && (ne == rem || trimmed[ne] == ' ' || trimmed[ne] == '\t')) {
-                scope_push(s, SCOPE_LBLOCK);
+                if (!scope_push(s, SCOPE_LBLOCK)) return TT_BODY;
                 return TT_LBLOCK_OPEN;
             }
-            scope_push(s, SCOPE_GBLOCK);
+            if (!scope_push(s, SCOPE_GBLOCK)) return TT_BODY;
             return TT_GBLOCK_OPEN;
         }
     }
@@ -539,7 +548,7 @@ static LineTokenType classify_line(struct prepass_state *s,
         uint32_t j = 8;
         while (j < rem && (trimmed[j] == ' ' || trimmed[j] == '\t')) j++;
         if (j < rem) {
-            scope_push(s, SCOPE_DYNBLOCK);
+            if (!scope_push(s, SCOPE_DYNBLOCK)) return TT_BODY;
             return TT_DYNBLOCK_OPEN;
         }
     }
@@ -547,7 +556,7 @@ static LineTokenType classify_line(struct prepass_state *s,
     {
         uint32_t ns, ne;
         if (parse_latexenv(trimmed, rem, 0, &ns, &ne)) {
-            scope_push(s, SCOPE_LATEXENV);
+            if (!scope_push(s, SCOPE_LATEXENV)) return TT_BODY;
             return TT_LATEXENV_OPEN;
         }
     }
@@ -575,13 +584,13 @@ static LineTokenType classify_line(struct prepass_state *s,
                  * look-ahead would otherwise re-scan the remaining
                  * lines once per nested `:PROPERTIES:` occurrence in a
                  * stacked run. */
-                scope_push(s, SCOPE_PROPDRAWER);
+                if (!scope_push(s, SCOPE_PROPDRAWER)) return TT_BODY;
                 return TT_PROPDRAWER_OPEN;
             }
             if (name_iequals(trimmed, ns, ne, "END")) {
                 return TT_BODY;
             }
-            scope_push(s, SCOPE_DRAWER);
+            if (!scope_push(s, SCOPE_DRAWER)) return TT_BODY;
             return TT_DRAWER_OPEN;
         }
     }
