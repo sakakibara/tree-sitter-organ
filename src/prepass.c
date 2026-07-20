@@ -504,7 +504,24 @@ static LineTokenType classify_line(struct prepass_state *s,
         if (is_drawer_line(trimmed, rem, &ns, &ne)) {
             /* `:PROPERTIES:` / `:END:` are case-insensitive in Emacs
              * via `case-fold-search = t` on org's regexes. */
-            if (name_iequals(trimmed, ns, ne, "PROPERTIES")) {
+            ScopeKind top = scope_top(s);
+            if (name_iequals(trimmed, ns, ne, "PROPERTIES")
+                && (top == SCOPE_NONE || top == SCOPE_INLINETASK)) {
+                /* A property drawer is only ever anchored directly under
+                 * a headline or inlinetask - Emacs's property-drawer
+                 * parser is never invoked as general content. A
+                 * `:PROPERTIES:` line reached while already inside
+                 * another container's body (a plain drawer, greater
+                 * block, dynamic block, ...) is just another nested
+                 * drawer with that literal name, same as any other:
+                 * verified against Emacs, nested inside a plain drawer
+                 * it flattens to paragraph text, nested inside a
+                 * greater block it becomes a generic `drawer`, never a
+                 * `property-drawer`. This also bounds a real quadratic
+                 * blow-up - the scanner's whole-body property-drawer
+                 * look-ahead would otherwise re-scan the remaining
+                 * lines once per nested `:PROPERTIES:` occurrence in a
+                 * stacked run. */
                 scope_push(s, SCOPE_PROPDRAWER);
                 return TT_PROPDRAWER_OPEN;
             }
