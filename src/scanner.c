@@ -2400,6 +2400,11 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         }
         int sym = prepass_to_external(rr.type);
         if (sym < 0) {
+            if (valid_symbols[EXT_INLINE_CONTENT_LINE]) {
+                lexer->mark_end(lexer);
+                lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
+                return true;
+            }
             prepass_scope_restore(s->prepass, snap);
             return false;
         }
