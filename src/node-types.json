@@ -31,6 +31,11 @@
     "fields": {}
   },
   {
+    "type": "block_header_args",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "block_switches",
     "named": true,
     "fields": {}
@@ -1661,10 +1666,6 @@
   {
     "type": "]",
     "named": false
-  },
-  {
-    "type": "block_header_args",
-    "named": true
   },
   {
     "type": "block_name",

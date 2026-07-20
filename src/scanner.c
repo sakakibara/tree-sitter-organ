@@ -182,6 +182,20 @@ typedef struct {
      * blanks terminate plain lists and footnote definitions. */
     uint8_t          blank_run;
 
+    /* tree-sitter's own `lexer->get_column()` resets to 0 only on a
+     * real `\n` byte, so it never resets on a bare-CR-only file (no
+     * `\n` anywhere) - the column keeps climbing across the whole
+     * document.  `bol_col` is the `get_column()` value we captured the
+     * last time a token committed all the way through a line
+     * terminator (any of `\r\n` / bare `\r` / bare `\n`); every
+     * column-0 ("start of the current physical line") check in this
+     * file compares against `bol_col` instead of literal 0.  On an
+     * LF/CRLF file `get_column()` already resets on its own, so
+     * `bol_col` stays 0 throughout and every such comparison degrades
+     * to the original `get_column() == 0` - this field only changes
+     * behavior for bare-CR input. */
+    uint32_t         bol_col;
+
     /* Per-instance line-read scratch (never serialized); keeps the
      * scanner reentrant across parser instances.  Must stay the
      * last members: scanner_state_clear memsets only up to here. */
@@ -252,9 +266,10 @@ unsigned tree_sitter_org_external_scanner_serialize(void *payload, char *buffer)
      *   [..]                      lblock_kind
      *   [..]                      at_item_def
      *   [..]                      blank_run
+     *   [.. 4 bytes LE]           bol_col
      *   [..]                      prepass scope stack (depth byte + entries)
      */
-    size_t hdr = 10u + (size_t)s->heading_depth + (size_t)s->list_depth;
+    size_t hdr = 14u + (size_t)s->heading_depth + (size_t)s->list_depth;
     if (hdr > cap) return 0;
 
     size_t pos = 0;
@@ -277,6 +292,11 @@ unsigned tree_sitter_org_external_scanner_serialize(void *payload, char *buffer)
     buf[pos++] = s->lblock_kind;
     buf[pos++] = s->at_item_def;
     buf[pos++] = s->blank_run;
+    /* uint32_t little-endian */
+    buf[pos++] = (uint8_t)(s->bol_col & 0xff);
+    buf[pos++] = (uint8_t)((s->bol_col >> 8) & 0xff);
+    buf[pos++] = (uint8_t)((s->bol_col >> 16) & 0xff);
+    buf[pos++] = (uint8_t)((s->bol_col >> 24) & 0xff);
 
     size_t pp_n = prepass_serialize(s->prepass, buf + pos, cap - pos);
     if (pp_n > cap - pos) return 0;
@@ -328,10 +348,13 @@ void tree_sitter_org_external_scanner_deserialize(void *payload,
     s->pending_list_open_indent =
         (int16_t)((uint16_t)buf[pos] | ((uint16_t)buf[pos + 1] << 8));
     pos += 2;
-    if (length < pos + 3) goto corrupt;
+    if (length < pos + 7) goto corrupt;
     s->lblock_kind = buf[pos++];
     s->at_item_def = buf[pos++];
     s->blank_run   = buf[pos++];
+    s->bol_col = (uint32_t)buf[pos] | ((uint32_t)buf[pos + 1] << 8)
+        | ((uint32_t)buf[pos + 2] << 16) | ((uint32_t)buf[pos + 3] << 24);
+    pos += 4;
 
     if (length <= pos) goto corrupt;
     if (!prepass_deserialize(s->prepass, buf + pos, (size_t)length - pos))
@@ -582,6 +605,21 @@ static inline void push_byte(uint8_t *buf, uint32_t cap, uint32_t *len,
  * matches no structural prefix test. */
 static inline uint8_t classify_byte(int32_t la) {
     return (la > 0 && la < 0x80) ? (uint8_t)la : 0x80;
+}
+
+/* A line terminator is `\r\n`, bare `\r`, or bare `\n` - every line-
+ * content read loop must stop at the first `\r` OR `\n` it sees so a
+ * bare-CR terminator is never absorbed as content. */
+static inline bool at_eol(TSLexer *lexer) {
+    return lexer->lookahead == '\n' || lexer->lookahead == '\r';
+}
+
+/* Advance past the terminator at the current position, collapsing a
+ * `\r\n` pair into a single terminator without requiring the `\n` a
+ * bare `\r` lacks. No-op when not sitting at one. */
+static inline void advance_eol(TSLexer *lexer) {
+    if (lexer->lookahead == '\r') lexer->advance(lexer, false);
+    if (lexer->lookahead == '\n') lexer->advance(lexer, false);
 }
 
 /* Peek past horizontal whitespace right after a `#+begin:` prefix to
@@ -902,7 +940,7 @@ static bool scan_block_switches(TSLexer *lexer) {
             need_sep = true;
         } else if (c == '"') {
             lexer->advance(lexer, false);
-            while (!lexer->eof(lexer) && lexer->lookahead != '\n'
+            while (!lexer->eof(lexer) && !at_eol(lexer)
                    && lexer->lookahead != '"')
                 lexer->advance(lexer, false);
             if (lexer->lookahead == '"') {
@@ -950,15 +988,16 @@ static bool scan_export_format(TSLexer *lexer) {
     return true;
 }
 
-/* Line terminator: [ \t]*CR?LF, or zero-width at EOF so EOF-truncated
- * lines close cleanly instead of erroring.  Must not consume anything
- * when it does not emit. */
+/* Line terminator: [ \t]*(CRLF|CR|LF), or zero-width at EOF so
+ * EOF-truncated lines close cleanly instead of erroring.  A bare CR
+ * (no following LF) terminates the line on its own, same as classic
+ * Mac line endings.  Must not consume anything when it does not
+ * emit. */
 static bool scan_line_end(TSLexer *lexer) {
     while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
         lexer->advance(lexer, false);
-    if (lexer->lookahead == '\r') lexer->advance(lexer, false);
-    if (lexer->lookahead == '\n') {
-        lexer->advance(lexer, false);
+    if (at_eol(lexer)) {
+        advance_eol(lexer);
         lexer->mark_end(lexer);
         lexer->result_symbol = EXT_LINE_END;
         return true;
@@ -1023,12 +1062,12 @@ static bool propdrawer_body_is_valid(TSLexer *lexer) {
         if (lexer->eof(lexer)) return true;
         uint32_t len = 0;
         bool line_has_nul = false;
-        while (!lexer->eof(lexer) && lexer->lookahead != '\n') {
+        while (!lexer->eof(lexer) && !at_eol(lexer)) {
             if (lexer->lookahead == 0) line_has_nul = true;
             if (len < ORG_LINE_BUF_MAX) buf[len++] = classify_byte(lexer->lookahead);
             lexer->advance(lexer, false);
         }
-        if (!lexer->eof(lexer)) lexer->advance(lexer, false);  /* consume '\n' */
+        advance_eol(lexer);
         PropdrawerLookahead v =
             prepass_propdrawer_lookahead(buf, len, line_has_nul);
         if (v == PROPDRAWER_LOOKAHEAD_DISQUALIFY) return false;
@@ -1154,8 +1193,10 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         }
         if (!any_non_ws) {
             if (valid_symbols[EXT_LINE_END] && !valid_symbols[EXT_EMPTY_LINE]
-                && scan_line_end(lexer))
+                && scan_line_end(lexer)) {
+                s->bol_col = lexer->get_column(lexer);
                 return true;
+            }
             if (!valid_symbols[EXT_EMPTY_LINE]) return false;
             /* Deferring to `$._empty_line` (see the guard above) means
              * just that - fall all the way out of this arm, past the
@@ -1216,14 +1257,13 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                 while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
                     lexer->advance(lexer, false);
                 lexer->mark_end(lexer);
-                if (lexer->lookahead == '\n' || lexer->lookahead == '\r'
-                    || lexer->eof(lexer)) {
+                if (at_eol(lexer) || lexer->eof(lexer)) {
                     /* Empty same-line definition: pull the lone newline into
                      * the separator so the item ends with no paragraph (or
                      * the definition continues on the next line). */
-                    if (lexer->lookahead == '\r') lexer->advance(lexer, false);
-                    if (lexer->lookahead == '\n') lexer->advance(lexer, false);
+                    advance_eol(lexer);
                     lexer->mark_end(lexer);
+                    s->bol_col = lexer->get_column(lexer);
                 } else {
                     /* Real definition on this line — the next scan emits it. */
                     s->at_item_def = 1;
@@ -1246,11 +1286,11 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
          * definition's first paragraph line.  At EOF there is nothing to
          * consume, so fall through and let the item end with no paragraph. */
         if (valid_symbols[EXT_INLINE_CONTENT_LINE] && !lexer->eof(lexer)) {
-            while (!lexer->eof(lexer) && lexer->lookahead != '\n')
+            while (!lexer->eof(lexer) && !at_eol(lexer))
                 lexer->advance(lexer, false);
-            if (!lexer->eof(lexer) && lexer->lookahead == '\n')
-                lexer->advance(lexer, false);
+            advance_eol(lexer);
             lexer->mark_end(lexer);
+            s->bol_col = lexer->get_column(lexer);
             lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
             return true;
         }
@@ -1298,11 +1338,9 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             any = true;
         }
         /* No separator — the whole line is the first paragraph line. */
-        if (!lexer->eof(lexer) && lexer->lookahead == '\r')
-            lexer->advance(lexer, false);
-        if (!lexer->eof(lexer) && lexer->lookahead == '\n')
-            lexer->advance(lexer, false);
+        advance_eol(lexer);
         lexer->mark_end(lexer);
+        s->bol_col = lexer->get_column(lexer);
         lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
         return true;
     }
@@ -1646,7 +1684,10 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
      * file (_propdrawer_close etc.) leave later arms to re-examine
      * the same bytes. */
     if (valid_symbols[EXT_LINE_END] && !valid_symbols[EXT_EMPTY_LINE]) {
-        if (scan_line_end(lexer)) return true;
+        if (scan_line_end(lexer)) {
+            s->bol_col = lexer->get_column(lexer);
+            return true;
+        }
     }
 
     /* -- Priority 3: EOF - close all remaining open lists, then any
@@ -1680,7 +1721,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
 
     if (s->list_depth > 0
         && valid_symbols[EXT_PLAIN_LIST_CLOSE]
-        && lexer->get_column(lexer) == 0) {
+        && lexer->get_column(lexer) == s->bol_col) {
         int32_t la = lexer->lookahead;
         bool maybe_bullet = (la == ' ' || la == '\t'
                               || la == '-' || la == '+'
@@ -1710,7 +1751,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                        || valid_symbols[EXT_TABLE_CELL_CONTENT]
                        || valid_symbols[EXT_TABLE_ROW_END];
     if (lexer->lookahead == '*' && !mid_table_row) {
-        bool at_line_start = lexer->get_column(lexer) == 0;
+        bool at_line_start = lexer->get_column(lexer) == s->bol_col;
 
         /* Call mark_end before advancing, so that if we emit a
          * _heading_close the token is zero-width and the next scan()
@@ -1830,9 +1871,9 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                  * A future change to the inlinetask production must keep
                  * this invariant or revisit this branch. */
                 if (!valid_symbols[EXT_INLINETASK_CLOSE]) return false;
-                if (lexer->lookahead == '\r') lexer->advance(lexer, false);
-                if (lexer->lookahead == '\n') lexer->advance(lexer, false);
+                advance_eol(lexer);
                 lexer->mark_end(lexer);
+                s->bol_col = lexer->get_column(lexer);
                 prepass_scope_pop(s->prepass);
                 lexer->result_symbol = EXT_INLINETASK_CLOSE;
                 return true;
@@ -1860,11 +1901,10 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             || valid_symbols[EXT_TABLE_CELL_CONTENT]
             || valid_symbols[EXT_TABLE_ROW_END])) {
 
-        if ((lexer->lookahead == '\n' || lexer->lookahead == '\r')
-            && valid_symbols[EXT_TABLE_ROW_END]) {
-            if (lexer->lookahead == '\r') lexer->advance(lexer, false);
-            if (lexer->lookahead == '\n') lexer->advance(lexer, false);
+        if (at_eol(lexer) && valid_symbols[EXT_TABLE_ROW_END]) {
+            advance_eol(lexer);
             lexer->mark_end(lexer);
+            s->bol_col = lexer->get_column(lexer);
             lexer->result_symbol = EXT_TABLE_ROW_END;
             return true;
         }
@@ -1907,12 +1947,11 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         uint32_t row_len = 1;
         row_buf[0] = '|';
         while (!lexer->eof(lexer)
-               && lexer->lookahead != '\n'
+               && !at_eol(lexer)
                && row_len < ORG_LINE_BUF_MAX) {
             row_buf[row_len++] = classify_byte(lexer->lookahead);
             lexer->advance(lexer, false);
         }
-        if (row_len > 0 && row_buf[row_len - 1] == '\r') row_len--;
 
         PrepassScopeSnapshot snap = prepass_scope_snapshot(s->prepass);
         LineClassification r =
@@ -1924,9 +1963,9 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             return true;
         }
         if (r.type == TT_TABLE_RULE && valid_symbols[EXT_TABLE_RULE_LINE]) {
-            if (!lexer->eof(lexer) && lexer->lookahead == '\n')
-                lexer->advance(lexer, false);
+            advance_eol(lexer);
             lexer->mark_end(lexer);
+            s->bol_col = lexer->get_column(lexer);
             lexer->result_symbol = EXT_TABLE_RULE_LINE;
             return true;
         }
@@ -1950,7 +1989,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
      * was then mis-parsed (e.g. detached from the item as a list-ending
      * line). */
     if (consumed_stars == 0
-        && lexer->get_column(lexer) == 0
+        && lexer->get_column(lexer) == s->bol_col
         && (valid_symbols[EXT_LIST_ITEM_BULLET]
             || valid_symbols[EXT_PLAIN_LIST_OPEN]
             || valid_symbols[EXT_PLAIN_LIST_CLOSE])
@@ -2098,12 +2137,11 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             if (ll < ORG_LINE_BUF_MAX) line_buf2[ll++] = '|';
             lexer->advance(lexer, false);
             lexer->mark_end(lexer);   /* row token = indent + leading pipe */
-            while (!lexer->eof(lexer) && lexer->lookahead != '\n'
+            while (!lexer->eof(lexer) && !at_eol(lexer)
                    && ll < ORG_LINE_BUF_MAX) {
                 line_buf2[ll++] = classify_byte(lexer->lookahead);
                 lexer->advance(lexer, false);
             }
-            if (ll > 0 && line_buf2[ll - 1] == '\r') ll--;
             PrepassScopeSnapshot tsnap = prepass_scope_snapshot(s->prepass);
             LineClassification tr =
                 prepass_classify_line(s->prepass, line_buf2, ll);
@@ -2112,9 +2150,9 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                 return true;
             }
             if (tr.type == TT_TABLE_RULE && valid_symbols[EXT_TABLE_RULE_LINE]) {
-                if (!lexer->eof(lexer) && lexer->lookahead == '\n')
-                    lexer->advance(lexer, false);
+                advance_eol(lexer);
                 lexer->mark_end(lexer);
+                s->bol_col = lexer->get_column(lexer);
                 lexer->result_symbol = EXT_TABLE_RULE_LINE;
                 return true;
             }
@@ -2126,7 +2164,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         bool have_b2_mark = false;
         int  b2_forced_sym = -1;
         uint32_t b2_kw_colon = 0;
-        while (!lexer->eof(lexer) && lexer->lookahead != '\n'
+        while (!lexer->eof(lexer) && !at_eol(lexer)
                && ll < ORG_LINE_BUF_MAX) {
             if (lexer->lookahead == 0) saw_nul = true;
             line_buf2[ll++] = classify_byte(lexer->lookahead);
@@ -2243,9 +2281,17 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                 }
             }
         }
-        if (ll > 0 && line_buf2[ll - 1] == '\r') ll--;
-        if (!lexer->eof(lexer) && lexer->lookahead == '\n')
-            lexer->advance(lexer, false);
+        advance_eol(lexer);
+        /* `line_end_col` is the column right past the terminator this
+         * loop just consumed - the value `bol_col` must take on
+         * whenever a branch below commits a token whose mark_end lands
+         * here rather than at an earlier prefix mark (MARK_COLON,
+         * MARK_LBLOCK, ...).  `mark_is_line_end` starts out matching
+         * `have_b2_mark` (no prefix mark means the shared mark_end two
+         * lines up already sits here) and flips to true wherever a
+         * later branch explicitly re-marks at the current position. */
+        uint32_t line_end_col = lexer->get_column(lexer);
+        bool mark_is_line_end = !have_b2_mark;
         if (!have_b2_mark) lexer->mark_end(lexer);
 
         /* R4: b2_forced_sym is always CLOCK/PLANNING, both parsed by a
@@ -2254,6 +2300,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         if (saw_nul && b2_forced_sym >= 0
             && valid_symbols[EXT_INLINE_CONTENT_LINE]) {
             lexer->mark_end(lexer);
+            s->bol_col = line_end_col;
             lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
             return true;
         }
@@ -2264,6 +2311,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                 && !planning_timestamp_follows(line_buf2, ll, b2_kw_colon)) {
                 if (!valid_symbols[EXT_INLINE_CONTENT_LINE]) return false;
                 lexer->mark_end(lexer);
+                s->bol_col = line_end_col;
                 lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
                 return true;
             }
@@ -2272,6 +2320,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                 && !clock_line_is_valid(line_buf2, ll, b2_kw_colon)) {
                 if (!valid_symbols[EXT_INLINE_CONTENT_LINE]) return false;
                 lexer->mark_end(lexer);
+                s->bol_col = line_end_col;
                 lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
                 return true;
             }
@@ -2287,6 +2336,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                  || b2_forced_sym == EXT_CLOCK_LINE)
                 && valid_symbols[EXT_INLINE_CONTENT_LINE]) {
                 lexer->mark_end(lexer);
+                s->bol_col = line_end_col;
                 lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
                 return true;
             }
@@ -2314,13 +2364,16 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             && valid_symbols[EXT_INLINE_CONTENT_LINE]) {
             prepass_scope_restore(s->prepass, snap);
             lexer->mark_end(lexer);
+            s->bol_col = line_end_col;
             lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
             return true;
         }
         /* Close-line tokens with no JS-side tail cover the whole line. */
         if (rr.type == TT_DRAWER_CLOSE || rr.type == TT_PROPDRAWER_CLOSE
-            || rr.type == TT_GBLOCK_CLOSE || rr.type == TT_DYNBLOCK_CLOSE)
+            || rr.type == TT_GBLOCK_CLOSE || rr.type == TT_DYNBLOCK_CLOSE) {
             lexer->mark_end(lexer);
+            mark_is_line_end = true;
+        }
         if (rr.type == TT_LBLOCK_OPEN) {
             uint32_t off = lblock_name_offset(line_buf2, ll);
             uint8_t kind = off ? lblock_kind_at(line_buf2, off, ll, NULL) : 0;
@@ -2344,6 +2397,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             prepass_scope_restore(s->prepass, snap);
             if (valid_symbols[EXT_INLINE_CONTENT_LINE]) {
                 lexer->mark_end(lexer);
+                s->bol_col = line_end_col;
                 lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
                 return true;
             }
@@ -2370,6 +2424,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             prepass_scope_restore(s->prepass, snap);
             if (valid_symbols[EXT_INLINE_CONTENT_LINE]) {
                 lexer->mark_end(lexer);
+                s->bol_col = line_end_col;
                 lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
                 return true;
             }
@@ -2380,6 +2435,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         if ((rr.type == TT_TABLE_ROW || rr.type == TT_TABLE_RULE)
             && valid_symbols[EXT_INLINE_CONTENT_LINE]) {
             lexer->mark_end(lexer);
+            s->bol_col = line_end_col;
             lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
             return true;
         }
@@ -2395,6 +2451,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
          * out-of-context reclassification next scan. */
         if (rr.type == TT_BODY && valid_symbols[EXT_INLINE_CONTENT_LINE]) {
             lexer->mark_end(lexer);
+            s->bol_col = line_end_col;
             lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
             return true;
         }
@@ -2402,6 +2459,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         if (sym < 0) {
             if (valid_symbols[EXT_INLINE_CONTENT_LINE]) {
                 lexer->mark_end(lexer);
+                s->bol_col = line_end_col;
                 lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
                 return true;
             }
@@ -2426,11 +2484,13 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             prepass_scope_restore(s->prepass, snap);
             if (valid_symbols[EXT_INLINE_CONTENT_LINE]) {
                 lexer->mark_end(lexer);
+                s->bol_col = line_end_col;
                 lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
                 return true;
             }
             return false;
         }
+        if (mark_is_line_end) s->bol_col = line_end_col;
         lexer->result_symbol = (TSSymbol)sym;
         return true;
     }
@@ -2513,16 +2573,15 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         uint32_t fn_ll = 0;
         for (uint32_t i = 0; i < fn_len && fn_ll < ORG_LINE_BUF_MAX; i++)
             fn_line_buf[fn_ll++] = fn_consumed[i];
-        while (!lexer->eof(lexer) && lexer->lookahead != '\n'
+        while (!lexer->eof(lexer) && !at_eol(lexer)
                && fn_ll < ORG_LINE_BUF_MAX) {
             if (lexer->lookahead == 0) saw_nul = true;
             fn_line_buf[fn_ll++] = classify_byte(lexer->lookahead);
             lexer->advance(lexer, false);
         }
-        if (fn_ll > 0 && fn_line_buf[fn_ll - 1] == '\r') fn_ll--;
-        if (!lexer->eof(lexer) && lexer->lookahead == '\n')
-            lexer->advance(lexer, false);
+        advance_eol(lexer);
         lexer->mark_end(lexer);
+        s->bol_col = lexer->get_column(lexer);
 
         PrepassScopeSnapshot snap = prepass_scope_snapshot(s->prepass);
         LineClassification fr = prepass_classify_line(s->prepass, fn_line_buf, fn_ll);
@@ -2580,7 +2639,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
     int mark_kind = MARK_NONE;
     uint32_t p5_kw_colon = 0;
     bool have_prefix_mark = false;
-    while (!lexer->eof(lexer) && lexer->lookahead != '\n'
+    while (!lexer->eof(lexer) && !at_eol(lexer)
            && line_len < ORG_LINE_BUF_MAX) {
         if (lexer->lookahead == 0) saw_nul = true;
         line_buf[line_len++] = classify_byte(lexer->lookahead);
@@ -2778,10 +2837,18 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         }
 
     }
-    if (line_len > 0 && line_buf[line_len - 1] == '\r') line_len--;
-    /* Consume the trailing newline (if any). */
-    if (!lexer->eof(lexer) && lexer->lookahead == '\n')
-        lexer->advance(lexer, false);
+    /* Consume the trailing terminator (if any). */
+    advance_eol(lexer);
+    /* `line_end_col` is the column right past the terminator this loop
+     * just consumed - `bol_col` must take on this value whenever a
+     * branch below commits a token whose mark_end lands here rather
+     * than at an earlier prefix mark (MARK_COLON, MARK_LBLOCK, ...).
+     * `mark_is_line_end` starts out matching `have_prefix_mark` (no
+     * prefix mark means the default mark_end two lines down already
+     * sits here) and flips to true wherever a later branch explicitly
+     * re-marks at the current position. */
+    uint32_t line_end_col = lexer->get_column(lexer);
+    bool mark_is_line_end = !have_prefix_mark;
 
     /* Default token end = current position (whole line consumed).
      * If we DID set a prefix mark, that one stays in effect for an
@@ -2792,6 +2859,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         && !planning_timestamp_follows(line_buf, line_len, p5_kw_colon)) {
         if (!valid_symbols[EXT_INLINE_CONTENT_LINE]) return false;
         lexer->mark_end(lexer);
+        s->bol_col = line_end_col;
         lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
         return true;
     }
@@ -2799,6 +2867,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         && !clock_line_is_valid(line_buf, line_len, p5_kw_colon)) {
         if (!valid_symbols[EXT_INLINE_CONTENT_LINE]) return false;
         lexer->mark_end(lexer);
+        s->bol_col = line_end_col;
         lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
         return true;
     }
@@ -2836,6 +2905,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         && valid_symbols[EXT_INLINE_CONTENT_LINE]) {
         prepass_scope_restore(s->prepass, snap);
         lexer->mark_end(lexer);
+        s->bol_col = line_end_col;
         lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
         return true;
     }
@@ -2846,8 +2916,10 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
      * the consumed end of line. */
     if (r.type == TT_DRAWER_CLOSE || r.type == TT_PROPDRAWER_CLOSE
         || r.type == TT_INLINETASK_CLOSE || r.type == TT_GBLOCK_CLOSE
-        || r.type == TT_DYNBLOCK_CLOSE)
+        || r.type == TT_DYNBLOCK_CLOSE) {
         lexer->mark_end(lexer);
+        mark_is_line_end = true;
+    }
 
     /* Lesser-block dispatch: emit one of 5 type-specific tokens based on
      * the block name.  TT_LBLOCK_OPEN sets `lblock_kind`; TT_LBLOCK_CLOSE
@@ -2906,6 +2978,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
     if (r.type == TT_LIST_ITEM) {
         if (valid_symbols[EXT_INLINE_CONTENT_LINE]) {
             lexer->mark_end(lexer);
+            s->bol_col = line_end_col;
             lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
             return true;
         }
@@ -2929,6 +3002,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
     if ((r.type == TT_TABLE_ROW || r.type == TT_TABLE_RULE)
         && valid_symbols[EXT_INLINE_CONTENT_LINE]) {
         lexer->mark_end(lexer);
+        s->bol_col = line_end_col;
         lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
         return true;
     }
@@ -2980,6 +3054,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
     if (sym == EXT_PLANNING_LINE && !valid_symbols[EXT_PLANNING_LINE]
         && valid_symbols[EXT_INLINE_CONTENT_LINE]) {
         lexer->mark_end(lexer);
+        mark_is_line_end = true;
         sym = EXT_INLINE_CONTENT_LINE;
     }
     /* Plain body text (never promoted above) needs the whole-line
@@ -3001,6 +3076,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         && (mark_kind == MARK_COLON || mark_kind == MARK_COMMENT_LINE)
         && sym == EXT_INLINE_CONTENT_LINE) {
         lexer->mark_end(lexer);
+        mark_is_line_end = true;
     }
     /* MARK_LBLOCK (an "#+end_NAME" shaped prefix reclassified as plain
      * TT_BODY, e.g. an unmatched close outside any lesser-block scope)
@@ -3029,7 +3105,10 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                 line_buf[j] == '_' || line_buf[j] == '-'
             )) j++;
             while (j < line_len && (line_buf[j] == ' ' || line_buf[j] == '\t')) j++;
-            if (j < line_len) lexer->mark_end(lexer);
+            if (j < line_len) {
+                lexer->mark_end(lexer);
+                mark_is_line_end = true;
+            }
         }
     }
     /* TT_LBLOCK_BODY / TT_LATEXENV_BODY are opaque external tokens
@@ -3050,12 +3129,14 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
     if ((r.type == TT_LBLOCK_BODY || r.type == TT_LATEXENV_BODY)
         && valid_symbols[sym]) {
         lexer->mark_end(lexer);
+        mark_is_line_end = true;
     }
     if (!valid_symbols[sym]) {
         prepass_scope_restore(s->prepass, snap);
         return false;
     }
 
+    if (mark_is_line_end) s->bol_col = line_end_col;
     lexer->result_symbol = (TSSymbol)sym;
     return true;
 }

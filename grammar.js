@@ -229,7 +229,7 @@ module.exports = grammar({
       field('timestamp', $.planning_timestamp),
     ),
 
-    planning_timestamp: $ => /<[^<>\n]+>|\[[^\]\n]+\]/,
+    planning_timestamp: $ => /<[^<>\r\n]+>|\[[^\]\r\n]+\]/,
 
     /* `_propdrawer_close` covers the whole `:END:` line — or is
      * zero-width when a headline or EOF truncates the drawer. */
@@ -253,7 +253,7 @@ module.exports = grammar({
     ),
 
     property_name:  $ => /[A-Za-z_][A-Za-z0-9_+-]*/,
-    property_value: $ => /[^ \t\n][^\n]*/,
+    property_value: $ => /[^ \t\r\n][^\r\n]*/,
 
     section: $ => prec.right(seq(
       $._meaningful_content_line,
@@ -337,7 +337,7 @@ module.exports = grammar({
       $._dynblock_close,
     ),
     block_name: $ => /[^ \t\r\n]+/,
-    block_args: $ => /[^ \t\n][^\n]*/,
+    block_args: $ => /[^ \t\r\n][^\r\n]*/,
 
     /* Lesser blocks. The C scanner emits `_*_block_open` covering only
      * the directive prefix (`#+begin_src` / `#+begin_example` / …),
@@ -367,7 +367,7 @@ module.exports = grammar({
 
     /* Babel-style header arguments: `:key value :key2 v2 ...`, or any
      * other tail Emacs couldn't parse as switches. Captured as one node. */
-    block_header_args: $ => /[^ \t\r\n][^\n]*/,
+    block_header_args: $ => /[^ \t\r\n][^\r\n]*/,
 
     /* Block switches: `-n 20 -r -l "fmt"` etc. One node covering the
      * whole run; values are numbers or double-quoted strings. Scanned
@@ -525,7 +525,7 @@ module.exports = grammar({
       $._line_end,
     ),
 
-    clock_timestamp: $ => /\[[^\]\n]+\]/,
+    clock_timestamp: $ => /\[[^\]\r\n]+\]/,
     clock_duration:  $ => /\d+:\d{2}/,
     /* File-level / element-level directive line (`#+TITLE: foo`).
      * The scanner emits `_keyword_line` covering only the `#+`
@@ -557,7 +557,7 @@ module.exports = grammar({
     ),
 
     directive_name:  $ => /[A-Za-z][A-Za-z0-9_-]*/,
-    directive_value: $ => /[^ \t\n][^\n]*/,
+    directive_value: $ => /[^ \t\r\n][^\r\n]*/,
     /* Comment / fixed-width paragraphs.  The body content is exposed
      * as a `comment_body` / `fixed_width_body` field via an external
      * scanner token (NOT a `/[^\n]+/` regex — that earlier attempt

@@ -25,12 +25,13 @@
 ; ABNF core rules (ALPHA, DIGIT, SP, HTAB, CR, LF, etc.) are imported by
 ; reference per RFC 5234 §B.1; we don't redefine them here.
 
-line-end        =  [CR] LF / eoi                      ; a line also ends at EOF
+line-end        =  [CR] LF / CR / eoi                 ; CRLF, LF, or a bare CR (classic
+                                                        ; Mac) alike - a line also ends at EOF
 eoi             =  0OCTET                             ; end of input - zero-width
                                                         ; pseudo-terminal, not a literal
                                                         ; byte sequence
 indent          =  *(SP / HTAB)
-non-line        =  %x00-09 / %x0B-FF                  ; any byte except LF
+non-line        =  %x00-09 / %x0B-0C / %x0E-FF        ; any byte except LF or CR
 
 ; --- Document root (Worg §1) ----------------------------------------------
 document        =  zeroth-section *headline

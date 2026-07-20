@@ -455,7 +455,7 @@
     },
     "planning_timestamp": {
       "type": "PATTERN",
-      "value": "<[^<>\\n]+>|\\[[^\\]\\n]+\\]"
+      "value": "<[^<>\\r\\n]+>|\\[[^\\]\\r\\n]+\\]"
     },
     "property_drawer": {
       "type": "SEQ",
@@ -553,7 +553,7 @@
     },
     "property_value": {
       "type": "PATTERN",
-      "value": "[^ \\t\\n][^\\n]*"
+      "value": "[^ \\t\\r\\n][^\\r\\n]*"
     },
     "section": {
       "type": "PREC_RIGHT",
@@ -879,7 +879,7 @@
     },
     "block_args": {
       "type": "PATTERN",
-      "value": "[^ \\t\\n][^\\n]*"
+      "value": "[^ \\t\\r\\n][^\\r\\n]*"
     },
     "src_block": {
       "type": "SEQ",
@@ -1254,7 +1254,7 @@
     },
     "block_header_args": {
       "type": "PATTERN",
-      "value": "[^ \\t\\r\\n][^\\n]*"
+      "value": "[^ \\t\\r\\n][^\\r\\n]*"
     },
     "block_switches": {
       "type": "SYMBOL",
@@ -1914,7 +1914,7 @@
     },
     "clock_timestamp": {
       "type": "PATTERN",
-      "value": "\\[[^\\]\\n]+\\]"
+      "value": "\\[[^\\]\\r\\n]+\\]"
     },
     "clock_duration": {
       "type": "PATTERN",
@@ -2105,7 +2105,7 @@
     },
     "directive_value": {
       "type": "PATTERN",
-      "value": "[^ \\t\\n][^\\n]*"
+      "value": "[^ \\t\\r\\n][^\\r\\n]*"
     },
     "comment": {
       "type": "PREC_RIGHT",
