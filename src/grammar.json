@@ -1833,7 +1833,7 @@
       "members": [
         {
           "type": "SYMBOL",
-          "name": "_keyword_line"
+          "name": "_formula_line"
         },
         {
           "type": "FIELD",
@@ -1841,15 +1841,8 @@
           "content": {
             "type": "ALIAS",
             "content": {
-              "type": "TOKEN",
-              "content": {
-                "type": "PREC",
-                "value": 2,
-                "content": {
-                  "type": "PATTERN",
-                  "value": "[Tt][Bb][Ll][Ff][Mm]"
-                }
-              }
+              "type": "PATTERN",
+              "value": "[Tt][Bb][Ll][Ff][Mm]"
             },
             "named": true,
             "value": "directive_name"
@@ -2427,6 +2420,10 @@
     {
       "type": "SYMBOL",
       "name": "_diary_sexp_body"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_formula_line"
     }
   ],
   "inline": [],

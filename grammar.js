@@ -94,6 +94,7 @@ module.exports = grammar({
     $._item_tag_sep,           // the ` :: ` separator after an item tag
     $._fn_empty_line,          // empty line inside a footnote definition body
     $._diary_sexp_body,        // diary sexp body up to the line's last `)`
+    $._formula_line,           // `#+TBLFM:` prefix (name confirmed by scanner)
   ],
 
   extras: _ => [],
@@ -498,13 +499,15 @@ module.exports = grammar({
      *
      * `formula` is a `#+TBLFM:` directive — a separate node type so
      * consumers can locate table formulas without string-matching the
-     * directive name.  prec(2) on the literal name beats the more
-     * general `directive_name` regex. */
+     * directive name.  The scanner emits `_formula_line` (instead of
+     * `_keyword_line`) only when the directive name is exactly `TBLFM`
+     * (case-insensitive); a name that merely starts with it, e.g.
+     * `#+TBLFMx:`, stays a `keyword`. */
     formula: $ => seq(
-      $._keyword_line,
+      $._formula_line,
       /* Case-insensitive (Emacs `case-fold-search` on
        * `org-table-formula-regexp`).  `#+tblfm:` and `#+Tblfm:` work. */
-      field('name', alias(token(prec(2, /[Tt][Bb][Ll][Ff][Mm]/)), $.directive_name)),
+      field('name', alias(/[Tt][Bb][Ll][Ff][Mm]/, $.directive_name)),
       ...directiveTail($),
     ),
     keyword: $ => seq(

@@ -81,6 +81,7 @@ enum OrgExternal {
     EXT_ITEM_TAG_SEP,            /* the ` :: ` separator after an item tag */
     EXT_FN_EMPTY_LINE,           /* empty line inside a footnote definition body */
     EXT_DIARY_SEXP_BODY,         /* diary sexp body up to the line's last `)` */
+    EXT_FORMULA_LINE,            /* `#+TBLFM:` prefix (name confirmed here, not JS) */
 };
 
 /* Map prepass LineTokenType → tree-sitter external symbol (non-heading types). */
@@ -615,6 +616,17 @@ static bool prefix_ci(const uint8_t *p, uint32_t len, const char *kw) {
         if (a != (uint8_t)kw[i]) return false;
     }
     return true;
+}
+
+/* True when a classified-keyword line's raw buffer is `#+TBLFM:` (name
+ * exactly TBLFM, case-insensitive, immediately followed by `:` - no
+ * indent-skip mismatch with the prepass's own `#+` detection).  A name
+ * that merely starts with TBLFM (e.g. `#+TBLFMx:`) does not match. */
+static bool is_tblfm_directive(const uint8_t *buf, uint32_t len) {
+    uint32_t ws = 0;
+    while (ws < len && (buf[ws] == ' ' || buf[ws] == '\t')) ws++;
+    if (len - ws < 2 || buf[ws] != '#' || buf[ws + 1] != '+') return false;
+    return prefix_ci(buf + ws + 2, len - ws - 2, "tblfm:");
 }
 
 /* Position of the next SCHEDULED:/DEADLINE:/CLOSED:/CLOCK: occurrence
@@ -1871,6 +1883,10 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             prepass_scope_restore(s->prepass, snap);
             return false;
         }
+        if (sym == EXT_KEYWORD_LINE && valid_symbols[EXT_FORMULA_LINE]
+            && is_tblfm_directive(line_buf2, ll)) {
+            sym = EXT_FORMULA_LINE;
+        }
         if (rr.type == TT_EMPTY && valid_symbols[EXT_FN_EMPTY_LINE]
             && s->blank_run == 0) {
             sym = EXT_FN_EMPTY_LINE;
@@ -2312,6 +2328,10 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
     if (sym < 0) {
         prepass_scope_restore(s->prepass, snap);
         return false;
+    }
+    if (sym == EXT_KEYWORD_LINE && valid_symbols[EXT_FORMULA_LINE]
+        && is_tblfm_directive(line_buf, line_len)) {
+        sym = EXT_FORMULA_LINE;
     }
 
     /* Inside a footnote definition body an empty line is the gated

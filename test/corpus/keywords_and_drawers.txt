@@ -249,3 +249,29 @@ Unclosed drawer containing a block open truncates at EOF
       (drawer_name)
       (greater_block
         (block_name)))))
+
+==================
+Keyword whose name merely starts with TBLFM is a keyword, not a formula
+==================
+#+TBLFMx: $3=$1+$2
+
+---
+
+(document
+  (zeroth_section
+    (keyword
+      (directive_name)
+      (directive_value))))
+
+==================
+Indented keyword whose name merely starts with TBLFM is a keyword, not a formula
+==================
+  #+TBLFMx: $3=$1+$2
+
+---
+
+(document
+  (zeroth_section
+    (keyword
+      (directive_name)
+      (directive_value))))
