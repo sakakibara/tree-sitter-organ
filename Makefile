@@ -101,7 +101,7 @@ test: build
 	@touch $(TS_LIBDIR)/org.so
 	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/run-corpus-tests.js
 	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/test-crlf.js
-	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/propdrawer-stress-test.js
+	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/large-input-stress-test.js
 	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/adversarial-no-error.js --gate
 
 test-no-error: build
