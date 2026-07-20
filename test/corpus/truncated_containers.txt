@@ -229,3 +229,16 @@ Unclosed list inside unclosed greater block at EOF
           (list_item
             (bullet)
             (paragraph)))))))
+
+==================
+Malformed SCHEDULED line inside an unclosed latex environment runs to EOF
+==================
+\begin{align}
+SCHEDULED: garbage not a timestamp#+begin_src
+
+---
+
+(document
+  (zeroth_section
+    (latex_environment
+      (latexenv_name))))

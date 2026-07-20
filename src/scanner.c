@@ -2104,6 +2104,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
 
         if (b2_forced_sym >= 0) {
             if (b2_forced_sym == EXT_PLANNING_LINE
+                && valid_symbols[EXT_PLANNING_LINE]
                 && !planning_timestamp_follows(line_buf2, ll, b2_kw_colon)) {
                 if (!valid_symbols[EXT_INLINE_CONTENT_LINE]) return false;
                 lexer->mark_end(lexer);
@@ -2122,9 +2123,12 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                 lexer->result_symbol = (TSSymbol)b2_forced_sym;
                 return true;
             }
-            /* Planning is only valid directly under a headline;
-             * anywhere else the line is plain paragraph text. */
-            if (b2_forced_sym == EXT_PLANNING_LINE
+            /* Planning/clock are only valid directly under a headline
+             * (planning) or wherever a content line can appear
+             * (clock); anywhere else the line is plain paragraph
+             * text rather than an unmapped-symbol hard failure. */
+            if ((b2_forced_sym == EXT_PLANNING_LINE
+                 || b2_forced_sym == EXT_CLOCK_LINE)
                 && valid_symbols[EXT_INLINE_CONTENT_LINE]) {
                 lexer->mark_end(lexer);
                 lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
@@ -2563,7 +2567,7 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
      * lblock-open emit. */
     if (!have_prefix_mark) lexer->mark_end(lexer);
 
-    if (mark_kind == MARK_PLANNING
+    if (mark_kind == MARK_PLANNING && valid_symbols[EXT_PLANNING_LINE]
         && !planning_timestamp_follows(line_buf, line_len, p5_kw_colon)) {
         if (!valid_symbols[EXT_INLINE_CONTENT_LINE]) return false;
         lexer->mark_end(lexer);
