@@ -189,6 +189,53 @@ const KNOWN_BAD = [
   '#- next\n',
 ];
 
+// ---- close-line trailing-content family -----------------------------------
+// A container's CLOSE line carrying trailing content on the SAME line
+// (`#+end_example  #+TBLFM: $1=1`) is a shape none of mutations()/
+// hostile() ever produce: mutations() only tampers within an existing
+// seed's bytes, and no FRAGMENT above is itself "a close marker plus
+// trailing junk". Structured trailing content (one that re-triggers a
+// line-shape classifier - an affiliated keyword, another block open/
+// close, a table row, a heading, a list bullet, a drawer marker) is the
+// dangerous case: it can drive the CLOSE dispatch down a path with no
+// inline-content fallback, distinct from plain trailing text which
+// several already-fixed paths already absorb cleanly. Covers every
+// lesser block, the greater block, a plain drawer, a dynamic block, and
+// a latex environment - the full set of constructs with their own CLOSE
+// token in this grammar.
+const CLOSE_LINE_TRAILERS = [
+  ' trailing text',
+  ' junk here',
+  '  #+TBLFM: $1=1',
+  '  #+CAPTION: cap',
+  '  #+begin_src',
+  '  #+end_example',
+  '  | a | b |',
+  '  * head',
+  '  - bullet',
+  '  :drawer:',
+];
+const CLOSABLE_CONTAINERS = [
+  ['#+begin_src sh\n', 'code\n', '#+end_src'],
+  ['#+begin_example\n', 'body\n', '#+end_example'],
+  ['#+begin_export html\n', 'x\n', '#+end_export'],
+  ['#+begin_comment\n', 'x\n', '#+end_comment'],
+  ['#+begin_verse\n', 'x\n', '#+end_verse'],
+  ['#+begin_quote\n', 'x\n', '#+end_quote'],
+  [':mydrawer:\n', 'x\n', ':END:'],
+  ['#+begin: dyn :p 1\n', 'x\n', '#+end:'],
+  ['\\begin{align}\n', 'x\n', '\\end{align}'],
+];
+function* closeLineTrailers() {
+  for (const [open, body, close] of CLOSABLE_CONTAINERS) {
+    for (const trailer of CLOSE_LINE_TRAILERS) {
+      yield open + body + close + trailer + '\n';
+      yield open + close + trailer + '\n';               // no body
+      yield '  ' + open + '  ' + body + '  ' + close + trailer + '\n'; // indented
+    }
+  }
+}
+
 // ---- input space assembly -------------------------------------------------
 const seeds = extractCorpusInputs(path.join(repo, 'test', 'corpus'));
 const space = new Map();
@@ -200,6 +247,7 @@ for (const s of KNOWN_BAD) add(s);
 for (const s of seeds) add(s);
 for (const s of seeds) for (const m of mutations(s)) add(m);
 for (const s of hostile(4000, 6)) add(s);
+for (const s of closeLineTrailers()) add(s);
 process.stderr.write(`no-error harness: ${seeds.length} corpus seeds -> ${space.size} unique inputs\n`);
 
 const inputDir = path.join(workDir, 'inputs');
