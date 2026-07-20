@@ -164,6 +164,21 @@ Truncated #+begin_s inside a list item degrades to paragraph text
         (paragraph)))))
 
 ==================
+A colon-prefixed non-drawer/property/fixed-width line inside a list item stays paragraph text, not just its leading colon
+==================
+- item
+ :#+begin_s
+
+---
+
+(document
+  (zeroth_section
+    (list
+      (list_item
+        (bullet)
+        (paragraph)))))
+
+==================
 Description tag after a checkbox
 ==================
 - [ ] todo :: tagged

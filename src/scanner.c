@@ -2341,6 +2341,21 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
             return true;
         }
+        /* Plain body text needs the whole-line boundary regardless of
+         * any earlier prefix mark (MARK_COLON, MARK_HASH, ...) - those
+         * mark candidate structural prefixes (":", "#+", ...) before
+         * the full line is known, and classification can still land on
+         * TT_BODY despite one having fired (e.g. ":#+begin_s", whose
+         * leading `:` isn't a drawer/property/fixed-width shape and
+         * whose `#+begin_s` isn't a complete block keyword either).
+         * Without this, the token stays pinned at the stale prefix
+         * boundary and strands the rest of the line for a fresh,
+         * out-of-context reclassification next scan. */
+        if (rr.type == TT_BODY && valid_symbols[EXT_INLINE_CONTENT_LINE]) {
+            lexer->mark_end(lexer);
+            lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
+            return true;
+        }
         int sym = prepass_to_external(rr.type);
         if (sym < 0) {
             prepass_scope_restore(s->prepass, snap);
