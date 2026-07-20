@@ -37,6 +37,15 @@ const GATE_DEADLINE_MS = 60000;
 const CHUNK = 200;
 const CHUNK_TIMEOUT_MS = 15000;
 const SINGLE_TIMEOUT_MS = 3000;
+// Every input this harness generates is capped at 4096 bytes (add()
+// below drops anything longer) - this gate has zero no-ERROR coverage
+// above that size. scripts/large-input-stress-test.js separately
+// parse-time-bounds several 8000-LINE shapes, but greps nothing for
+// ERROR, so it doesn't fill the gap either. Ad hoc probes (20KB
+// paragraph/headline/table/TBLFM, and a line straddling scanner.c's
+// ORG_LINE_BUF_MAX=8192) parsed clean when checked manually - there is
+// no known >4KB no-ERROR violation - but that's an absence of testing,
+// not a tested absence.
 const MAX_INPUT_LEN = 4096;
 
 const repo = path.resolve(__dirname, '..');
@@ -276,6 +285,24 @@ function* deepNesting() {
   }
 }
 
+// ---- known-unhandled bare-CR family (tracked, not gated) ------------------
+// Bare-CR (classic Mac) line endings are a real Emacs line-ending
+// convention - `insert-file-contents` auto-detects and normalizes LF,
+// CRLF, and bare-CR alike on read - but this scanner has no bare-CR
+// support: every line-reading loop in scanner.c terminates on '\n'
+// alone, and grammar.js's own line-end tokens are `\r?\n` (CR only as
+// an optional CRLF prefix, never a terminator by itself). Confirmed:
+// `#+begin_src lua\rx\r#+end_src\r` ERRORs at both base and this
+// branch's head. Properly fixing it means auditing and changing every
+// one of those loops plus the grammar-side line-end tokens without
+// regressing CRLF handling - out of proportion for this pass. Tracked
+// here (not folded into the gated `space` below) so the gap stays
+// visible in every run's output instead of silently uncovered; see the
+// bare-CR report line below.
+function bareCrVariants(seed) {
+  return seed.replace(/\n/g, '\r');
+}
+
 // ---- input space assembly -------------------------------------------------
 const seeds = extractCorpusInputs(path.join(repo, 'test', 'corpus'));
 const space = new Map();
@@ -299,6 +326,22 @@ for (const [content, id] of space) {
   const fp = path.join(inputDir, `i${String(id).padStart(6, '0')}.org`);
   fs.writeFileSync(fp, content);
   files.push(fp);
+}
+
+const bareCrDir = path.join(workDir, 'bare-cr-known-unhandled');
+fs.rmSync(bareCrDir, { recursive: true, force: true });
+fs.mkdirSync(bareCrDir, { recursive: true });
+const bareCrFiles = [];
+{
+  const seen = new Set();
+  for (const s of seeds) {
+    const bc = bareCrVariants(s);
+    if (bc.length === 0 || bc.length > MAX_INPUT_LEN || seen.has(bc)) continue;
+    seen.add(bc);
+    const fp = path.join(bareCrDir, `b${String(bareCrFiles.length).padStart(6, '0')}.org`);
+    fs.writeFileSync(fp, bc);
+    bareCrFiles.push(fp);
+  }
 }
 
 // ---- memory bound -----------------------------------------------------
@@ -380,6 +423,32 @@ for (let i = 0; i < files.length; i += CHUNK) {
   }
 }
 const elapsed = Date.now() - startedAt;
+
+// Bare-CR is a known, documented, deliberately-unfixed gap (see
+// bareCrVariants above) - probed and reported for visibility, but never
+// gates: a RUNAWAY/OOM_SUSPECT classification here would still be a
+// genuine bug (those aren't part of the accepted gap), so only that
+// case is escalated into the gating counts below.
+let bareCrErrorCount = 0;
+for (let i = 0; i < bareCrFiles.length; i += CHUNK) {
+  const chunk = bareCrFiles.slice(i, i + CHUNK);
+  const r = parseQ(chunk, CHUNK_TIMEOUT_MS);
+  const failure = classifyFailure(r);
+  if (!failure) {
+    for (const line of (r.stdout || '').split('\n')) {
+      if (/^\S+\.org\t/.test(line)) bareCrErrorCount++;
+    }
+    continue;
+  }
+  for (const fp of chunk) {
+    const r1 = parseQ([fp], SINGLE_TIMEOUT_MS);
+    const f1 = classifyFailure(r1);
+    if (f1 === 'RUNAWAY') runawayFiles.push(fp);
+    else if (f1 === 'OOM_SUSPECT') oomFiles.push(fp);
+    else if (/^\S+\.org\t/.test(r1.stdout || '')) bareCrErrorCount++;
+  }
+}
+process.stdout.write(`bare-CR (known, not gated): ${bareCrFiles.length} inputs, ${bareCrErrorCount} ERROR/MISSING\n`);
 
 // ---- report ---------------------------------------------------------------
 function signatureOf(tree) {
