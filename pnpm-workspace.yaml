@@ -1,0 +1,6 @@
+# tree-sitter-cli's install script fetches the platform's prebuilt CLI
+# binary; without it `node_modules/.bin/tree-sitter` is a stub that fails
+# on the first `tree-sitter generate`.  pnpm refuses to run any dependency
+# build script that isn't explicitly reviewed here.
+allowBuilds:
+  tree-sitter-cli: true
