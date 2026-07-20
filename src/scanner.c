@@ -679,6 +679,71 @@ static bool planning_timestamp_follows(const uint8_t *buf, uint32_t len,
     return false;
 }
 
+/* Matches the grammar's `clock_timestamp` (`/\[[^\]\n]+\]/`) starting
+ * exactly at buf[i].  On success sets *end to the index past the
+ * closing ']'.  Narrower than `planning_timestamp_follows`: no angle
+ * form, and no next-keyword limit - a clock line has nothing else to
+ * stop an unclosed '[' early, so an unclosed bracket simply fails. */
+static bool clock_timestamp_at(const uint8_t *buf, uint32_t len, uint32_t i,
+                               uint32_t *end) {
+    if (i >= len || buf[i] != '[') return false;
+    uint32_t j = i + 1;
+    while (j < len && buf[j] != ']') j++;
+    if (j == i + 1 || j >= len) return false;
+    *end = j + 1;
+    return true;
+}
+
+/* True when buf[after_colon..len) matches the clock line's full
+ * remainder, with nothing left before the line end:
+ *   [ \t]+ ts ( [ \t]*--[ \t]* ts ( [ \t]*=>[ \t]+ \d+:\d\d )? )? [ \t]*
+ * Clock is all-or-nothing (contrast planning, whose trailing junk
+ * after a valid timestamp is absorbed by the JS grammar instead of
+ * invalidating the line) - any leftover, non-whitespace text before
+ * the line end degrades the whole line to a paragraph. */
+static bool clock_line_is_valid(const uint8_t *buf, uint32_t len,
+                                uint32_t after_colon) {
+    uint32_t i = after_colon;
+    uint32_t ws_start = i;
+    while (i < len && (buf[i] == ' ' || buf[i] == '\t')) i++;
+    if (i == ws_start) return false;
+
+    uint32_t start_end;
+    if (!clock_timestamp_at(buf, len, i, &start_end)) return false;
+    i = start_end;
+
+    uint32_t j = i;
+    while (j < len && (buf[j] == ' ' || buf[j] == '\t')) j++;
+    if (j + 1 < len && buf[j] == '-' && buf[j + 1] == '-') {
+        uint32_t k = j + 2;
+        while (k < len && (buf[k] == ' ' || buf[k] == '\t')) k++;
+        uint32_t end_end;
+        if (clock_timestamp_at(buf, len, k, &end_end)) {
+            i = end_end;
+            uint32_t m = i;
+            while (m < len && (buf[m] == ' ' || buf[m] == '\t')) m++;
+            if (m + 1 < len && buf[m] == '=' && buf[m + 1] == '>') {
+                uint32_t n = m + 2;
+                uint32_t ws2 = n;
+                while (n < len && (buf[n] == ' ' || buf[n] == '\t')) n++;
+                if (n > ws2) {
+                    uint32_t d0 = n;
+                    while (n < len && buf[n] >= '0' && buf[n] <= '9') n++;
+                    if (n > d0 && n < len && buf[n] == ':'
+                        && n + 2 < len
+                        && buf[n + 1] >= '0' && buf[n + 1] <= '9'
+                        && buf[n + 2] >= '0' && buf[n + 2] <= '9') {
+                        i = n + 3;
+                    }
+                }
+            }
+        }
+    }
+
+    while (i < len && (buf[i] == ' ' || buf[i] == '\t')) i++;
+    return i == len;
+}
+
 /* Counter `[@N]` and checkbox `[ ]`/`[x]`/`[X]`/`[-]` both start with
  * `[` at the same list-item position (counter precedes checkbox).  A
  * single `scan()` call cannot roll back between two separate attempts,
@@ -2045,6 +2110,14 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                 lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
                 return true;
             }
+            if (b2_forced_sym == EXT_CLOCK_LINE
+                && valid_symbols[EXT_CLOCK_LINE]
+                && !clock_line_is_valid(line_buf2, ll, b2_kw_colon)) {
+                if (!valid_symbols[EXT_INLINE_CONTENT_LINE]) return false;
+                lexer->mark_end(lexer);
+                lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
+                return true;
+            }
             if (valid_symbols[b2_forced_sym]) {
                 lexer->result_symbol = (TSSymbol)b2_forced_sym;
                 return true;
@@ -2492,6 +2565,13 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
 
     if (mark_kind == MARK_PLANNING
         && !planning_timestamp_follows(line_buf, line_len, p5_kw_colon)) {
+        if (!valid_symbols[EXT_INLINE_CONTENT_LINE]) return false;
+        lexer->mark_end(lexer);
+        lexer->result_symbol = EXT_INLINE_CONTENT_LINE;
+        return true;
+    }
+    if (mark_kind == MARK_CLOCK && valid_symbols[EXT_CLOCK_LINE]
+        && !clock_line_is_valid(line_buf, line_len, p5_kw_colon)) {
         if (!valid_symbols[EXT_INLINE_CONTENT_LINE]) return false;
         lexer->mark_end(lexer);
         lexer->result_symbol = EXT_INLINE_CONTENT_LINE;

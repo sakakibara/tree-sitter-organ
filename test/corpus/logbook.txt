@@ -174,3 +174,54 @@ some content
       (drawer
         (drawer_name)
         (paragraph)))))
+
+==================
+Clock line with an unclosed timestamp degrades to a paragraph
+==================
+* Task
+:LOGBOOK:
+CLOCK: [2026-04-25 Sat 09:00--[2026-04-25 Sat 10:00] =>  1:00
+:END:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (drawer
+        (drawer_name)
+        (paragraph)))))
+
+==================
+Clock line with a malformed duration degrades to a paragraph
+==================
+* Task
+:LOGBOOK:
+CLOCK: [2026-04-25 Sat 09:00]--[2026-04-25 Sat 10:00] =>  100
+:END:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (drawer
+        (drawer_name)
+        (paragraph)))))
+
+==================
+Clock line with trailing junk after the duration degrades to a paragraph
+==================
+CLOCK: [2024-01-01 Mon 10:00]--[2024-01-01 Mon 11:00] =>  1:00x = 1
+
+---
+
+(document
+  (zeroth_section
+    (paragraph)))
