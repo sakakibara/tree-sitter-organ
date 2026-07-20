@@ -487,8 +487,16 @@ static LineTokenType classify_line(struct prepass_state *s,
         }
     }
     if (has_prefix_ci(trimmed, rem, "#+begin:")) {
-        scope_push(s, SCOPE_DYNBLOCK);
-        return TT_DYNBLOCK_OPEN;
+        /* A dynamic block requires a name after the colon (Emacs
+         * `org-dblock-start-re`); a nameless `#+begin:` (nothing, or
+         * only whitespace, to EOL) is an ordinary keyword line
+         * instead — fall through to the general `#+KEY:` dispatch. */
+        uint32_t j = 8;
+        while (j < rem && (trimmed[j] == ' ' || trimmed[j] == '\t')) j++;
+        if (j < rem) {
+            scope_push(s, SCOPE_DYNBLOCK);
+            return TT_DYNBLOCK_OPEN;
+        }
     }
 
     {

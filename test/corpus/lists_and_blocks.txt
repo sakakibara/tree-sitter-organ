@@ -638,6 +638,45 @@ body
       (paragraph))))
 
 ==================
+Bare #+begin: with no name is a keyword, not a dynamic block (Emacs: org-dblock-start-re requires a name)
+==================
+#+begin:
+
+---
+
+(document
+  (zeroth_section
+    (keyword
+      (directive_name))))
+
+==================
+#+begin: followed by only trailing whitespace is still a nameless keyword
+==================
+#+begin: 
+
+---
+
+(document
+  (zeroth_section
+    (keyword
+      (directive_name))))
+
+==================
+Nameless #+begin: keyword followed by content and #+end: (Emacs: keyword, paragraph, no dynamic_block)
+==================
+#+begin:
+content
+#+end:
+
+---
+
+(document
+  (zeroth_section
+    (keyword
+      (directive_name))
+    (paragraph)))
+
+==================
 Latex environment exposes its name
 ==================
 \begin{align}

@@ -584,6 +584,29 @@ static inline uint8_t classify_byte(int32_t la) {
     return (la > 0 && la < 0x80) ? (uint8_t)la : 0x80;
 }
 
+/* Peek past horizontal whitespace right after a `#+begin:` prefix to
+ * see whether a dynamic-block name follows before EOL - Emacs
+ * `org-dblock-start-re` requires one; a nameless line is a plain
+ * keyword instead.  The whitespace is consumed into `buf` either way
+ * (classification needs the full line regardless of outcome); the
+ * lexer position after this call is the correct `mark_end()` boundary
+ * for a genuine dynamic-block open (right before the name), and is
+ * left untouched by the caller when no name follows, so an earlier
+ * mark (the plain `#+` keyword prefix) stays in effect. */
+static bool dynblock_name_follows(TSLexer *lexer, uint8_t *buf,
+                                  uint32_t *len_io, uint32_t buf_max) {
+    uint32_t len = *len_io;
+    while (!lexer->eof(lexer)
+           && (lexer->lookahead == ' ' || lexer->lookahead == '\t')
+           && len < buf_max) {
+        buf[len++] = classify_byte(lexer->lookahead);
+        lexer->advance(lexer, false);
+    }
+    *len_io = len;
+    return !lexer->eof(lexer)
+        && lexer->lookahead != '\n' && lexer->lookahead != '\r';
+}
+
 /* ASCII-CI planning / clock keyword match on klen bytes.
  * Returns 0 = none, 1 = planning (SCHEDULED / DEADLINE / CLOSED),
  * 2 = clock (CLOCK).  Emacs matches these with case-fold-search. */
@@ -2028,9 +2051,12 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                        && (line_buf2[ws] == ' ' || line_buf2[ws] == '\t')) ws++;
                 if (ll - ws == 8
                     && prefix_ci(line_buf2 + ws, ll - ws, "#+begin:")) {
-                    lexer->mark_end(lexer);
-                    b2_mark = MARK_DYNBLOCK;
-                    have_b2_mark = true;
+                    if (dynblock_name_follows(lexer, line_buf2, &ll,
+                                              ORG_LINE_BUF_MAX)) {
+                        lexer->mark_end(lexer);
+                        b2_mark = MARK_DYNBLOCK;
+                        have_b2_mark = true;
+                    }
                     continue;
                 }
             }
@@ -2438,9 +2464,12 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                    && (line_buf[ws] == ' ' || line_buf[ws] == '\t')) ws++;
             if (line_len - ws == 8
                 && prefix_ci(line_buf + ws, line_len - ws, "#+begin:")) {
-                lexer->mark_end(lexer);
-                mark_kind = MARK_DYNBLOCK;
-                have_prefix_mark = true;
+                if (dynblock_name_follows(lexer, line_buf, &line_len,
+                                          ORG_LINE_BUF_MAX)) {
+                    lexer->mark_end(lexer);
+                    mark_kind = MARK_DYNBLOCK;
+                    have_prefix_mark = true;
+                }
                 continue;
             }
         }
