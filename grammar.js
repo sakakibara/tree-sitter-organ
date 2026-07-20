@@ -95,6 +95,7 @@ module.exports = grammar({
     $._fn_empty_line,          // empty line inside a footnote definition body
     $._diary_sexp_body,        // diary sexp body up to the line's last `)`
     $._formula_line,           // `#+TBLFM:` prefix (name confirmed by scanner)
+    $._block_switches,         // `-n 20 -r -l "fmt"` run (scanned, see scanner.c)
   ],
 
   extras: _ => [],
@@ -342,11 +343,11 @@ module.exports = grammar({
      * named children (a Babel-aware consumer can read them directly). */
     src_block: $ => lesserBlock($, $._src_block_open, $._src_block_close,
       optional(seq(/[ \t]+/, field('language',    $.src_block_language))),
-      optional(seq(/[ \t]+/, field('switches',    $.block_switches))),
-      optional(seq(/[ \t]+/, field('header_args', $.block_header_args)))),
+      optional(seq(optional(/[ \t]+/), field('switches',    $.block_switches))),
+      optional(seq(optional(/[ \t]+/), field('header_args', $.block_header_args)))),
     example_block: $ => lesserBlock($, $._example_block_open, $._example_block_close,
-      optional(seq(/[ \t]+/, field('switches',    $.block_switches))),
-      optional(seq(/[ \t]+/, field('header_args', $.block_header_args)))),
+      optional(seq(optional(/[ \t]+/), field('switches',    $.block_switches))),
+      optional(seq(optional(/[ \t]+/), field('header_args', $.block_header_args)))),
     export_block: $ => lesserBlock($, $._export_block_open, $._export_block_close,
       optional(seq(/[ \t]+/, field('format',
         alias($.src_block_language, $.export_format)))),
@@ -355,16 +356,29 @@ module.exports = grammar({
       optional(seq(/[ \t]+/, field('header_args', $.block_header_args)))),
     comment_block: $ => lesserBlock($, $._comment_block_open, $._comment_block_close),
 
-    /* Source-block language identifier (`lua`, `python`, `org`, …). */
-    src_block_language: $ => /[A-Za-z][A-Za-z0-9_+-]*/,
+    /* Source-block language identifier (`lua`, `python`, `org`, …), and
+     * (aliased as export_format) the export backend name. Emacs takes the
+     * first non-whitespace run unconditionally, even switch- or
+     * header-arg-shaped junk, so this is a catch-all non-ws run; prec 2
+     * makes it win the lexical conflict with block_header_args at the
+     * language position. */
+    src_block_language: $ => token(prec(2, /[^ \t\r\n]+/)),
 
-    /* Babel-style header arguments: `:key value :key2 v2 …`. Captured
-     * as one node; consumers can split on `:` for individual pairs. */
-    block_header_args: $ => /:[^\n]*/,
+    /* Babel-style header arguments: `:key value :key2 v2 …`, or any other
+     * tail Emacs couldn't parse as switches. Captured as one node. */
+    block_header_args: $ => /[^ \t\r\n][^\n]*/,
 
-    /* Block switches: `-n 20 -r -l "fmt"` etc.  One node covering the
-     * whole run; values are numbers or double-quoted strings. */
-    block_switches: $ => /[-+][A-Za-z]([ \t]+("[^"\n]*"|[0-9]+))?([ \t]+[-+][A-Za-z]([ \t]+("[^"\n]*"|[0-9]+))?)*/,
+    /* Block switches: `-n 20 -r -l "fmt"` etc. One node covering the
+     * whole run; values are numbers or double-quoted strings. Scanned
+     * externally (scan_block_switches in scanner.c) rather than as a
+     * regex token competing with block_header_args' catch-all:
+     * tree-sitter's internal lexer commits to one token per merged DFA
+     * state with no backtracking, so a regex-only split cannot
+     * simultaneously keep an existing multi-atom run intact
+     * (`-n 20 -r -l "fmt"`) and hand a malformed run's tail
+     * (`-n-20 …`) to block_header_args without either an ERROR or the
+     * header-args catch-all swallowing a valid leading run. */
+    block_switches: $ => $._block_switches,
     latex_environment: $ => seq(
       $._latexenv_open,
       field('name', $.latexenv_name),

@@ -118,9 +118,9 @@ verse-block     =  indent "#+begin_" %s"verse" [SP block-header-args] indent lin
 comment-block   =  indent "#+begin_" %s"comment" indent line-end
                    lblock-body
                    indent "#+end_"   %s"comment" indent line-end
-src-block-language =  ALPHA *(ALPHA / DIGIT / "_" / "+" / "-")
-                                              ; language identifier (lua, python, …)
-block-header-args  =  ":" *non-line           ; Babel-style :key value :key2 v2
+src-block-language =  1*not-wsp               ; first non-ws run: lua, python, org], …
+block-header-args  =  not-wsp *non-line       ; Babel-style :key value :key2 v2, or any
+                                              ; other tail switches didn't consume
 block-switches  =  block-switch *(SP block-switch)
 block-switch    =  ("-" / "+") ALPHA [SP (1*DIGIT / DQUOTE *(%x00-09 / %x0B-21 / %x23-FF) DQUOTE)]
 lblock-args     =  1*non-line

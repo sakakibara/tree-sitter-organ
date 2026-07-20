@@ -31,6 +31,11 @@
     "fields": {}
   },
   {
+    "type": "block_switches",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "checkbox",
     "named": true,
     "fields": {}
@@ -1658,10 +1663,6 @@
   },
   {
     "type": "block_name",
-    "named": true
-  },
-  {
-    "type": "block_switches",
     "named": true
   },
   {

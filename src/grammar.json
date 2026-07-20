@@ -893,8 +893,16 @@
               "type": "SEQ",
               "members": [
                 {
-                  "type": "PATTERN",
-                  "value": "[ \\t]+"
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "PATTERN",
+                      "value": "[ \\t]+"
+                    },
+                    {
+                      "type": "BLANK"
+                    }
+                  ]
                 },
                 {
                   "type": "FIELD",
@@ -918,8 +926,16 @@
               "type": "SEQ",
               "members": [
                 {
-                  "type": "PATTERN",
-                  "value": "[ \\t]+"
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "PATTERN",
+                      "value": "[ \\t]+"
+                    },
+                    {
+                      "type": "BLANK"
+                    }
+                  ]
                 },
                 {
                   "type": "FIELD",
@@ -967,8 +983,16 @@
               "type": "SEQ",
               "members": [
                 {
-                  "type": "PATTERN",
-                  "value": "[ \\t]+"
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "PATTERN",
+                      "value": "[ \\t]+"
+                    },
+                    {
+                      "type": "BLANK"
+                    }
+                  ]
                 },
                 {
                   "type": "FIELD",
@@ -992,8 +1016,16 @@
               "type": "SEQ",
               "members": [
                 {
-                  "type": "PATTERN",
-                  "value": "[ \\t]+"
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "PATTERN",
+                      "value": "[ \\t]+"
+                    },
+                    {
+                      "type": "BLANK"
+                    }
+                  ]
                 },
                 {
                   "type": "FIELD",
@@ -1180,16 +1212,23 @@
       ]
     },
     "src_block_language": {
-      "type": "PATTERN",
-      "value": "[A-Za-z][A-Za-z0-9_+-]*"
+      "type": "TOKEN",
+      "content": {
+        "type": "PREC",
+        "value": 2,
+        "content": {
+          "type": "PATTERN",
+          "value": "[^ \\t\\r\\n]+"
+        }
+      }
     },
     "block_header_args": {
       "type": "PATTERN",
-      "value": ":[^\\n]*"
+      "value": "[^ \\t\\r\\n][^\\n]*"
     },
     "block_switches": {
-      "type": "PATTERN",
-      "value": "[-+][A-Za-z]([ \\t]+(\"[^\"\\n]*\"|[0-9]+))?([ \\t]+[-+][A-Za-z]([ \\t]+(\"[^\"\\n]*\"|[0-9]+))?)*"
+      "type": "SYMBOL",
+      "name": "_block_switches"
     },
     "latex_environment": {
       "type": "SEQ",
@@ -2424,6 +2463,10 @@
     {
       "type": "SYMBOL",
       "name": "_formula_line"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_block_switches"
     }
   ],
   "inline": [],

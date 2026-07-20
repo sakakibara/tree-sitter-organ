@@ -82,6 +82,7 @@ enum OrgExternal {
     EXT_FN_EMPTY_LINE,           /* empty line inside a footnote definition body */
     EXT_DIARY_SEXP_BODY,         /* diary sexp body up to the line's last `)` */
     EXT_FORMULA_LINE,            /* `#+TBLFM:` prefix (name confirmed here, not JS) */
+    EXT_BLOCK_SWITCHES,          /* `-n 20 -r -l "fmt"` run after src/example language */
 };
 
 /* Map prepass LineTokenType → tree-sitter external symbol (non-heading types). */
@@ -754,6 +755,77 @@ static bool scan_headline_priority(TSLexer *lexer) {
     return true;
 }
 
+/* `block_switches`: one or more `-X`/`+X` atoms, each optionally
+ * followed by a single argument (a run of `[ \t]` then a double-quoted
+ * string or a run of digits), separated from the next atom by a run of
+ * `[ \t]`.  Greedy: stops at the first byte that can't extend the run,
+ * leaving it (and any whitespace already probed past looking for an
+ * argument that wasn't there) for block_header_args.
+ *
+ * Implemented imperatively (not as JS regex tokens) because
+ * tree-sitter's internal lexer commits to one token per merged DFA
+ * state with no backtracking: a regex-only split cannot simultaneously
+ * keep an existing multi-atom run intact (`-n 20 -r -l "fmt"`) and
+ * hand a malformed run's tail (`-n-20 ...`) to block_header_args
+ * without either an ERROR or the header-args catch-all swallowing a
+ * valid leading run.
+ *
+ * `need_sep` tracks whether the next atom still needs its own
+ * separator consumed: false right after a no-argument atom's
+ * speculative whitespace probe already landed past the separator (the
+ * probe had to consume it to see what followed); true right after a
+ * matched argument, which leaves the cursor with no whitespace
+ * consumed yet. */
+static bool scan_block_switches(TSLexer *lexer) {
+    bool any = false;
+    bool need_sep = false;
+    for (;;) {
+        if (need_sep) {
+            if (lexer->lookahead != ' ' && lexer->lookahead != '\t') break;
+            while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
+                lexer->advance(lexer, false);
+        }
+        int32_t c = lexer->lookahead;
+        if (c != '-' && c != '+') break;
+        lexer->advance(lexer, false);
+        c = lexer->lookahead;
+        if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))) break;
+        lexer->advance(lexer, false);
+        lexer->mark_end(lexer);  /* atom complete without an argument */
+        any = true;
+        need_sep = false;
+        if (lexer->lookahead != ' ' && lexer->lookahead != '\t') continue;
+        while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
+            lexer->advance(lexer, false);
+        c = lexer->lookahead;
+        if (c >= '0' && c <= '9') {
+            while (lexer->lookahead >= '0' && lexer->lookahead <= '9')
+                lexer->advance(lexer, false);
+            lexer->mark_end(lexer);
+            need_sep = true;
+        } else if (c == '"') {
+            lexer->advance(lexer, false);
+            while (!lexer->eof(lexer) && lexer->lookahead != '\n'
+                   && lexer->lookahead != '"')
+                lexer->advance(lexer, false);
+            if (lexer->lookahead == '"') {
+                lexer->advance(lexer, false);
+                lexer->mark_end(lexer);
+                need_sep = true;
+            }
+            /* unterminated quote: no re-mark, no need_sep - boundary
+             * stays at the no-argument mark above; loops back and
+             * tries the already-probed-past position directly as the
+             * next atom's start. */
+        }
+        /* Whitespace not followed by a digit or quote: already
+         * consumed probing for one - loops back and retries right
+         * there as the next atom's start, no separator left to
+         * consume. */
+    }
+    return any;
+}
+
 /* -----------------------------------------------------------------------
  * Main scanner
  * --------------------------------------------------------------------- */
@@ -874,6 +946,18 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         if (!any_non_ws) return false;
         lexer->result_symbol = (TSSymbol)sym;
         return true;
+    }
+
+    /* ── Priority 0a: block_switches run after a src/example block's
+     * language (or block-open, for example_block). See
+     * scan_block_switches for why this is external rather than JS
+     * regex tokens. */
+    if (valid_symbols[EXT_BLOCK_SWITCHES]
+        && (lexer->lookahead == '-' || lexer->lookahead == '+')) {
+        if (scan_block_switches(lexer)) {
+            lexer->result_symbol = EXT_BLOCK_SWITCHES;
+            return true;
+        }
     }
 
     /* ── Priority 0a: list counter `[@N]` / checkbox `[ ]`. Both fire

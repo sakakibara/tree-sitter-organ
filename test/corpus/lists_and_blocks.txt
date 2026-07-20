@@ -734,3 +734,48 @@ Dash-pipe line after a table row is a paragraph
         (table_cell)
         (table_cell)))
     (paragraph)))
+
+==================
+Src language absorbs trailing non-name bytes
+==================
+#+begin_src org]
+body
+#+end_src
+
+---
+
+(document
+  (zeroth_section
+    (src_block
+      (src_block_language))))
+
+==================
+Unparseable switch tail becomes header args
+==================
+#+begin_src lua -n-20 :results output
+x
+#+end_src
+
+---
+
+(document
+  (zeroth_section
+    (src_block
+      (src_block_language)
+      (block_switches)
+      (block_header_args))))
+
+==================
+Export format followed by junk keeps the export block
+==================
+#+begin_export html <b>
+x
+#+end_export
+
+---
+
+(document
+  (zeroth_section
+    (export_block
+      (export_format)
+      (block_header_args))))
