@@ -678,7 +678,21 @@ foo
   (zeroth_section
     (greater_block
       (block_name)
-      (ERROR)
+      (paragraph))))
+
+==================
+Block name with a dot parses as a closed greater block
+==================
+#+begin_src.
+foo
+#+end_src.
+
+---
+
+(document
+  (zeroth_section
+    (greater_block
+      (block_name)
       (paragraph))))
 
 ==================

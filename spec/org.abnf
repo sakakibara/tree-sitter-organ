@@ -134,7 +134,8 @@ dynblock-close  =  indent "#+end:"                                       indent 
 
 ; Block name shared by greater and dynamic blocks ("special" blocks are
 ; any name other than a lesser-block name).
-block-name      =  1*(ALPHA / DIGIT / "_" / "-")
+block-name      =  1*not-wsp
+not-wsp         =  %x21-10FFFF                    ; any non-whitespace
 block-args      =  1*non-line                     ; trailing parameters (raw)
 
 ; --- LaTeX environments (Worg §4 LaTeX Environment) -----------------------

@@ -331,7 +331,7 @@ module.exports = grammar({
       repeat($._content_line),
       $._dynblock_close,
     ),
-    block_name: $ => /[A-Za-z0-9_-]+/,
+    block_name: $ => /[^ \t\r\n]+/,
     block_args: $ => /[^ \t\n][^\n]*/,
 
     /* Lesser blocks. The C scanner emits `_*_block_open` covering only

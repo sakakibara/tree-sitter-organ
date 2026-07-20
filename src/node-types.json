@@ -31,11 +31,6 @@
     "fields": {}
   },
   {
-    "type": "block_name",
-    "named": true,
-    "fields": {}
-  },
-  {
     "type": "checkbox",
     "named": true,
     "fields": {}
@@ -598,11 +593,6 @@
         }
       ]
     }
-  },
-  {
-    "type": "footnote_label",
-    "named": true,
-    "fields": {}
   },
   {
     "type": "formula",
@@ -1667,6 +1657,10 @@
     "named": true
   },
   {
+    "type": "block_name",
+    "named": true
+  },
+  {
     "type": "block_switches",
     "named": true
   },
@@ -1700,6 +1694,10 @@
   },
   {
     "type": "fixed_width_body",
+    "named": true
+  },
+  {
+    "type": "footnote_label",
     "named": true
   },
   {

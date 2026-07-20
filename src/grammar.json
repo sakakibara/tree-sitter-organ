@@ -848,7 +848,7 @@
     },
     "block_name": {
       "type": "PATTERN",
-      "value": "[A-Za-z0-9_-]+"
+      "value": "[^ \\t\\r\\n]+"
     },
     "block_args": {
       "type": "PATTERN",

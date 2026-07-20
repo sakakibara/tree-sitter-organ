@@ -9,6 +9,7 @@
 line-end
 indent
 non-line
+not-wsp
 empty-line
 
 # Headline shape — `stars` is an alias of the `_heading_open` external token
