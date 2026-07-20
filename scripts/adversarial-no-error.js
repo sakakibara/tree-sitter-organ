@@ -236,6 +236,46 @@ function* closeLineTrailers() {
   }
 }
 
+// ---- deep-nesting family ---------------------------------------------------
+// Stacked container opens past the scope stack's capacity desync the
+// scanner's scope model from the token stream if a push silently drops
+// while the classifier still emits an *_OPEN token (C1: 34 nested
+// `:LOGBOOK:` lines ERRORed at 32-slot capacity). hostile() never stacks
+// more than ~6 fragments (see hostile() above), so depths anywhere near
+// a 32-slot cap are otherwise unreached by the rest of this space.
+// NEST_CAP mirrors PREPASS_STACK_MAX (src/prepass.c) and
+// ORG_LIST_STACK (src/scanner.c) - both 32 today; keep in sync if either
+// changes.
+//
+// Drawer / greater-block / dynamic-block bodies fully re-dispatch each
+// line, so they self-nest by direct repetition. A lesser block and a
+// latex environment are opaque once open (their body never re-dispatches,
+// so repeating their own open line only ever opens the first one) and a
+// property drawer only opens directly under a headline/inlinetask, so
+// those three are nested inside `:wrap:\n` drawer filler lines instead -
+// which does re-dispatch - to reach the target push depth, with the
+// container under test as the final, capacity-deciding push. Plain-list
+// nesting uses the scanner's own independent ORG_LIST_STACK, unrelated to
+// the prepass scope stack.
+const NEST_CAP = 32;
+const NEST_DEPTHS = [NEST_CAP - 1, NEST_CAP, NEST_CAP + 1, NEST_CAP + 8];
+const INLINETASK_STARS = '*'.repeat(15); // ORG_INLINETASK_MIN_LEVEL
+function* deepNesting() {
+  for (const depth of NEST_DEPTHS) {
+    yield ':LOGBOOK:\n'.repeat(depth);                            // drawer
+    yield '#+begin_center\n'.repeat(depth);                       // greater block
+    yield '#+begin: dyn :p 1\n'.repeat(depth);                    // dynamic block
+    yield ':wrap:\n'.repeat(depth - 1) + '#+begin_src lua\n';     // lesser block
+    yield ':wrap:\n'.repeat(depth - 1) + '\\begin{align}\n';      // latex environment
+    yield ':wrap:\n'.repeat(depth - 2)
+      + INLINETASK_STARS + ' T\n:PROPERTIES:\n';                 // property drawer
+    yield ':wrap:\n'.repeat(depth - 1) + INLINETASK_STARS + ' T\n'; // inlinetask
+    let list = '';
+    for (let i = 0; i < depth; i++) list += '  '.repeat(i) + '- item\n';
+    yield list;                                                   // plain list
+  }
+}
+
 // ---- input space assembly -------------------------------------------------
 const seeds = extractCorpusInputs(path.join(repo, 'test', 'corpus'));
 const space = new Map();
@@ -248,6 +288,7 @@ for (const s of seeds) add(s);
 for (const s of seeds) for (const m of mutations(s)) add(m);
 for (const s of hostile(4000, 6)) add(s);
 for (const s of closeLineTrailers()) add(s);
+for (const s of deepNesting()) add(s);
 process.stderr.write(`no-error harness: ${seeds.length} corpus seeds -> ${space.size} unique inputs\n`);
 
 const inputDir = path.join(workDir, 'inputs');
