@@ -923,6 +923,32 @@ static bool ws_only_before(const uint8_t *buf, uint32_t end) {
     return true;
 }
 
+/* E7: forward look-ahead from a `:PROPERTIES:` open line through its
+ * body, deciding whether `_propdrawer_open` may fire at all. Reads
+ * lines via `lexer->advance()` without ever calling `lexer->mark_end()`,
+ * so none of the peeked bytes are committed to the emitted token
+ * regardless of the verdict - the caller re-scans them normally on the
+ * next call. */
+static bool propdrawer_body_is_valid(TSLexer *lexer) {
+    uint8_t buf[ORG_LINE_BUF_MAX];
+    for (;;) {
+        if (lexer->eof(lexer)) return true;
+        uint32_t len = 0;
+        bool line_has_nul = false;
+        while (!lexer->eof(lexer) && lexer->lookahead != '\n') {
+            if (lexer->lookahead == 0) line_has_nul = true;
+            if (len < ORG_LINE_BUF_MAX) buf[len++] = classify_byte(lexer->lookahead);
+            lexer->advance(lexer, false);
+        }
+        if (!lexer->eof(lexer)) lexer->advance(lexer, false);  /* consume '\n' */
+        PropdrawerLookahead v =
+            prepass_propdrawer_lookahead(buf, len, line_has_nul);
+        if (v == PROPDRAWER_LOOKAHEAD_DISQUALIFY) return false;
+        if (v == PROPDRAWER_LOOKAHEAD_STOP) return true;
+        /* PROPDRAWER_LOOKAHEAD_OK: keep scanning the next line. */
+    }
+}
+
 static bool scan_impl(ScannerState *s, TSLexer *lexer,
                       const bool *valid_symbols);
 
@@ -2036,6 +2062,16 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
 
         PrepassScopeSnapshot snap = prepass_scope_snapshot(s->prepass);
         LineClassification rr = prepass_classify_line(s->prepass, line_buf2, ll);
+
+        /* E7: same whole-body look-ahead as Priority 5, for a
+         * `:PROPERTIES:` open reached through this indented/bullet
+         * fall-through path instead. */
+        if (rr.type == TT_PROPDRAWER_OPEN && !propdrawer_body_is_valid(lexer)) {
+            prepass_scope_restore(s->prepass, snap);
+            prepass_scope_push(s->prepass, SCOPE_DRAWER);
+            rr.type = TT_DRAWER_OPEN;
+        }
+
         if (rr.type == TT_HEADING) {
             prepass_scope_restore(s->prepass, snap);
             return false;
@@ -2464,6 +2500,18 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
 
     PrepassScopeSnapshot snap = prepass_scope_snapshot(s->prepass);
     LineClassification r = prepass_classify_line(s->prepass, line_buf, line_len);
+
+    /* E7: a `:PROPERTIES:` open only becomes `_propdrawer_open` when
+     * every line through `:END:`/a headline/EOF is a safe node-property
+     * line; otherwise redirect to the generic `_drawer_open` path
+     * (drawer bodies already fall through to full line classification,
+     * so tables/blocks/bad-shape lines inside just parse as plain
+     * drawer content instead of livelocking or ERROR-ing). */
+    if (r.type == TT_PROPDRAWER_OPEN && !propdrawer_body_is_valid(lexer)) {
+        prepass_scope_restore(s->prepass, snap);
+        prepass_scope_push(s->prepass, SCOPE_DRAWER);
+        r.type = TT_DRAWER_OPEN;
+    }
 
     if (r.type == TT_HEADING) {
         /* Should be unreachable: heading detection above handles col-0 '*'

@@ -30,6 +30,10 @@ void prepass_scope_pop(prepass_state_t *s) {
     scope_pop((struct prepass_state *)s);
 }
 
+void prepass_scope_push(prepass_state_t *s, ScopeKind kind) {
+    scope_push((struct prepass_state *)s, kind);
+}
+
 PrepassScopeSnapshot prepass_scope_snapshot(const prepass_state_t *s) {
     const struct prepass_state *st = (const struct prepass_state *)s;
     PrepassScopeSnapshot snap;
@@ -230,6 +234,44 @@ uint8_t prepass_lblock_kind(const uint8_t *p, uint32_t start, uint32_t end) {
     if (name_eq_ci(p, start, end, "verse"))   return 4;
     if (name_eq_ci(p, start, end, "comment")) return 5;
     return 0;
+}
+
+PropdrawerLookahead prepass_propdrawer_lookahead(const uint8_t *line,
+                                                 uint32_t line_len,
+                                                 int line_has_nul) {
+    if (line_len > 0 && line[line_len - 1] == '\r') line_len--;
+
+    /* Headline boundary - mirrors classify_line's own col-0 star-run
+     * detection, which terminates every open scope including a
+     * property drawer's. */
+    if (line_len > 0 && line[0] == '*') {
+        uint32_t i = 0;
+        while (i < line_len && line[i] == '*') i++;
+        if (i == line_len || line[i] == ' ') return PROPDRAWER_LOOKAHEAD_STOP;
+    }
+
+    uint16_t indent = leading_indent(line, line_len);
+    if (indent >= line_len) return PROPDRAWER_LOOKAHEAD_DISQUALIFY; /* blank */
+
+    const uint8_t *trimmed = line + indent;
+    uint32_t rem = line_len - indent;
+
+    uint32_t ns, ne;
+    if (is_drawer_line(trimmed, rem, &ns, &ne)
+        && name_iequals(trimmed, ns, ne, "END"))
+        return PROPDRAWER_LOOKAHEAD_STOP;
+
+    if (!is_node_property(trimmed, rem)) return PROPDRAWER_LOOKAHEAD_DISQUALIFY;
+
+    /* Key shape is valid, but a NUL anywhere on the line - necessarily
+     * in the value, since a NUL in the key position already fails the
+     * charset check above - still disqualifies: tree-sitter's own
+     * generated lexer treats codepoint 0 as an internal EOF sentinel,
+     * so the JS-side property_value regex token can never advance past
+     * it. */
+    if (line_has_nul) return PROPDRAWER_LOOKAHEAD_DISQUALIFY;
+
+    return PROPDRAWER_LOOKAHEAD_OK;
 }
 
 static int parse_latexenv(const uint8_t *trimmed, uint32_t rem,

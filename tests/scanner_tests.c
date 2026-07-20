@@ -374,6 +374,27 @@ static void test_scan_terminates_on_high_codepoint_in_property(void) {
     tree_sitter_org_external_scanner_destroy(s);
 }
 
+/* E7 regression: before the whole-drawer look-ahead, a `:PROPERTIES:`
+ * body line that failed node-property shape left the scanner offering
+ * `_propdrawer_open` regardless, and `property_drawer`'s grammar rule
+ * has no plain-body fallback - the resulting dead end drove GLR error
+ * recovery into the same class of pathological retry blow-up bounded
+ * elsewhere in this file. Same alarm bound as the R4 NUL tests. */
+static void test_scan_terminates_on_non_property_drawer_line(void) {
+    static const char src[] = "* H\n:PROPERTIES:\n+ID: x\n:END:\n";
+    MockLexer m;
+    mock_init_n(&m, src, sizeof(src) - 1);
+    ScannerState *s = (ScannerState *)tree_sitter_org_external_scanner_create();
+    bool valid[N_EXTERNALS];
+    for (int i = 0; i < N_EXTERNALS; i++) valid[i] = true;
+    signal(SIGALRM, hang_guard_alarm);
+    alarm(10);
+    (void)tree_sitter_org_external_scanner_scan(s, &m.lexer, valid);
+    alarm(0);
+    CHECK(m.pos <= m.len);
+    tree_sitter_org_external_scanner_destroy(s);
+}
+
 static void test_star_counter_does_not_wrap(void) {
     /* 257 stars wraps a uint8_t to 1: pre-fix the line scans as a
      * level-1 heading; post-fix it stays an inlinetask open. */
@@ -441,6 +462,7 @@ int main(void) {
     test_indented_table_row_terminates_when_no_table_slot();
     test_scan_terminates_on_embedded_nul();
     test_scan_terminates_on_high_codepoint_in_property();
+    test_scan_terminates_on_non_property_drawer_line();
     test_star_counter_does_not_wrap();
     test_heading_stack_push_is_bounded();
     test_prepass_index_scan_and_edit();

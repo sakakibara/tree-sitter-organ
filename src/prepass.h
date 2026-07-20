@@ -102,6 +102,12 @@ ScopeKind prepass_scope_top(const prepass_state_t *s);
  * the scope stack tracks the parser's structure. */
 void prepass_scope_pop(prepass_state_t *s);
 
+/* Push a scope.  The scanner calls this to redirect a `:PROPERTIES:`
+ * open from SCOPE_PROPDRAWER to SCOPE_DRAWER after a failed body
+ * look-ahead (see prepass_propdrawer_lookahead), once it has restored
+ * the pre-open snapshot to undo classify's own SCOPE_PROPDRAWER push. */
+void prepass_scope_push(prepass_state_t *s, ScopeKind kind);
+
 /* Snapshot/restore for the scope stack.  A single classify call
  * mutates at most one stack slot plus the depth, so {depth, top}
  * restores it exactly.  The scanner snapshots before classifying a
@@ -136,6 +142,28 @@ LineClassification prepass_classify_line(prepass_state_t *s,
 /* Lesser-block kind for name bytes p[start..end): 1 = src,
  * 2 = example, 3 = export, 4 = verse, 5 = comment, 0 = other. */
 uint8_t prepass_lblock_kind(const uint8_t *p, uint32_t start, uint32_t end);
+
+/* Verdict for one candidate line of a property-drawer body, used by the
+ * scanner's forward look-ahead from `:PROPERTIES:` before it commits to
+ * `_propdrawer_open` (E7: a non-property line anywhere in the body
+ * degrades the whole region to a plain drawer instead). */
+typedef enum {
+    PROPDRAWER_LOOKAHEAD_STOP = 0,   /* `:END:` close, or a headline */
+    PROPDRAWER_LOOKAHEAD_OK,         /* a valid, NUL-free node-property line */
+    PROPDRAWER_LOOKAHEAD_DISQUALIFY, /* anything else */
+} PropdrawerLookahead;
+
+/* `line`/`line_len` is one raw line (same convention as
+ * prepass_classify_line: a trailing '\r' is stripped internally).
+ * `line_has_nul` is the caller's own raw-byte scan for an embedded NUL
+ * (mirroring the scanner's `saw_nul` tracking) - `line` itself may
+ * already have every non-ASCII codepoint collapsed to a single 0x80
+ * marker (the scanner's classify_byte convention), which cannot
+ * distinguish a NUL value byte from an ordinary high codepoint, so the
+ * NUL check cannot be done from `line` alone. */
+PropdrawerLookahead prepass_propdrawer_lookahead(const uint8_t *line,
+                                                 uint32_t line_len,
+                                                 int line_has_nul);
 
 /*
  * Serialize the pre-pass state (scope stack) into `buffer`. Returns the

@@ -167,3 +167,69 @@ Node property with no space before the value
       (node_property
         (property_name)
         (property_value)))))
+
+==================
+Property drawer with a non-property line degrades to a plain drawer
+==================
+* H
+:PROPERTIES:
+ID: abc
+:END:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (drawer
+        (drawer_name)
+        (paragraph)))))
+
+==================
+Property drawer with a bullet-like line degrades to a plain drawer
+==================
+* H
+:PROPERTIES:
++ID: x
+:END:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (drawer
+        (drawer_name)
+        (paragraph)))))
+
+==================
+Inlinetask property drawer with a colonless line degrades to a plain drawer
+==================
+* Heading
+*************** Inlinetask
+:PROPERTIES:
+:ID abc
+:END:
+*************** END
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (inlinetask
+        (inlinetask_line
+          (stars)
+          (title))
+        (drawer
+          (drawer_name)
+          (paragraph))))))
