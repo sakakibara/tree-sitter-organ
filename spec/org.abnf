@@ -68,7 +68,8 @@ empty-line      =  *(SP / HTAB) line-end
 ; --- Planning (Worg §2.5 Planning) ----------------------------------------
 ; A planning block is one or more planning-line records beneath a heading.
 planning        =  1*planning-line
-planning-line   =  indent planning-entry *(SP planning-entry) line-end
+planning-line   =  indent planning-entry *(SP planning-entry) [1*non-line] line-end
+                                              ; trailing junk after the last entry is absorbed, not kept
 planning-entry  =  planning-keyword ":" SP planning-timestamp
 planning-keyword =  "SCHEDULED" / "DEADLINE" / "CLOSED"
 planning-timestamp =  ("<" *non-line ">") / ("[" *non-line "]")

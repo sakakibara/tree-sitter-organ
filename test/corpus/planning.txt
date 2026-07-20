@@ -264,3 +264,22 @@ CLOSED: [2026-01-01 Thu 10:00] SCHEDULED: [2026-01-02 Fri]
         (planning_entry
           (planning_keyword)
           (planning_timestamp))))))
+
+==================
+Planning line with trailing junk after the timestamp stays planning
+==================
+* H
+SCHEDULED: <2026-04-29> rest junk
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (planning
+      (planning_line
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp))))))

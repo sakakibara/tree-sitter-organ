@@ -214,6 +214,7 @@ module.exports = grammar({
 
     planning_line: $ => seq(
       repeat1($.planning_entry),
+      optional(token(prec(-1, /[^\r\n]+/))),
       $._line_end,
     ),
 
