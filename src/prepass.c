@@ -257,11 +257,26 @@ PropdrawerLookahead prepass_propdrawer_lookahead(const uint8_t *line,
 
     /* Headline boundary - mirrors classify_line's own col-0 star-run
      * detection, which terminates every open scope including a
-     * property drawer's. */
+     * property drawer's. A star run needs a trailing space to be a
+     * real heading (Emacs: a bare `*` with nothing after, not even at
+     * EOL, is plain text) - matching that exactly here, rather than
+     * also treating "stars run to EOL" as a boundary, keeps a lone
+     * `*` line disqualifying the drawer (degrading to a generic one)
+     * instead of being wrongly accepted as a clean stop.
+     *
+     * Capped below ORG_INLINETASK_MIN_LEVEL: a 15+-star line doesn't
+     * terminate a property drawer the way a real heading does -
+     * classify_line's own heading-check (which this mirrors) opens or
+     * closes an INLINETASK scope for those instead, leaving the
+     * property drawer's own scope buried underneath rather than
+     * cleanly popped. Disqualifying here instead degrades to a plain
+     * drawer, whose generic `_content_line` body already nests an
+     * inlinetask correctly. */
     if (line_len > 0 && line[0] == '*') {
         uint32_t i = 0;
         while (i < line_len && line[i] == '*') i++;
-        if (i == line_len || line[i] == ' ') return PROPDRAWER_LOOKAHEAD_STOP;
+        if (i < ORG_INLINETASK_MIN_LEVEL
+            && i < line_len && line[i] == ' ') return PROPDRAWER_LOOKAHEAD_STOP;
     }
 
     uint16_t indent = leading_indent(line, line_len);

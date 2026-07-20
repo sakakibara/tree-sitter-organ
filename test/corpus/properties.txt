@@ -209,6 +209,52 @@ Property drawer with a bullet-like line degrades to a plain drawer
         (paragraph)))))
 
 ==================
+Property drawer with a bare star line (no trailing space) degrades to a plain drawer (Emacs: a lone `*` isn't a heading either)
+==================
+* H
+:PROPERTIES:
+*
+:END:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (drawer
+        (drawer_name)
+        (paragraph)))))
+
+==================
+Property drawer with an inlinetask-shaped line degrades to a plain drawer, which nests the inlinetask correctly
+==================
+* H
+:PROPERTIES:
+*************** Task
+body
+*************** END
+:END:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (drawer
+        (drawer_name)
+        (inlinetask
+          (inlinetask_line
+            (stars)
+            (title))
+          (paragraph))))))
+
+==================
 Inlinetask property drawer with a colonless line degrades to a plain drawer
 ==================
 * Heading
