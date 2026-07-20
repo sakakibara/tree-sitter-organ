@@ -16,6 +16,15 @@
 // SIGKILL: a linear-time parser finishes in tens of ms, a quadratic one
 // blows well past the bound and gets killed, so the check FAILS instead
 // of hanging.
+//
+// The bound must land on the native parser itself, not a wrapper around
+// it: node_modules/.bin/tree-sitter is a Node script that spawns the
+// native binary as a grandchild with inherited stdio, so signalling the
+// direct child leaves that grandchild running and orphaned on a kill.
+// Invoking the native tree-sitter-cli binary through `sh -c 'exec "$0"
+// "$@"'` replaces the shell with the parser in place, so the killed
+// process IS the one doing the work (same idiom as
+// scripts/adversarial-no-error.js's spawnBounded).
 
 'use strict';
 
@@ -24,7 +33,9 @@ const path = require('path');
 const cp = require('child_process');
 const os = require('os');
 
-const treeSitterBin = path.resolve('node_modules/.bin/tree-sitter');
+const repo = path.resolve(__dirname, '..');
+const tsBin = path.join(repo, 'node_modules', 'tree-sitter-cli',
+  process.platform === 'win32' ? 'tree-sitter.exe' : 'tree-sitter');
 
 const N = 8000;
 const TIMEOUT_MS = 3000;
@@ -73,7 +84,8 @@ for (const shape of SHAPES) {
   fs.writeFileSync(tmp, input);
 
   const start = Date.now();
-  const r = cp.spawnSync(treeSitterBin, ['parse', '-q', tmp], {
+  const r = cp.spawnSync('sh', ['-c', 'exec "$0" "$@"', tsBin, 'parse', '-q', tmp], {
+    cwd: repo,
     encoding: 'utf8',
     timeout: TIMEOUT_MS,
     killSignal: 'SIGKILL',
