@@ -252,3 +252,22 @@ A second inlinetask line with only extra whitespace after the stars still redefi
       (inlinetask_line
         (stars)
         (title)))))
+
+==================
+A second inlinetask line with extra whitespace then a non-END word still redefines correctly
+==================
+*************** T1
+***************  E
+
+---
+
+(document
+  (zeroth_section
+    (inlinetask
+      (inlinetask_line
+        (stars)
+        (title)))
+    (inlinetask
+      (inlinetask_line
+        (stars)
+        (title)))))

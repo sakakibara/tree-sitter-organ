@@ -1342,17 +1342,27 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
          * it (harmless: falling through to `return false` below still
          * restores the lexer here) and fold it into title directly
          * when there's truly nothing left to defer for. */
-        if ((la == ' ' || la == '\t') && valid_symbols[EXT_HEADLINE_COMMENT]) {
+        if ((la == ' ' || la == '\t')
+            && (valid_symbols[EXT_HEADLINE_COMMENT]
+                || valid_symbols[EXT_HEADLINE_TODO])) {
             if (valid_symbols[EXT_HEADLINE_TODO]) {
+                /* Fold straight into title rather than deferring: this
+                 * un-owned byte has no leading separator token to
+                 * defer to, and empirically the grammar state reached
+                 * right after a redefining `_inlinetask_open` doesn't
+                 * accept the internal `/[ \t]+/` separator token either
+                 * (it only becomes reachable through tree-sitter's own
+                 * error-recovery inserting a MISSING `_headline_todo`
+                 * first) - deferring here either ERRORs outright or
+                 * silently recovers into a malformed todo/title split.
+                 * Always consuming it as title is an under-approximation
+                 * (a genuine COMMENT/TODO word after the extra
+                 * whitespace won't be classified as such) but is
+                 * correct-by-construction: no ERROR either way. */
                 int32_t prev = la;
-                while (lexer->lookahead == ' ' || lexer->lookahead == '\t') {
-                    prev = lexer->lookahead;
+                while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
                     lexer->advance(lexer, false);
-                }
-                bool nothing_follows = lexer->eof(lexer)
-                                     || lexer->lookahead == '\n'
-                                     || lexer->lookahead == '\r';
-                if (nothing_follows && valid_symbols[EXT_HEADLINE_TITLE]) {
+                if (valid_symbols[EXT_HEADLINE_TITLE]) {
                     lexer->mark_end(lexer);
                     scan_title_tail(lexer, prev, true);
                     lexer->result_symbol = EXT_HEADLINE_TITLE;

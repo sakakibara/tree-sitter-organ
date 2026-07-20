@@ -574,6 +574,38 @@ static void test_inlinetask_trailing_whitespace_at_eof_becomes_title(void) {
     tree_sitter_org_external_scanner_destroy(s);
 }
 
+/* Same un-owned-whitespace-byte shape as
+ * test_inlinetask_trailing_whitespace_at_eof_becomes_title, but with a
+ * non-END word (not just more whitespace) after it and no trailing
+ * newline - the grammar state reached right after a redefining
+ * `_inlinetask_open` doesn't accept the internal `/[ \t]+/` separator
+ * token tree-sitter's own error recovery would otherwise defer to
+ * (verified via `tree-sitter parse -d`: it only becomes reachable by
+ * synthesizing a MISSING `_headline_todo` first), so deferring here
+ * ERRORed outright. Folding straight into title regardless of what
+ * follows fixes it uniformly. */
+static void test_inlinetask_whitespace_then_word_at_eof_becomes_title(void) {
+    ScannerState *s =
+        (ScannerState *)tree_sitter_org_external_scanner_create();
+    bool valid[N_EXTERNALS];
+    memset(valid, false, sizeof(valid));
+    valid[EXT_HEADLINE_TODO] = true;
+    valid[EXT_HEADLINE_TITLE] = true;
+    valid[EXT_HEADLINE_PRIORITY] = true;
+    valid[EXT_HEADLINE_COMMENT] = true;
+    valid[EXT_HEADLINE_STATS_COOKIE] = true;
+    valid[EXT_HEADLINE_TAG_LIST_OPEN] = true;
+
+    MockLexer m;
+    mock_init(&m, " E");   /* one extra space, then a single-letter word, EOF */
+    bool ok = tree_sitter_org_external_scanner_scan(s, &m.lexer, valid);
+    CHECK(ok == true);
+    CHECK(m.lexer.result_symbol == EXT_HEADLINE_TITLE);
+    CHECK(m.mark == 2);
+
+    tree_sitter_org_external_scanner_destroy(s);
+}
+
 int main(void) {
     test_deserialize_zero_resets_state();
     test_deserialize_corrupt_buffer_resets_state();
@@ -592,6 +624,7 @@ int main(void) {
     test_second_inlinetask_line_closes_first_correctly();
     test_inlinetask_close_tolerates_extra_whitespace();
     test_inlinetask_trailing_whitespace_at_eof_becomes_title();
+    test_inlinetask_whitespace_then_word_at_eof_becomes_title();
     if (failures > 0) {
         fprintf(stderr, "scanner_tests: %d failure(s)\n", failures);
         return 1;
