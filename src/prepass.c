@@ -594,13 +594,17 @@ static LineTokenType classify_line(struct prepass_state *s,
 
     if (is_planning(trimmed, rem)) return TT_PLANNING;
     if (has_prefix_ci(trimmed, rem, "CLOCK:")) return TT_CLOCK;
-    if (rem >= 4 && trimmed[0] == '%' && trimmed[1] == '%'
+    /* A diary-sexp line is only recognized at column 0 (Emacs:
+     * `org-element--current-element` matches `%%(` unindented; an
+     * indented occurrence is plain paragraph text). */
+    if (indent == 0 && rem >= 4 && trimmed[0] == '%' && trimmed[1] == '%'
         && trimmed[2] == '(' && trimmed[rem - 1] == ')') {
         return TT_DIARY_SEXP;
     }
     /* Active-timestamp diary sexp form: `<%%(...)>` */
-    if (rem >= 6 && trimmed[0] == '<' && trimmed[1] == '%' && trimmed[2] == '%'
-        && trimmed[3] == '(' && trimmed[rem - 2] == ')' && trimmed[rem - 1] == '>') {
+    if (indent == 0 && rem >= 6 && trimmed[0] == '<' && trimmed[1] == '%'
+        && trimmed[2] == '%' && trimmed[3] == '('
+        && trimmed[rem - 2] == ')' && trimmed[rem - 1] == '>') {
         return TT_DIARY_SEXP;
     }
 

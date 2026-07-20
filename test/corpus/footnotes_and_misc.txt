@@ -128,6 +128,39 @@ Diary sexp with nested parens
       (diary_sexp_body))))
 
 ==================
+Diary sexp: indented bare form degrades to paragraph (Emacs: %%( only recognized at column 0)
+==================
+  %%(diary-block 1 1 2026 12 31 2026)
+
+---
+
+(document
+  (zeroth_section
+    (paragraph)))
+
+==================
+Diary sexp: tab-indented bare form degrades to paragraph
+==================
+	%%(diary-block 1 1 2026 12 31 2026)
+
+---
+
+(document
+  (zeroth_section
+    (paragraph)))
+
+==================
+Diary sexp: indented active-timestamp form degrades to paragraph
+==================
+  <%%(diary-cyclic 7 1 12 2025)>
+
+---
+
+(document
+  (zeroth_section
+    (paragraph)))
+
+==================
 Table with header row
 ==================
 | col1 | col2 |
