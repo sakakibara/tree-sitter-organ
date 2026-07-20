@@ -750,6 +750,19 @@ x = 1
       (latexenv_name))))
 
 ==================
+Latex environment with trailing text on the same line as the opening brace (Emacs: no end-of-line anchor after \begin{NAME}, the whole line is still part of the environment)
+==================
+\begin{align}x = 1
+\end{align}
+
+---
+
+(document
+  (zeroth_section
+    (latex_environment
+      (latexenv_name))))
+
+==================
 Indented greater block
 ==================
   #+begin_quote

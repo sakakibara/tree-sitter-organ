@@ -396,6 +396,14 @@ module.exports = grammar({
       $._latexenv_open,
       field('name', $.latexenv_name),
       '}',
+      /* Emacs's `\begin{NAME}` regex has no end-of-line anchor after
+       * the closing brace - trailing text on the same line is part of
+       * the environment's raw value, not an error. Absorbed here as an
+       * anonymous low-precedence token (this grammar exposes the
+       * environment structurally rather than as a raw byte value, so
+       * the text itself is discarded, matching the planning_line
+       * junk-absorption precedent) rather than left to ERROR. */
+      optional(token(prec(-1, /[^\r\n]+/))),
       $._line_end,
       repeat($._latexenv_body),
       $._latexenv_close,
