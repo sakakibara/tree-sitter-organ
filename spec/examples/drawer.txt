@@ -22,5 +22,14 @@ some text
 just text
 ~~~
 
-# Drawer-shaped lines NOT under a headline (zeroth section).
-- :LOGBOOK:
+# A zeroth-section drawer parses the same as one under a headline -
+# the grammar has never scoped drawers to headline sections; a closed
+# `:LOGBOOK:` / `:END:` pair here already parsed as `drawer` before
+# this fix (verified against HEAD).  This case simply lacked a
+# trailing newline, so it errored instead of recognising the same
+# shape - the EOF-terminator fix corrects that inconsistency rather
+# than introducing new behavior.
++ :LOGBOOK:
+
+# EOF-truncated drawer-open line (no trailing newline) still parses.
++ :d:

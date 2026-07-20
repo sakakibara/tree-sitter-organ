@@ -23,6 +23,10 @@ echo hi
 # src_block by the grammar (lenient EOF behavior).  Negatives focus
 # on shape mismatch instead.
 
+# Even an EOF-truncated open line (no trailing newline at all) parses
+# the same lenient way.
++ #+begin_src lua
+
 # Wrong block kind.
 -~~~
 #+begin_quote

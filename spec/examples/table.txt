@@ -19,3 +19,6 @@
 
 # Plain text.
 - not a table
+
+# EOF-truncated table row (no trailing newline) still parses.
++ | a |

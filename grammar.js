@@ -3,7 +3,7 @@
 const lesserBlock = ($, open, close, ...head) => seq(
   open,
   ...head,
-  /[ \t]*\r?\n/,
+  $._line_end,
   repeat($._lblock_body),
   close,
 );
@@ -26,7 +26,7 @@ const headlineTail = $ => [
 const directiveTail = $ => [
   ':',
   optional(seq(optional(/[ \t]+/), field('value', $.directive_value))),
-  /[ \t]*\r?\n/,
+  $._line_end,
 ];
 
 module.exports = grammar({
@@ -97,6 +97,7 @@ module.exports = grammar({
     $._formula_line,           // `#+TBLFM:` prefix (name confirmed by scanner)
     $._block_switches,         // `-n 20 -r -l "fmt"` run (scanned, see scanner.c)
     $._export_format,          // export-block backend (scanned, see scanner.c)
+    $._line_end,               // `[ \t]*\r?\n`, or zero-width at EOF
   ],
 
   extras: _ => [],
@@ -213,7 +214,7 @@ module.exports = grammar({
 
     planning_line: $ => seq(
       repeat1($.planning_entry),
-      /[ \t]*\r?\n/,
+      $._line_end,
     ),
 
     /* The external `_planning_line` token covers `[ws]*KEYWORD:`
@@ -235,7 +236,7 @@ module.exports = grammar({
       $._propdrawer_open,
       /[Pp][Rr][Oo][Pp][Ee][Rr][Tt][Ii][Ee][Ss]/,
       ':',
-      /[ \t]*\r?\n/,
+      $._line_end,
       repeat($.node_property),
       $._propdrawer_close,
     ),
@@ -247,7 +248,7 @@ module.exports = grammar({
       field('name', $.property_name),
       ':',
       optional(seq(optional(/[ \t]+/), field('value', $.property_value))),
-      /[ \t]*\r?\n/,
+      $._line_end,
     ),
 
     property_name:  $ => /[A-Za-z_][A-Za-z0-9_+-]*/,
@@ -311,7 +312,7 @@ module.exports = grammar({
       $._drawer_open,
       field('name', $.drawer_name),
       ':',
-      /[ \t]*\r?\n/,
+      $._line_end,
       repeat($._content_line),
       $._drawer_close,
     ),
@@ -321,7 +322,7 @@ module.exports = grammar({
       $._gblock_open,
       field('name', $.block_name),
       optional(seq(/[ \t]+/, field('args', $.block_args))),
-      /[ \t]*\r?\n/,
+      $._line_end,
       repeat($._content_line),
       $._gblock_close,
     ),
@@ -330,7 +331,7 @@ module.exports = grammar({
       optional(/[ \t]+/),
       field('name', $.block_name),
       optional(seq(/[ \t]+/, field('args', $.block_args))),
-      /[ \t]*\r?\n/,
+      $._line_end,
       repeat($._content_line),
       $._dynblock_close,
     ),
@@ -394,7 +395,7 @@ module.exports = grammar({
       $._latexenv_open,
       field('name', $.latexenv_name),
       '}',
-      /[ \t]*\r?\n/,
+      $._line_end,
       repeat($._latexenv_body),
       $._latexenv_close,
     ),
@@ -512,7 +513,7 @@ module.exports = grammar({
           field('duration', $.clock_duration),
         )),
       )),
-      /[ \t]*\r?\n/,
+      $._line_end,
     ),
 
     clock_timestamp: $ => /\[[^\]\n]+\]/,
@@ -559,13 +560,13 @@ module.exports = grammar({
     comment_line: $ => seq(
       $._comment_line,
       optional(field('body', alias($._comment_body_text, $.comment_body))),
-      /\r?\n/,
+      $._line_end,
     ),
     fixed_width: $ => prec.right(repeat1($.fixed_width_line)),
     fixed_width_line: $ => seq(
       $._fixed_width_line,
       optional(field('body', alias($._fixed_width_body_text, $.fixed_width_body))),
-      /\r?\n/,
+      $._line_end,
     ),
     horizontal_rule: $ => $._hrule_line,
     /* Diary sexp. Two surface forms — bare `%%(...)` and the
@@ -575,7 +576,7 @@ module.exports = grammar({
       $._diary_sexp_line,
       optional(field('body', $.diary_sexp_body)),
       choice(')', ')>'),
-      /[ \t]*\r?\n/,
+      $._line_end,
     ),
 
     diary_sexp_body: $ => $._diary_sexp_body,

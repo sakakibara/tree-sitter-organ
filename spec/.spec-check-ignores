@@ -7,6 +7,7 @@
 
 # Primitives — RFC 5234 helpers / organ shape
 line-end
+eoi
 indent
 non-line
 not-wsp

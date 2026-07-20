@@ -9,3 +9,6 @@
 - :NAME:
 # Headline.
 - * not fixed width
+
+# EOF-truncated fixed-width line (no trailing newline) still parses.
++ : f

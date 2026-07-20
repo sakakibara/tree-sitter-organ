@@ -17,8 +17,15 @@ SCHEDULED: <2026-05-05 Tue>
 :END:
 ~~~
 
-# Properties drawer not directly under a headline.
-- :PROPERTIES:
+# A zeroth-section property drawer parses the same as one under a
+# headline - the grammar has never scoped property drawers to
+# headline sections; a closed `:PROPERTIES:` / `:END:` pair here
+# already parsed as `property_drawer` before this fix (verified
+# against HEAD).  This case simply lacked a trailing newline, so it
+# errored instead of recognising the same shape - the EOF-terminator
+# fix corrects that inconsistency rather than introducing new
+# behavior.
++ :PROPERTIES:
 - :PROPERTIES:\n:ID: 1\n:END:
 
 # Generic drawer -- not properties.

@@ -85,6 +85,7 @@ enum OrgExternal {
     EXT_BLOCK_SWITCHES,          /* `-n 20 -r -l "fmt"` run after src/example language */
     EXT_EXPORT_FORMAT,           /* export-block backend, valid only if nothing but
                                    * trailing whitespace follows it to end of line */
+    EXT_LINE_END,                /* `[ \t]*\r?\n`, or zero-width at EOF */
     EXT__COUNT,                  /* sentinel - keep last; not a real external symbol */
 };
 
@@ -861,6 +862,29 @@ static bool scan_export_format(TSLexer *lexer) {
     return true;
 }
 
+/* Line terminator: [ \t]*CR?LF, or zero-width at EOF so EOF-truncated
+ * lines close cleanly instead of erroring.  Must not consume anything
+ * when it does not emit. */
+static bool scan_line_end(TSLexer *lexer) {
+    while (lexer->lookahead == ' ' || lexer->lookahead == '\t')
+        lexer->advance(lexer, false);
+    if (lexer->lookahead == '\r') lexer->advance(lexer, false);
+    if (lexer->lookahead == '\n') {
+        lexer->advance(lexer, false);
+        lexer->mark_end(lexer);
+        lexer->result_symbol = EXT_LINE_END;
+        return true;
+    }
+    if (lexer->eof(lexer)) {
+        /* At EOF the token covers the trailing [ \t]* run (zero-width
+         * when the line ends flush at EOF). */
+        lexer->mark_end(lexer);
+        lexer->result_symbol = EXT_LINE_END;
+        return true;
+    }
+    return false;
+}
+
 /* -----------------------------------------------------------------------
  * Main scanner
  * --------------------------------------------------------------------- */
@@ -936,8 +960,20 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
      * LAST `)` - Emacs reads to the outermost closing paren, so
      * nested parens stay in the body.  Empty bodies are refused
      * (grammar marks the field optional), which also keeps this
-     * token from ever being zero-width. */
-    if (valid_symbols[EXT_DIARY_SEXP_BODY]) {
+     * token from ever being zero-width.
+     *
+     * Guarded on the lookahead not already sitting at a line terminator:
+     * like every external symbol, this one is also speculatively offered
+     * during tree-sitter's own error-recovery "try anything" passes, at
+     * positions with no diary-sexp body in play at all (e.g. a bare blank
+     * line).  Entering there costs nothing extra to consume but still
+     * hard-declines (`if (!marked) return false;` below) without ever
+     * consuming a byte - starving `$._line_end` / `$._empty_line`, which
+     * are external tokens now too, of a chance in THIS SAME call and
+     * risking an error-recovery livelock hunting some other token. */
+    if (valid_symbols[EXT_DIARY_SEXP_BODY]
+        && lexer->lookahead != '\n' && lexer->lookahead != '\r'
+        && !lexer->eof(lexer)) {
         if (lexer->lookahead == ')') return false;
         bool marked = false;
         lexer->mark_end(lexer);
@@ -954,21 +990,35 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         return true;
     }
 
-    /* ── Priority 0z: body-text token for comment_line / fixed_width_line.
+    /* -- Priority 0z: body-text token for comment_line / fixed_width_line.
      * Fires when the parser, having just consumed a prefix-only
      * `_comment_line` / `_fixed_width_line` token, asks for the body
      * field.  We read until end-of-line, marking_end after each non-
-     * whitespace byte so trailing whitespace is excluded.  Returning
-     * `false` (no body content) lets the parser skip the optional
-     * field and match the trailing newline regex. */
-    if (valid_symbols[EXT_COMMENT_BODY_TEXT]
-        || valid_symbols[EXT_FIXED_WIDTH_BODY_TEXT]) {
+     * whitespace byte so trailing whitespace is excluded.
+     *
+     * Guarded on the lookahead already sitting at a terminator: this
+     * symbol is also speculatively offered (like every external symbol)
+     * during tree-sitter's own error-recovery "try anything" passes, at
+     * positions with no real body-text field in play at all (e.g. a
+     * bare blank line where `$._empty_line` is what should actually
+     * fire).  Entering the block there and returning false unconditionally
+     * would consume nothing but still deny every later priority (Priority
+     * 2.5's `$._line_end`, Priority 5's `$._empty_line`) a chance in THIS
+     * SAME call - since those are external tokens now too, not JS regexes
+     * the generated lexer can fall back to on its own, that hard decline
+     * starves them and error-recovery can livelock hunting for some other
+     * token.  Skip the entire arm - not just the body-text symbol - when
+     * nothing would be consumed anyway. */
+    if ((valid_symbols[EXT_COMMENT_BODY_TEXT]
+         || valid_symbols[EXT_FIXED_WIDTH_BODY_TEXT])
+        && lexer->lookahead != '\n' && lexer->lookahead != '\r'
+        && !lexer->eof(lexer)) {
         int sym = valid_symbols[EXT_COMMENT_BODY_TEXT]
                     ? EXT_COMMENT_BODY_TEXT : EXT_FIXED_WIDTH_BODY_TEXT;
         bool any_non_ws = false;
         /* Skip past leading whitespace, but include it in the token if
-         * non-ws content follows (so `# foo` body is ` foo` — including
-         * the leading space — which is the natural body slice). */
+         * non-ws content follows (so `# foo` body is ` foo` - including
+         * the leading space - which is the natural body slice). */
         while (!lexer->eof(lexer) && lexer->lookahead != '\n'
                && lexer->lookahead != '\r') {
             int32_t la = lexer->lookahead;
@@ -978,7 +1028,12 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                 lexer->mark_end(lexer);
             }
         }
-        if (!any_non_ws) return false;
+        if (!any_non_ws) {
+            if (valid_symbols[EXT_LINE_END] && !valid_symbols[EXT_EMPTY_LINE]
+                && scan_line_end(lexer))
+                return true;
+            return false;
+        }
         lexer->result_symbol = (TSSymbol)sym;
         return true;
     }
@@ -1384,9 +1439,38 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         return true;
     }
 
-    /* ── Priority 3: EOF — close all remaining open lists, then any
+    /* -- Priority 2.5: line terminator (`[ \t]*\r?\n`, or zero-width at
+     * EOF).  Must run before Priority 3's EOF short-circuit below - an
+     * EOF-truncated line (table row end, drawer/block open, planning,
+     * clock, ...) would otherwise hit that block's unconditional
+     * `return false` before ever reaching this arm.  Must run after
+     * every earlier content-specific arm above (body text, block
+     * switches, headline sub-tokens, ...) so an optional body/value
+     * field on the same line still gets first refusal on those bytes.
+     * `_empty_line` wins the one contested position (a headline's
+     * trailing newline is grammatically an `_empty_line`, see the
+     * `headline` rule) - hence the `valid_symbols[EXT_EMPTY_LINE]`
+     * exclusion.
+     *
+     * On failure this falls through rather than returning false:
+     * `planning_line`'s `repeat1($.planning_entry)` makes a second
+     * same-line `SCHEDULED:`/`DEADLINE:` keyword (EXT_PLANNING_LINE)
+     * valid at the exact position a prior entry's line-end would be -
+     * ws between entries makes scan_line_end advance then fail, and
+     * Priority 5 below must still get a chance to detect the next
+     * keyword.  Priority 5's classifiers skip leading whitespace
+     * themselves (line_planning_clock_kind, is_drawer_line, ...), so
+     * losing an already-consumed ws run to a failed probe here is
+     * harmless - this mirrors how other zero-width closes in this
+     * file (_propdrawer_close etc.) leave later arms to re-examine
+     * the same bytes. */
+    if (valid_symbols[EXT_LINE_END] && !valid_symbols[EXT_EMPTY_LINE]) {
+        if (scan_line_end(lexer)) return true;
+    }
+
+    /* -- Priority 3: EOF - close all remaining open lists, then any
      * still-open containers (an unclosed block / drawer / inlinetask
-     * runs to EOF), then headings. ── */
+     * runs to EOF), then headings. */
     if (lexer->eof(lexer)) {
         lexer->mark_end(lexer);
         if (s->list_depth > 0 && valid_symbols[EXT_PLAIN_LIST_CLOSE]) {
@@ -1400,6 +1484,14 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
         if (s->heading_depth > 0 && valid_symbols[EXT_HEADING_CLOSE]) {
             s->heading_depth--;
             lexer->result_symbol = EXT_HEADING_CLOSE;
+            return true;
+        }
+        /* A table row isn't tracked on the prepass scope stack (tables
+         * aren't nesting containers), so close_innermost_scope never
+         * sees it - an EOF-truncated row's last cell needs its own
+         * zero-width close here. */
+        if (valid_symbols[EXT_TABLE_ROW_END]) {
+            lexer->result_symbol = EXT_TABLE_ROW_END;
             return true;
         }
         return false;

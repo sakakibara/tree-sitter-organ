@@ -9,3 +9,7 @@
 - text # trailing
 # Keyword (#+...) is not a comment.
 - #+TITLE: doc
+
+# EOF-truncated comment lines (no trailing newline) still parse.
++ #
++ # trailing text

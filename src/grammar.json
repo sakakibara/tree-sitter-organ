@@ -391,8 +391,8 @@
           }
         },
         {
-          "type": "PATTERN",
-          "value": "[ \\t]*\\r?\\n"
+          "type": "SYMBOL",
+          "name": "_line_end"
         }
       ]
     },
@@ -454,8 +454,8 @@
           "value": ":"
         },
         {
-          "type": "PATTERN",
-          "value": "[ \\t]*\\r?\\n"
+          "type": "SYMBOL",
+          "name": "_line_end"
         },
         {
           "type": "REPEAT",
@@ -523,8 +523,8 @@
           ]
         },
         {
-          "type": "PATTERN",
-          "value": "[ \\t]*\\r?\\n"
+          "type": "SYMBOL",
+          "name": "_line_end"
         }
       ]
     },
@@ -708,8 +708,8 @@
           "value": ":"
         },
         {
-          "type": "PATTERN",
-          "value": "[ \\t]*\\r?\\n"
+          "type": "SYMBOL",
+          "name": "_line_end"
         },
         {
           "type": "REPEAT",
@@ -769,8 +769,8 @@
           ]
         },
         {
-          "type": "PATTERN",
-          "value": "[ \\t]*\\r?\\n"
+          "type": "SYMBOL",
+          "name": "_line_end"
         },
         {
           "type": "REPEAT",
@@ -838,8 +838,8 @@
           ]
         },
         {
-          "type": "PATTERN",
-          "value": "[ \\t]*\\r?\\n"
+          "type": "SYMBOL",
+          "name": "_line_end"
         },
         {
           "type": "REPEAT",
@@ -961,8 +961,8 @@
           ]
         },
         {
-          "type": "PATTERN",
-          "value": "[ \\t]*\\r?\\n"
+          "type": "SYMBOL",
+          "name": "_line_end"
         },
         {
           "type": "REPEAT",
@@ -1051,8 +1051,8 @@
           ]
         },
         {
-          "type": "PATTERN",
-          "value": "[ \\t]*\\r?\\n"
+          "type": "SYMBOL",
+          "name": "_line_end"
         },
         {
           "type": "REPEAT",
@@ -1133,8 +1133,8 @@
           ]
         },
         {
-          "type": "PATTERN",
-          "value": "[ \\t]*\\r?\\n"
+          "type": "SYMBOL",
+          "name": "_line_end"
         },
         {
           "type": "REPEAT",
@@ -1182,8 +1182,8 @@
           ]
         },
         {
-          "type": "PATTERN",
-          "value": "[ \\t]*\\r?\\n"
+          "type": "SYMBOL",
+          "name": "_line_end"
         },
         {
           "type": "REPEAT",
@@ -1206,8 +1206,8 @@
           "name": "_comment_block_open"
         },
         {
-          "type": "PATTERN",
-          "value": "[ \\t]*\\r?\\n"
+          "type": "SYMBOL",
+          "name": "_line_end"
         },
         {
           "type": "REPEAT",
@@ -1265,8 +1265,8 @@
           "value": "}"
         },
         {
-          "type": "PATTERN",
-          "value": "[ \\t]*\\r?\\n"
+          "type": "SYMBOL",
+          "name": "_line_end"
         },
         {
           "type": "REPEAT",
@@ -1869,8 +1869,8 @@
           ]
         },
         {
-          "type": "PATTERN",
-          "value": "[ \\t]*\\r?\\n"
+          "type": "SYMBOL",
+          "name": "_line_end"
         }
       ]
     },
@@ -1940,8 +1940,8 @@
           ]
         },
         {
-          "type": "PATTERN",
-          "value": "[ \\t]*\\r?\\n"
+          "type": "SYMBOL",
+          "name": "_line_end"
         }
       ]
     },
@@ -1998,8 +1998,8 @@
           ]
         },
         {
-          "type": "PATTERN",
-          "value": "[ \\t]*\\r?\\n"
+          "type": "SYMBOL",
+          "name": "_line_end"
         }
       ]
     },
@@ -2056,8 +2056,8 @@
           ]
         },
         {
-          "type": "PATTERN",
-          "value": "[ \\t]*\\r?\\n"
+          "type": "SYMBOL",
+          "name": "_line_end"
         }
       ]
     },
@@ -2109,8 +2109,8 @@
           ]
         },
         {
-          "type": "PATTERN",
-          "value": "\\r?\\n"
+          "type": "SYMBOL",
+          "name": "_line_end"
         }
       ]
     },
@@ -2154,8 +2154,8 @@
           ]
         },
         {
-          "type": "PATTERN",
-          "value": "\\r?\\n"
+          "type": "SYMBOL",
+          "name": "_line_end"
         }
       ]
     },
@@ -2200,8 +2200,8 @@
           ]
         },
         {
-          "type": "PATTERN",
-          "value": "[ \\t]*\\r?\\n"
+          "type": "SYMBOL",
+          "name": "_line_end"
         }
       ]
     },
@@ -2486,6 +2486,10 @@
     {
       "type": "SYMBOL",
       "name": "_export_format"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_line_end"
     }
   ],
   "inline": [],
