@@ -1809,6 +1809,17 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                 }
             }
             if (is_close) {
+                /* `inlinetask: seq(inlinetask_line, ..., repeat(content_line),
+                 * _inlinetask_close)` - by LR closure, EXT_INLINETASK_CLOSE
+                 * is always a valid_symbols candidate anywhere inside an
+                 * open inlinetask's body, so this guard should never
+                 * actually trip on well-formed grammar states; it stays a
+                 * `return false` (not a paragraph-fallback) rather than
+                 * falling through, since the lexer is already advanced
+                 * past the peeked END bytes and resuming the ordinary
+                 * per-byte loop from here would corrupt line-buffering.
+                 * A future change to the inlinetask production must keep
+                 * this invariant or revisit this branch. */
                 if (!valid_symbols[EXT_INLINETASK_CLOSE]) return false;
                 if (lexer->lookahead == '\r') lexer->advance(lexer, false);
                 if (lexer->lookahead == '\n') lexer->advance(lexer, false);
@@ -1817,6 +1828,12 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
                 lexer->result_symbol = EXT_INLINETASK_CLOSE;
                 return true;
             }
+            /* Same LR-closure invariant as above applies to
+             * close_innermost_scope's own internal valid_symbols check
+             * (it closes via this same EXT_INLINETASK_CLOSE symbol) - it
+             * should never return false here either, and for the same
+             * reason (lexer already past the peeked bytes) this can't
+             * fall through to the ordinary path if it somehow did. */
             return close_innermost_scope(s, lexer, valid_symbols);
         }
         /* Not a heading OR fell through (lesser-block scope, etc.).
