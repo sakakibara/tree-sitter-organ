@@ -2337,10 +2337,23 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
      * just `[fn:LABEL]`, leaving the rest of the line for
      * `_inline_content_line` to pick up.  Mirrors Emacs's
      * `org-element-footnote-definition-parser`, which treats anything
-     * after `]` (including same-line text) as the body. */
+     * after `]` (including same-line text) as the body.
+     *
+     * Excluded inside a lesser block / latex environment: their bodies
+     * are opaque external tokens with no sub-parsed children (same
+     * reasoning as the blank-line body fix above), so a line there
+     * must stay TT_LBLOCK_BODY / TT_LATEXENV_BODY regardless of shape.
+     * Without this gate, `valid_symbols[EXT_FOOTNOTE_DEF_LINE]` can
+     * still read true here during tree-sitter's blanket error-recovery
+     * offering (every external is "valid" at every position then),
+     * and this arm - reached before the scope-aware Priority 5
+     * dispatch - would commit to a footnote-def read no grammar slot
+     * actually has room for inside those two scopes, ERROR-ing. */
     if (consumed_stars == 0
         && valid_symbols[EXT_FOOTNOTE_DEF_LINE]
-        && lexer->lookahead == '[') {
+        && lexer->lookahead == '['
+        && prepass_scope_top(s->prepass) != SCOPE_LBLOCK
+        && prepass_scope_top(s->prepass) != SCOPE_LATEXENV) {
         lexer->mark_end(lexer);  /* hold start position */
 
         uint8_t fn_consumed[260];

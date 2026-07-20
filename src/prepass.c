@@ -389,8 +389,13 @@ static LineTokenType classify_line(struct prepass_state *s,
         return TT_EMPTY;
     }
 
+    /* A lesser-block / latex-environment body is opaque (see the blank-
+     * line comment above) - a `[fn:LABEL]`-shaped line inside either
+     * must stay body content, not a structural footnote definition the
+     * grammar has no slot for there. */
     if (indent == 0 && line_len >= 5 && line[0] == '['
-        && line[1] == 'f' && line[2] == 'n' && line[3] == ':') {
+        && line[1] == 'f' && line[2] == 'n' && line[3] == ':'
+        && scope_top(s) != SCOPE_LBLOCK && scope_top(s) != SCOPE_LATEXENV) {
         uint32_t i = 4;
         while (i < line_len && line[i] != ']'
                && ((line[i] >= 'A' && line[i] <= 'Z') ||

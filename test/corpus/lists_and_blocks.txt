@@ -481,6 +481,34 @@ x = 1
       (latexenv_name))))
 
 ==================
+A footnote-def-shaped line inside a src_block body stays opaque body text
+==================
+#+begin_src
+foo
+[fn:1] a footnote
+#+end_src
+
+---
+
+(document
+  (zeroth_section
+    (src_block)))
+
+==================
+A footnote-def-shaped line inside a latex environment body stays opaque body text
+==================
+\begin{align}
+[fn:1] a footnote
+\end{align}
+
+---
+
+(document
+  (zeroth_section
+    (latex_environment
+      (latexenv_name))))
+
+==================
 example_block
 ==================
 #+begin_example
