@@ -974,20 +974,30 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
     if (valid_symbols[EXT_DIARY_SEXP_BODY]
         && lexer->lookahead != '\n' && lexer->lookahead != '\r'
         && !lexer->eof(lexer)) {
-        if (lexer->lookahead == ')') return false;
-        bool marked = false;
-        lexer->mark_end(lexer);
-        while (!lexer->eof(lexer) && lexer->lookahead != '\n'
-               && lexer->lookahead != '\r') {
-            if (lexer->lookahead == ')') {
-                lexer->mark_end(lexer);
-                marked = true;
+        if (lexer->lookahead != ')') {
+            bool marked = false;
+            lexer->mark_end(lexer);
+            while (!lexer->eof(lexer) && lexer->lookahead != '\n'
+                   && lexer->lookahead != '\r') {
+                if (lexer->lookahead == ')') {
+                    lexer->mark_end(lexer);
+                    marked = true;
+                }
+                lexer->advance(lexer, false);
             }
-            lexer->advance(lexer, false);
+            if (marked) {
+                lexer->result_symbol = EXT_DIARY_SEXP_BODY;
+                return true;
+            }
+            /* No closing paren before end-of-line/EOF: this candidate
+             * body-read loop above already advanced the lexer up to the
+             * terminator (whatever real bytes it read are not marked
+             * into any token), so falling through here - rather than
+             * hard-declining the whole call - lets Priority 2.5's
+             * `$._line_end` (or Priority 5's `$._empty_line`) get a
+             * genuine shot at that same, now-current position.  Same
+             * reasoning as the body-text arm below. */
         }
-        if (!marked) return false;
-        lexer->result_symbol = EXT_DIARY_SEXP_BODY;
-        return true;
     }
 
     /* -- Priority 0z: body-text token for comment_line / fixed_width_line.
@@ -1032,10 +1042,18 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
             if (valid_symbols[EXT_LINE_END] && !valid_symbols[EXT_EMPTY_LINE]
                 && scan_line_end(lexer))
                 return true;
-            return false;
+            if (!valid_symbols[EXT_EMPTY_LINE]) return false;
+            /* Deferring to `$._empty_line` (see the guard above) means
+             * just that - fall all the way out of this arm, past the
+             * `else` below, rather than returning false here.  The
+             * body-read loop already advanced the lexer to the
+             * terminator (an all-whitespace "empty" body), so Priority
+             * 2.5 / Priority 5 get a genuine shot at that same position
+             * in THIS call instead of a hard decline that starves them. */
+        } else {
+            lexer->result_symbol = (TSSymbol)sym;
+            return true;
         }
-        lexer->result_symbol = (TSSymbol)sym;
-        return true;
     }
 
     /* -- Priority 0a: block_switches run after a src/example block's
