@@ -1327,8 +1327,38 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
          * and can classify it as COMMENT. This guard is what keeps the
          * shared `/[ \t]+/` separator token in grammar.js's headline
          * rules safe: tree-sitter interns identical anonymous tokens,
-         * so editing those separators or this guard requires the other. */
+         * so editing those separators or this guard requires the other.
+         *
+         * Exception: `inlinetask_line` has no leading `/[ \t]+/` of its
+         * own (unlike `headline_line`) - `_inlinetask_open` already
+         * covers stars + exactly one whitespace byte, so `la` sitting
+         * on whitespace here (only reachable when EXT_HEADLINE_TODO is
+         * ALSO still a candidate, i.e. this is genuinely the first
+         * headlineTail position) means a SECOND, un-owned whitespace
+         * byte with no separator token to defer to. If nothing but
+         * more whitespace remains before EOL/EOF, deferring can't find
+         * a COMMENT word to classify either way and instead strands
+         * that byte for tree-sitter's own error recovery - peek past
+         * it (harmless: falling through to `return false` below still
+         * restores the lexer here) and fold it into title directly
+         * when there's truly nothing left to defer for. */
         if ((la == ' ' || la == '\t') && valid_symbols[EXT_HEADLINE_COMMENT]) {
+            if (valid_symbols[EXT_HEADLINE_TODO]) {
+                int32_t prev = la;
+                while (lexer->lookahead == ' ' || lexer->lookahead == '\t') {
+                    prev = lexer->lookahead;
+                    lexer->advance(lexer, false);
+                }
+                bool nothing_follows = lexer->eof(lexer)
+                                     || lexer->lookahead == '\n'
+                                     || lexer->lookahead == '\r';
+                if (nothing_follows && valid_symbols[EXT_HEADLINE_TITLE]) {
+                    lexer->mark_end(lexer);
+                    scan_title_tail(lexer, prev, true);
+                    lexer->result_symbol = EXT_HEADLINE_TITLE;
+                    return true;
+                }
+            }
             return false;
         }
 

@@ -540,6 +540,40 @@ static void test_inlinetask_close_tolerates_extra_whitespace(void) {
     tree_sitter_org_external_scanner_destroy(s);
 }
 
+/* `inlinetask_line` has no leading `/[ \t]+/` of its own - unlike
+ * `headline_line`, `_inlinetask_open` already covers stars + exactly
+ * one whitespace byte, so a SECOND whitespace byte right after it (an
+ * empty/blank title) reaches the headlineTail dispatch with `la`
+ * still sitting on whitespace and EXT_HEADLINE_TODO still a live
+ * candidate. If nothing but more whitespace follows to EOF, the
+ * COMMENT-marker defer this dispatch normally uses has no word left
+ * to find and previously stranded that byte for tree-sitter's own
+ * error recovery, ERROR-ing. Simulates the position right after
+ * `_inlinetask_open` by feeding just the trailing whitespace with the
+ * full headlineTail symbol set valid, matching the real grammar state
+ * there. */
+static void test_inlinetask_trailing_whitespace_at_eof_becomes_title(void) {
+    ScannerState *s =
+        (ScannerState *)tree_sitter_org_external_scanner_create();
+    bool valid[N_EXTERNALS];
+    memset(valid, false, sizeof(valid));
+    valid[EXT_HEADLINE_TODO] = true;
+    valid[EXT_HEADLINE_TITLE] = true;
+    valid[EXT_HEADLINE_PRIORITY] = true;
+    valid[EXT_HEADLINE_COMMENT] = true;
+    valid[EXT_HEADLINE_STATS_COOKIE] = true;
+    valid[EXT_HEADLINE_TAG_LIST_OPEN] = true;
+
+    MockLexer m;
+    mock_init(&m, "  ");   /* one extra space beyond the mandatory one, then EOF */
+    bool ok = tree_sitter_org_external_scanner_scan(s, &m.lexer, valid);
+    CHECK(ok == true);
+    CHECK(m.lexer.result_symbol == EXT_HEADLINE_TITLE);
+    CHECK(m.mark == 2);   /* consumes the trailing whitespace, not zero-width */
+
+    tree_sitter_org_external_scanner_destroy(s);
+}
+
 int main(void) {
     test_deserialize_zero_resets_state();
     test_deserialize_corrupt_buffer_resets_state();
@@ -557,6 +591,7 @@ int main(void) {
     test_blank_line_stays_body_in_lblock_and_latexenv();
     test_second_inlinetask_line_closes_first_correctly();
     test_inlinetask_close_tolerates_extra_whitespace();
+    test_inlinetask_trailing_whitespace_at_eof_becomes_title();
     if (failures > 0) {
         fprintf(stderr, "scanner_tests: %d failure(s)\n", failures);
         return 1;

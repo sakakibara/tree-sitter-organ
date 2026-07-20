@@ -233,3 +233,22 @@ A star line whose title merely starts with END does not close - it redefines
         (stars)
         (title)))))
 
+
+==================
+A second inlinetask line with only extra whitespace after the stars still redefines (empty title, no ERROR)
+==================
+*************** T1
+***************  
+
+---
+
+(document
+  (zeroth_section
+    (inlinetask
+      (inlinetask_line
+        (stars)
+        (title)))
+    (inlinetask
+      (inlinetask_line
+        (stars)
+        (title)))))
