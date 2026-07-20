@@ -131,7 +131,7 @@ lblock-line     =  *non-line line-end          ; any line other than the matchin
 
 ; --- Dynamic blocks (Worg §3 Greater Elements) ----------------------------
 dynamic-block   =  dynblock-open *content-line dynblock-close
-dynblock-open   =  indent "#+begin:" SP block-name [SP block-args] indent line-end
+dynblock-open   =  indent "#+begin:" [SP] block-name [SP block-args] indent line-end
 dynblock-close  =  indent "#+end:"                                       indent line-end
 
 ; Block name shared by greater and dynamic blocks ("special" blocks are

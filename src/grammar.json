@@ -793,8 +793,16 @@
           "name": "_dynblock_open"
         },
         {
-          "type": "PATTERN",
-          "value": "[ \\t]+"
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "PATTERN",
+              "value": "[ \\t]+"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
         },
         {
           "type": "FIELD",

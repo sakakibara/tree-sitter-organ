@@ -778,3 +778,19 @@ x
   (zeroth_section
     (export_block
       (block_header_args))))
+
+==================
+Dynamic block without a space before the name
+==================
+#+begin:myblock :param 1
+content
+#+end:
+
+---
+
+(document
+  (zeroth_section
+    (dynamic_block
+      (block_name)
+      (block_args)
+      (paragraph))))

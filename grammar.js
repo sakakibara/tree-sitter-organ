@@ -327,7 +327,7 @@ module.exports = grammar({
     ),
     dynamic_block: $ => seq(
       $._dynblock_open,
-      /[ \t]+/,
+      optional(/[ \t]+/),
       field('name', $.block_name),
       optional(seq(/[ \t]+/, field('args', $.block_args))),
       /[ \t]*\r?\n/,
