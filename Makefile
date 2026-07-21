@@ -13,9 +13,11 @@
 # resolves `parser_path` against the same `<os>-<arch>` triple at runtime so
 # the right binary is loaded.
 #
-# Requires: Node + pnpm (or npm) so we can install tree-sitter-cli.
+# The default build needs only a C compiler: parser.c and the tree_sitter
+# headers are committed.  `make generate` (maintainers, after a grammar.js
+# edit) is the only target that needs Node + pnpm/npm for tree-sitter-cli.
 
-.PHONY: build install clean test check-c prepass spec-check test-spec test-crlf test-bare-cr test-no-error
+.PHONY: build generate check-generated install clean test check-c prepass spec-check test-spec test-crlf test-bare-cr test-no-error _freshness
 
 # ---------------------------------------------------------------------------
 # Platform detection. uname -s lower-cased + uname -m gives darwin-arm64,
@@ -31,7 +33,19 @@ PREPASS_SCALAR  := $(BUILD_DIR)/prepass_scalar.so
 PREPASS_SIMD    := $(BUILD_DIR)/prepass_simd.so
 
 # Default target.
-build: $(ORG_SO)
+build: _freshness $(ORG_SO)
+
+# Warn (never fail) when grammar.js has uncommitted edits that the
+# committed parser.c hasn't caught up to -- the maintainer forgot to
+# `make generate`.  Gated on an actual uncommitted grammar.js change so
+# a fresh clone or tarball (where checkout mtimes are arbitrary) stays
+# silent; CI's check-generated is the hard guard.
+_freshness:
+	@if git rev-parse --git-dir >/dev/null 2>&1 \
+	   && ! git diff --quiet -- grammar.js 2>/dev/null \
+	   && [ src/parser.c -ot grammar.js ]; then \
+		printf 'WARNING: grammar.js edited since src/parser.c was generated; run `make generate`.\n' >&2; \
+	fi
 
 # Compile org.so directly (bypasses `tree-sitter build`'s C compilation
 # so we can include the pre-pass sources alongside parser.c + scanner.c).
@@ -48,13 +62,21 @@ $(BUILD_DIR):
 $(ORG_SO): $(ORG_SO_SOURCES) $(ORG_SO_HEADERS) | $(BUILD_DIR)
 	$(CC) $(ORG_SO_CFLAGS) -shared -o $@ $(ORG_SO_SOURCES)
 
-# `src/parser.c` and `src/tree_sitter/*.h` are generated from grammar.js by
-# `tree-sitter generate`. Both are committed to the repo so fresh clones can
-# build without needing tree-sitter-cli (= no Node/pnpm dependency for end
-# users). Maintainers re-run `tree-sitter generate` after editing grammar.js
-# and commit the regenerated files.
-src/parser.c: grammar.js node_modules/.bin/tree-sitter
+# src/parser.c, src/grammar.json, src/node-types.json and src/tree_sitter/*.h
+# are generated from grammar.js by `tree-sitter generate`, and committed so
+# the default build needs no tree-sitter-cli (no Node/pnpm for end users).
+# This target is maintainer-only: run it after editing grammar.js and commit
+# the regenerated files.  It is deliberately NOT a prerequisite of the build
+# -- otherwise a missing node_modules/ (every fresh clone) would drag the
+# whole npm toolchain into a build that only needs a C compiler.
+generate: node_modules/.bin/tree-sitter
 	./node_modules/.bin/tree-sitter generate
+
+# CI guard: regenerating from grammar.js must reproduce the committed
+# sources byte-for-byte.  Fails the build if they have drifted, catching a
+# grammar.js edit that was committed without its regenerated parser.c.
+check-generated: generate
+	git diff --exit-code -- src/parser.c src/grammar.json src/node-types.json src/tree_sitter
 
 # `pnpm install` is preferred (matches the lockfile); fall back to npm if pnpm
 # isn't available so contributors without pnpm can still build.
