@@ -547,10 +547,6 @@
         }
       ]
     },
-    "property_name": {
-      "type": "PATTERN",
-      "value": "[A-Za-z_][A-Za-z0-9_+-]*"
-    },
     "property_value": {
       "type": "PATTERN",
       "value": "[^ \\t\\r\\n][^\\r\\n]*"
@@ -2528,6 +2524,10 @@
     {
       "type": "SYMBOL",
       "name": "_line_end"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "property_name"
     }
   ],
   "inline": [],

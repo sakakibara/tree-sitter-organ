@@ -194,6 +194,14 @@ const KNOWN_BAD = [
   '* H\nSCHEDULED: <2026-04-29> rest junk\n',
   '* H\n:PROPERTIES:\n+ID: x\n:END:\n', '* H\n:PROPERTIES:\nID: abc\n:END:\n',
   '* H\n:PROPERTIES:\n:ID\u00e9 x\n:END:\n', '* H\n:PROPERTIES:\n:ID: x\0\n',
+  // Colon-heavy property keys: `org-property-re` splits at the run's LAST
+  // colon, so the key may be all colons. A key the grammar cannot tokenize
+  // ERRORs out over the WHOLE drawer, taking every later property with it.
+  '* H\n:PROPERTIES:\n:::\n:END:\n', '* H\n:PROPERTIES:\n:a:::\n:END:\n',
+  '* H\n:PROPERTIES:\n::\n:ID: x\n:END:\n', '* H\n:PROPERTIES:\n:::: v\n:END:\n',
+  '* H\n:PROPERTIES:\n:::::::::\n:END:\n', '* H\n:PROPERTIES:\n:a:b:c:d:e:\n:END:\n',
+  '* H\n:PROPERTIES:\n:header-args:python: :session s\n:END:\n',
+  '* H\n:PROPERTIES:\n:::\n:a:::\n::::\n:ID: keep\n:END:\n',
   '* T\n:LOGBOOK:\nCLOCK: [2026-04-25 Sat 09:00--[2026-04-25 Sat 10:00] =>  1:00\n:END:\n',
   '* T\n:LOGBOOK:\nCLOCK: [2026-04-25 Sat 09:00]--[2026-04-25 Sat 10:00] =>  100\n:END:\n',
   'CLOCK: [2024-01-01 Mon 10:00]--[2024-01-01 Mon 11:00] =>  1:00x = 1\n',

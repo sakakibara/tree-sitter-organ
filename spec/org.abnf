@@ -80,8 +80,16 @@ property-drawer =  propdrawer-open *node-property propdrawer-close
 propdrawer-open =  indent ":PROPERTIES:" indent line-end
 propdrawer-close=  indent ":END:"        indent line-end
 node-property   =  indent ":" property-name ":" [SP property-value] line-end
-property-name   =  (ALPHA / "_") *(ALPHA / DIGIT / "_" / "+" / "-")
-                                              ; KEY (and optional + suffix) as one token
+property-name   =  1*(%x00-08 / %x0B-0C / %x0E-1F / %x21-FF)
+                                              ; any non-empty run of non-whitespace,
+                                              ; colons included.  Emacs keys are `\S-+`
+                                              ; and `org-property-re` backtracks, so the
+                                              ; name spans from the line's FIRST colon to
+                                              ; the LAST colon of the same run:
+                                              ; `:header-args:python: v` keys on
+                                              ; `header-args:python`, `:a:::` on `a::`,
+                                              ; `:::` on `:`.  `::` has no name and is
+                                              ; not a property line at all
 property-value  =  1*non-line                  ; may contain inline objects
 
 ; --- Named drawers (Worg §2.3 Drawers) ------------------------------------

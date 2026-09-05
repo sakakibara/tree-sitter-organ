@@ -198,19 +198,14 @@ static int name_iequals(const uint8_t *p, uint32_t start, uint32_t end,
 }
 
 static int is_node_property(const uint8_t *p, uint32_t rem) {
-    /* Emacs `org-property-re` accepts `[-_[:alnum:]]+` for the key,
-     * so both upper- and lowercase letters are valid.  The trailing
-     * `+` enables the `KEY+:` value-append syntax. */
-    if (rem < 4 || p[0] != ':') return 0;
+    /* Emacs builds `org-property-re` from `org-re-property "\\S-+"`: a key
+     * is any run of non-whitespace, and `:KEY:` has to be followed by
+     * whitespace or end of line.  So the non-whitespace run that opens the
+     * line ends on a colon, with a non-empty key between the two. */
+    if (rem < 3 || p[0] != ':') return 0;
     uint32_t i = 1;
-    while (i < rem && (
-        (p[i] >= 'A' && p[i] <= 'Z') ||
-        (p[i] >= 'a' && p[i] <= 'z') ||
-        (p[i] >= '0' && p[i] <= '9') ||
-        p[i] == '_' || p[i] == '-' || p[i] == '+'
-    )) i++;
-    if (i == 1 || i >= rem || p[i] != ':') return 0;
-    return 1;
+    while (i < rem && p[i] != ' ' && p[i] != '\t' && p[i] != '\r' && p[i] != '\n') i++;
+    return i >= 3 && p[i - 1] == ':';
 }
 
 static int name_eq_ci(const uint8_t *p, uint32_t start, uint32_t end,
@@ -301,12 +296,10 @@ PropdrawerLookahead prepass_propdrawer_lookahead(const uint8_t *line,
 
     if (!is_node_property(trimmed, rem)) return PROPDRAWER_LOOKAHEAD_DISQUALIFY;
 
-    /* Key shape is valid, but a NUL anywhere on the line - necessarily
-     * in the value, since a NUL in the key position already fails the
-     * charset check above - still disqualifies: tree-sitter's own
-     * generated lexer treats codepoint 0 as an internal EOF sentinel,
-     * so the JS-side property_value regex token can never advance past
-     * it. */
+    /* Line shape is valid, but a NUL anywhere on it still disqualifies:
+     * tree-sitter's generated lexer treats codepoint 0 as an internal EOF
+     * sentinel, so the JS-side property_name and property_value regex
+     * tokens can never advance past it. */
     if (line_has_nul) return PROPDRAWER_LOOKAHEAD_DISQUALIFY;
 
     return PROPDRAWER_LOOKAHEAD_OK;

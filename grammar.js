@@ -98,6 +98,7 @@ module.exports = grammar({
     $._block_switches,         // `-n 20 -r -l "fmt"` run (scanned, see scanner.c)
     $._export_format,          // export-block backend (scanned, see scanner.c)
     $._line_end,               // `[ \t]*\r?\n`, or zero-width at EOF
+    $.property_name,           // node-property key (scanned, see scanner.c)
   ],
 
   extras: _ => [],
@@ -243,7 +244,12 @@ module.exports = grammar({
     ),
     /* Property line inside a property_drawer: `:KEY: value`. Scanner
      * emits `_node_property_line` covering only the leading `:` so
-     * JS rules expose `name` and optional `value` as named children. */
+     * JS rules expose `name` and optional `value` as named children.
+     * Emacs builds `org-property-re` from `org-re-property "\\S-+"`,
+     * whose backtracking puts the key between the FIRST and the LAST
+     * colon of the opening non-whitespace run (`:header-args:python: v`
+     * keys on `header-args:python`, `:a:::` on `a::`).  A longest-match
+     * lexer token cannot express that, so `property_name` is scanned. */
     node_property: $ => seq(
       $._node_property_line,
       field('name', $.property_name),
@@ -252,7 +258,6 @@ module.exports = grammar({
       $._line_end,
     ),
 
-    property_name:  $ => /[A-Za-z_][A-Za-z0-9_+-]*/,
     property_value: $ => /[^ \t\r\n][^\r\n]*/,
 
     section: $ => prec.right(seq(

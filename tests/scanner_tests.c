@@ -395,6 +395,38 @@ static void test_scan_terminates_on_non_property_drawer_line(void) {
     tree_sitter_org_external_scanner_destroy(s);
 }
 
+/* `property_name` boundary: the scanner is entered just past the
+ * property line's leading `:`, and Emacs `org-property-re` ends the key
+ * at the LAST colon of that non-whitespace run, so the token must stop
+ * there and not at the first colon a longest-match token would find. */
+static void test_property_name_ends_at_last_colon(void) {
+    static const struct { const char *after_first_colon; int32_t mark; } cases[] = {
+        { "ID: x\n",                        2  },  /* `:ID: x`                       */
+        { "::\n",                           1  },  /* `:::`            key `:`       */
+        { "a:::\n",                         3  },  /* `:a:::`          key `a::`     */
+        { ":::\n",                          2  },  /* `::::`           key `::`      */
+        { "a:b:c:d:\n",                     7  },  /* `:a:b:c:d:`      key `a:b:c:d` */
+        { "header-args:python: :session s\n", 18 },
+        { ":\n",                            -1 },  /* `::`             no key        */
+        { "x\n",                            -1 },  /* no colon at all                */
+    };
+    static const int syms[] = { EXT_PROPERTY_NAME };
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        void *s = tree_sitter_org_external_scanner_create();
+        MockLexer m;
+        mock_init(&m, cases[i].after_first_colon);
+        bool ok = scan_with(s, &m, syms, 1);
+        if (cases[i].mark < 0) {
+            CHECK(ok == false);
+        } else {
+            CHECK(ok == true);
+            CHECK(m.lexer.result_symbol == EXT_PROPERTY_NAME);
+            CHECK(m.mark == (uint32_t)cases[i].mark);
+        }
+        tree_sitter_org_external_scanner_destroy(s);
+    }
+}
+
 static void test_star_counter_does_not_wrap(void) {
     /* 257 stars wraps a uint8_t to 1: pre-fix the line scans as a
      * level-1 heading; post-fix it stays an inlinetask open. */
@@ -617,6 +649,7 @@ int main(void) {
     test_scan_terminates_on_embedded_nul();
     test_scan_terminates_on_high_codepoint_in_property();
     test_scan_terminates_on_non_property_drawer_line();
+    test_property_name_ends_at_last_colon();
     test_star_counter_does_not_wrap();
     test_heading_stack_push_is_bounded();
     test_prepass_index_scan_and_edit();

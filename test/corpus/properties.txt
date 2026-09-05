@@ -149,7 +149,7 @@ Body paragraph.
       (paragraph))))
 
 ==================
-Node property with no space before the value
+No space before the value: not a property line, so the drawer is plain
 ==================
 * H
 :PROPERTIES:
@@ -163,10 +163,10 @@ Node property with no space before the value
     (headline_line
       (stars)
       (title))
-    (property_drawer
-      (node_property
-        (property_name)
-        (property_value)))))
+    (section
+      (drawer
+        (drawer_name)
+        (paragraph)))))
 
 ==================
 Property drawer with a non-property line degrades to a plain drawer
@@ -279,3 +279,214 @@ Inlinetask property drawer with a colonless line degrades to a plain drawer
         (drawer
           (drawer_name)
           (paragraph))))))
+
+==================
+Property key holding a dot keeps the rest of the drawer
+==================
+* A
+:PROPERTIES:
+:ID: keep-me
+:A.B: v
+:END:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (property_drawer
+      (node_property
+        (property_name)
+        (property_value))
+      (node_property
+        (property_name)
+        (property_value)))))
+
+==================
+Babel header-args key splits at the last colon
+==================
+* A
+:PROPERTIES:
+:header-args:python: :session s
+:END:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (property_drawer
+      (node_property
+        (property_name)
+        (property_value)))))
+
+==================
+Non-ASCII property key
+==================
+* A
+:PROPERTIES:
+:日本語プロパティ: v
+:END:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (property_drawer
+      (node_property
+        (property_name)
+        (property_value)))))
+
+==================
+Single-character key with no value
+==================
+* A
+:PROPERTIES:
+:a:
+:END:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (property_drawer
+      (node_property
+        (property_name)))))
+
+==================
+Bare `:::` key is the lone colon between first and last colon
+==================
+* A
+:PROPERTIES:
+:::
+:END:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (property_drawer
+      (node_property
+        (property_name)))))
+
+==================
+Key ending in colons splits at the last one, leaving no value
+==================
+* A
+:PROPERTIES:
+:a:::
+:END:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (property_drawer
+      (node_property
+        (property_name)))))
+
+==================
+All-colon key still takes a value
+==================
+* A
+:PROPERTIES:
+:::: v
+:END:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (property_drawer
+      (node_property
+        (property_name)
+        (property_value)))))
+
+==================
+Key of many colons
+==================
+* A
+:PROPERTIES:
+:a:b:c:d:e:
+:END:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (property_drawer
+      (node_property
+        (property_name)))))
+
+==================
+Empty key `::` disqualifies the whole drawer (Emacs: plain drawer)
+==================
+* A
+:PROPERTIES:
+::
+:ID: keep-me
+:END:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (section
+      (drawer
+        (drawer_name)
+        (paragraph)))))
+
+==================
+Colon-heavy keys keep the :ID: property that follows them
+==================
+* A
+:PROPERTIES:
+:::
+:a:::
+:header-args:python: :session s
+:ID: keep-me
+:END:
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (property_drawer
+      (node_property
+        (property_name))
+      (node_property
+        (property_name))
+      (node_property
+        (property_name)
+        (property_value))
+      (node_property
+        (property_name)
+        (property_value)))))

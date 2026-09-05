@@ -31,10 +31,10 @@ function read(p) {
   return fs.readFileSync(p, 'utf8');
 }
 
-// Public rules in grammar.js: top-level `<name>: $ => …` lines whose name
-// does NOT start with `_` (private convention).  The `externals`,
-// `conflicts`, and `extras` arrays match the surface pattern but aren't
-// rules — skip them.
+// Public nodes in grammar.js: top-level `<name>: $ => ...` lines whose name
+// does NOT start with `_` (private convention), plus the public entries of
+// the `externals` array.  The `externals`, `conflicts`, and `extras` array
+// headers match the surface pattern but aren't rules - skip them.
 function extractGrammarNodes(src) {
   const out = [];
   const skip = new Set(['externals', 'conflicts', 'extras']);
@@ -42,7 +42,20 @@ function extractGrammarNodes(src) {
     const m = line.match(/^\s+([a-z][a-zA-Z0-9_]*)\s*:\s*\$\s*=>/);
     if (m && !skip.has(m[1])) out.push(m[1]);
   }
-  return out;
+  return out.concat(extractExternalNodes(src));
+}
+
+// A public `$.name` entry in the `externals` array is a named node too:
+// the scanner supplies its bytes, so it has no `<name>: $ => ...` rule for
+// the loop above to find.  Private externals are `_`-prefixed and so
+// never match the leading `[a-z]`.
+function extractExternalNodes(src) {
+  const start = src.indexOf('externals:');
+  if (start < 0) return [];
+  const end = src.indexOf('\n  ],', start);
+  if (end < 0) return [];
+  return [...src.slice(start, end).matchAll(/\$\.([a-z][a-zA-Z0-9_]*)/g)]
+    .map(m => m[1]);
 }
 
 // ABNF rules: top-level lines `<name> = …`.  Continuation lines start

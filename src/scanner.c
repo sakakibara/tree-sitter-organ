@@ -86,6 +86,7 @@ enum OrgExternal {
     EXT_EXPORT_FORMAT,           /* export-block backend, valid only if nothing but
                                    * trailing whitespace follows it to end of line */
     EXT_LINE_END,                /* `[ \t]*\r?\n`, or zero-width at EOF */
+    EXT_PROPERTY_NAME,           /* node-property key, up to the run's LAST colon */
     EXT__COUNT,                  /* sentinel - keep last; not a real external symbol */
 };
 
@@ -1228,6 +1229,42 @@ static bool scan_impl(ScannerState *s, TSLexer *lexer,
     if (valid_symbols[EXT_EXPORT_FORMAT] && scan_export_format(lexer)) {
         lexer->result_symbol = EXT_EXPORT_FORMAT;
         return true;
+    }
+
+    /* -- Priority 0a: node-property key, valid only right after the
+     * `_node_property_line` token that covers the line's leading `:`.
+     * Emacs `org-property-re` is `org-re-property "\\S-+"`: the key
+     * pattern matches colons too and the regexp backtracks, so the key
+     * runs from the line's FIRST colon to the LAST colon of the same
+     * non-whitespace run and must be non-empty - `:header-args:python: v`
+     * keys on `header-args:python`, `:a:::` on `a::`, `:::` on `:`.
+     * A longest-match lexer token can't stop short of the run's end, so
+     * the key is scanned here: read the run, re-marking the token end
+     * before every colon that has at least one key byte ahead of it.
+     * Declining costs no other symbol its turn - `_line_end` /
+     * `_empty_line` need a whitespace-or-terminator lookahead, which the
+     * guard below already excludes. */
+    if (valid_symbols[EXT_PROPERTY_NAME]
+        && lexer->lookahead != ' ' && lexer->lookahead != '\t'
+        && lexer->lookahead != '\n' && lexer->lookahead != '\r'
+        && !lexer->eof(lexer)) {
+        bool any = false;    /* at least one key byte consumed */
+        bool found = false;  /* mark_end sits before a colon, key non-empty */
+        while (!lexer->eof(lexer)
+               && lexer->lookahead != ' ' && lexer->lookahead != '\t'
+               && lexer->lookahead != '\n' && lexer->lookahead != '\r') {
+            if (lexer->lookahead == ':' && any) {
+                lexer->mark_end(lexer);
+                found = true;
+            }
+            lexer->advance(lexer, false);
+            any = true;
+        }
+        if (found) {
+            lexer->result_symbol = EXT_PROPERTY_NAME;
+            return true;
+        }
+        return false;
     }
 
     /* ── Priority 0a: list counter `[@N]` / checkbox `[ ]`. Both fire
