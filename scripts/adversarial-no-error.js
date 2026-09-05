@@ -59,8 +59,13 @@ const workDir = path.join(buildDir, 'no-error-fuzz');
 const tsBin = path.join(repo, 'node_modules', 'tree-sitter-cli',
   process.platform === 'win32' ? 'tree-sitter.exe' : 'tree-sitter');
 
-if (!fs.existsSync(path.join(libdir, 'org.so'))) {
-  process.stderr.write(`error: ${libdir}/org.so missing - run \`make test\` once (or mkdir + cp from ${buildDir}/org.so)\n`);
+// The CLI resolves a preseeded library under its own platform extension -
+// .dylib on macOS, .so elsewhere - and silently compiles its own
+// (prepass-less, undlopenable) copy when that exact name is absent, so the
+// Makefile seeds the platform name and this guard has to check the same one.
+const tsLibName = process.platform === 'darwin' ? 'org.dylib' : 'org.so';
+if (!fs.existsSync(path.join(libdir, tsLibName))) {
+  process.stderr.write(`error: ${libdir}/${tsLibName} missing - run \`make test\` once (or mkdir + cp from ${buildDir}/org.so)\n`);
   process.exit(2);
 }
 

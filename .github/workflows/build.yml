@@ -63,3 +63,24 @@ jobs:
           node-version: '22'
 
       - run: make check-generated
+
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: setup node (for tree-sitter-cli)
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: corpus, line-ending, stress and no-ERROR gates
+        run: make test
+
+      - name: scanner tests under ASan/UBSan
+        run: make check-c

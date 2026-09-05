@@ -112,15 +112,23 @@ prepass: $(PREPASS_SO)
 install: build
 	@echo "tree-sitter-organ built at: $(CURDIR)/$(ORG_SO)"
 
-# tree-sitter-cli auto-compiles only parser.c + scanner.c, producing an
-# org.so that fails at dlopen (missing prepass symbols).  Point the CLI
+# tree-sitter-cli auto-compiles only parser.c + scanner.c, producing a
+# library that fails at dlopen (missing prepass symbols).  Point the CLI
 # at a repo-local lib dir seeded with the Makefile-built org.so instead.
+# The CLI looks the library up under its own platform extension, which is
+# .dylib on macOS and .so elsewhere; seeding the other name silently gets
+# ignored and the CLI compiles its own broken copy.
 TS_LIBDIR := $(BUILD_DIR)/ts-lib
+ifeq ($(UNAME_S),darwin)
+TS_LIB := $(TS_LIBDIR)/org.dylib
+else
+TS_LIB := $(TS_LIBDIR)/org.so
+endif
 
 test: build
 	@mkdir -p $(TS_LIBDIR)
-	@cp $(ORG_SO) $(TS_LIBDIR)/org.so
-	@touch $(TS_LIBDIR)/org.so
+	@cp $(ORG_SO) $(TS_LIB)
+	@touch $(TS_LIB)
 	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/run-corpus-tests.js
 	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/test-crlf.js
 	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/test-bare-cr.js
@@ -129,20 +137,20 @@ test: build
 
 test-no-error: build
 	@mkdir -p $(TS_LIBDIR)
-	@cp $(ORG_SO) $(TS_LIBDIR)/org.so
-	@touch $(TS_LIBDIR)/org.so
+	@cp $(ORG_SO) $(TS_LIB)
+	@touch $(TS_LIB)
 	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/adversarial-no-error.js --gate
 
 test-crlf: build
 	@mkdir -p $(TS_LIBDIR)
-	@cp $(ORG_SO) $(TS_LIBDIR)/org.so
-	@touch $(TS_LIBDIR)/org.so
+	@cp $(ORG_SO) $(TS_LIB)
+	@touch $(TS_LIB)
 	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/test-crlf.js
 
 test-bare-cr: build
 	@mkdir -p $(TS_LIBDIR)
-	@cp $(ORG_SO) $(TS_LIBDIR)/org.so
-	@touch $(TS_LIBDIR)/org.so
+	@cp $(ORG_SO) $(TS_LIB)
+	@touch $(TS_LIB)
 	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/test-bare-cr.js
 
 # C-level scanner tests under ASan/UBSan.  The harness includes
@@ -168,8 +176,8 @@ spec-check:
 # does not.  Stronger than rule-name sync alone.
 test-spec: build
 	@mkdir -p $(TS_LIBDIR)
-	@cp $(ORG_SO) $(TS_LIBDIR)/org.so
-	@touch $(TS_LIBDIR)/org.so
+	@cp $(ORG_SO) $(TS_LIB)
+	@touch $(TS_LIB)
 	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/test-rule-examples.js
 
 clean:
