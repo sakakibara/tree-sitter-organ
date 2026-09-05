@@ -283,3 +283,60 @@ SCHEDULED: <2026-04-29> rest junk
         (planning_entry
           (planning_keyword)
           (planning_timestamp))))))
+
+==================
+Planning timestamp range is one timestamp
+==================
+* A
+SCHEDULED: <2026-05-04 Mon>--<2026-05-06 Wed>
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (planning
+      (planning_line
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp))))))
+
+==================
+Inactive planning timestamp range
+==================
+* A
+CLOSED: [2026-05-04 Mon]--[2026-05-06 Wed]
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (planning
+      (planning_line
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp))))))
+
+==================
+A range half that is not a timestamp stays outside the timestamp
+==================
+* A
+SCHEDULED: <2026-05-04 Mon>--<later>
+
+---
+
+(document
+  (headline
+    (headline_line
+      (stars)
+      (title))
+    (planning
+      (planning_line
+        (planning_entry
+          (planning_keyword)
+          (planning_timestamp))))))

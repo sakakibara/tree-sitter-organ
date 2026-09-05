@@ -230,7 +230,12 @@ module.exports = grammar({
       field('timestamp', $.planning_timestamp),
     ),
 
-    planning_timestamp: $ => /<[^<>\r\n]+>|\[[^\]\r\n]+\]/,
+    /* Emacs `org-element--timestamp-raw-value-regexp` keeps a `--`
+     * range as ONE timestamp, and only when the half after `--` is
+     * itself a well-formed `YYYY-MM-DD` stamp (`org-ts-regexp-both`);
+     * anything else after `--` stays outside the timestamp. */
+    planning_timestamp: $ =>
+      /(?:<[^<>\r\n]+>|\[[^\]\r\n]+\])(?:--[<\[][0-9]{4}-[0-9]{2}-[0-9]{2}(?: [^>\]\r\n]*)?[>\]])?/,
 
     /* `_propdrawer_close` covers the whole `:END:` line — or is
      * zero-width when a headline or EOF truncates the drawer. */

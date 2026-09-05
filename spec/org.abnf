@@ -73,7 +73,13 @@ planning-line   =  indent planning-entry *(SP planning-entry) [1*non-line] line-
                                               ; trailing junk after the last entry is absorbed, not kept
 planning-entry  =  planning-keyword ":" SP planning-timestamp
 planning-keyword =  "SCHEDULED" / "DEADLINE" / "CLOSED"
-planning-timestamp =  ("<" *non-line ">") / ("[" *non-line "]")
+planning-timestamp =  (("<" *non-line ">") / ("[" *non-line "]"))
+                      ["--" ("<" / "[") 4DIGIT "-" 2DIGIT "-" 2DIGIT
+                       [SP *non-line] (">" / "]")]
+                                              ; a `--` range is ONE timestamp, and only
+                                              ; when the half after `--` is itself a
+                                              ; well-formed stamp (Emacs
+                                              ; `org-ts-regexp-both`)
 
 ; --- Property drawer (Worg §2.4 Property Drawers) -------------------------
 property-drawer =  propdrawer-open *node-property propdrawer-close
