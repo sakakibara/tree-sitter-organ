@@ -125,7 +125,7 @@ else
 TS_LIB := $(TS_LIBDIR)/org.so
 endif
 
-test: build
+test: build node_modules/.bin/tree-sitter
 	@mkdir -p $(TS_LIBDIR)
 	@cp $(ORG_SO) $(TS_LIB)
 	@touch $(TS_LIB)
@@ -135,19 +135,19 @@ test: build
 	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/large-input-stress-test.js
 	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/adversarial-no-error.js --gate
 
-test-no-error: build
+test-no-error: build node_modules/.bin/tree-sitter
 	@mkdir -p $(TS_LIBDIR)
 	@cp $(ORG_SO) $(TS_LIB)
 	@touch $(TS_LIB)
 	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/adversarial-no-error.js --gate
 
-test-crlf: build
+test-crlf: build node_modules/.bin/tree-sitter
 	@mkdir -p $(TS_LIBDIR)
 	@cp $(ORG_SO) $(TS_LIB)
 	@touch $(TS_LIB)
 	TREE_SITTER_LIBDIR=$(TS_LIBDIR) node scripts/test-crlf.js
 
-test-bare-cr: build
+test-bare-cr: build node_modules/.bin/tree-sitter
 	@mkdir -p $(TS_LIBDIR)
 	@cp $(ORG_SO) $(TS_LIB)
 	@touch $(TS_LIB)
@@ -174,7 +174,7 @@ spec-check:
 # Behavior matching: feeds each `+ input` line through the parser and
 # asserts the named node appears; feeds each `- input` and asserts it
 # does not.  Stronger than rule-name sync alone.
-test-spec: build
+test-spec: build node_modules/.bin/tree-sitter
 	@mkdir -p $(TS_LIBDIR)
 	@cp $(ORG_SO) $(TS_LIB)
 	@touch $(TS_LIB)
